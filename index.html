@@ -232,10 +232,6 @@
 
     <div class="knobs">
       <div class="knob">
-        <div class="row"><label for="bpm">시작 템포</label><b><span id="bpmv">72</span> BPM</b></div>
-        <input type="range" id="bpm" min="40" max="160" step="2" value="72">
-      </div>
-      <div class="knob">
         <div class="row"><label for="cols">색 개수</label><b><span id="colv">6</span> 색</b></div>
         <input type="range" id="cols" min="4" max="6" step="1" value="6">
       </div>
@@ -277,7 +273,7 @@
    ========================================================================= */
 
 const CONFIG = {
-  bpm: 72,                   // 시작 템포. 레벨이 오를 때마다 level.stepMul 배씩 빨라진다
+  bpm: 72,                   // 시작 템포(고정 — 레벨별 곡이 72 부터 맞춰져 있다). 레벨마다 level.stepMul 배씩 빨라진다
   // 템포는 비율로 느낀다 — +6 BPM 은 64 에선 9% 인데 100 에선 6% 라 뒤로 갈수록 덜 느껴진다.
   // 곱으로 올리면 매 레벨이 "한 단계 빨라졌다"로 고르게 느껴지고, 음악 음정도 레벨마다 반음쯤씩 고르게 오른다.
   level:   { everyBars: 4, stepMul: 1.07, maxBpm: 160 },
@@ -1899,9 +1895,6 @@ function finish(){
 
 /* ------------------------------------------------------------ UI 바인딩 */
 
-el('bpm').addEventListener('input', e => {
-  CONFIG.bpm=+e.target.value; el('bpmv').textContent=e.target.value;   // 시작 템포 — 다음 판부터
-});
 el('off').addEventListener('input', e => { CONFIG.offset=+e.target.value/1000; el('offv').textContent=e.target.value; });
 el('cols').addEventListener('input', e => { CONFIG.colors=+e.target.value; el('colv').textContent=e.target.value; });
 el('go').addEventListener('click', start);
