@@ -80,6 +80,8 @@
   .score{font-size:32px;font-variant-numeric:tabular-nums;text-align:center;line-height:1;color:var(--gold);text-shadow:3px 3px 0 rgba(253,224,71,.2);white-space:nowrap}
   .score small{display:block;font-size:10px;letter-spacing:.12em;color:var(--cream-dim);margin-top:4px;text-shadow:none}
   #mult{color:#FF3860}
+  #time.low{color:#FF3860;animation:tick 1s steps(1) infinite}
+  @keyframes tick{50%{opacity:.45}}
   #mult.hot{color:var(--gold);text-shadow:0 0 16px rgba(253,224,71,.7)}
 
   .boardwrap{flex:1 1 auto;position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:0;padding:0 10px}
@@ -210,9 +212,9 @@
 <div id="app">
 <div id="stage">
   <div class="hud">
-    <div class="stat"><span class="k">레벨</span><span class="v" id="lvl">1</span><span class="s" id="hudSub">72 BPM · 32마디</span></div>
-    <div class="score"><span id="score">0</span><small>점수</small></div>
-    <div class="stat right"><span class="k">배율</span><span class="v" id="mult">×1.0</span></div>
+    <div class="stat"><span class="k">레벨</span><span class="v" id="lvl">1</span><span class="s" id="hudSub">72 BPM</span></div>
+    <div class="score"><span id="score">0</span><small>점수 · 배율 <b id="mult">×1.0</b></small></div>
+    <div class="stat right"><span class="k">남은 시간</span><span class="v" id="time">60</span><span class="s">초</span></div>
   </div>
 
   <div class="boardwrap">
@@ -251,7 +253,9 @@
       <b>터지는 기준</b><span><b>내가 민 칸</b>이 기준이 된다</span>
       <b>붙잡기</b><span>떨어질 말을 <b>누른 채로 버티면</b> 그 말과 위쪽이 안 떨어진다. <b>놓으면 그 순간</b> 떨어진다</span>
       <b>미는 방향</b><span>위·아래·왼쪽·오른쪽 네 방향</span>
-      <b>레벨</b><span><b>4마디마다</b> 한 단계 오르고 템포가 <b>7%</b>씩 빨라진다</span>
+      <b>시간</b><span><b>1분</b> 타임어택. 시간이 끝나면 그 턴 4박까지 둘 수 있고, 그 뒤엔 <b>떨어져서 터지는 연쇄가 이어지는 동안</b> 계속 간다</span>
+      <b>콤보</b><span>3줄·2×2 <b>+1</b> · 4줄·ㄱㄴ+ <b>+2</b> · 5줄 <b>+3</b>. 한 턴 동안 아무것도 안 터지면 끊긴다</span>
+      <b>레벨</b><span>콤보 <b>5</b>마다 한 단계 오르고 템포가 <b>7%</b>씩 빨라진다. <b>콤보가 끊기면 레벨 1</b></span>
     </div>
 
     <div class="knobs">
@@ -275,7 +279,7 @@
   </div>
 
   <div class="overlay" id="end" hidden>
-    <h2>32마디 종료</h2>
+    <h2>게임 끝</h2>
     <div class="results" id="rows"></div>
     <p class="note" id="advice"></p>
     <div style="display:flex;gap:12px;flex-wrap:wrap;justify-content:center">
@@ -300,7 +304,9 @@ const CONFIG = {
   bpm: 72,                   // 시작 템포(고정 — 레벨별 곡이 72 부터 맞춰져 있다). 레벨마다 level.stepMul 배씩 빨라진다
   // 템포는 비율로 느낀다 — +6 BPM 은 64 에선 9% 인데 100 에선 6% 라 뒤로 갈수록 덜 느껴진다.
   // 곱으로 올리면 매 레벨이 "한 단계 빨라졌다"로 고르게 느껴지고, 음악 음정도 레벨마다 반음쯤씩 고르게 오른다.
-  level:   { everyBars: 4, stepMul: 1.07, maxBpm: 160 },
+  // 레벨은 콤보가 정한다 — comboPer 콤보마다 한 단계. 콤보가 끊기면 레벨 1 로 돌아간다. 곡이 8개라 8레벨에서 멈춘다
+  level:   { comboPer: 5, stepMul: 1.07, maxBpm: 160, max: 8 },
+  timeLimit: 60,             // 1분 타임어택 — 곡 시계 기준(판이 정리되느라 곡이 기다리는 동안은 안 줄어든다)
   cols: 8,
   rows: 8,
   colors: 6,                 // 강아지 여섯 색. 매칭 키는 오직 색
@@ -318,7 +324,6 @@ const CONFIG = {
   // 한 턴 = 한 마디(4/4). 슬롯: '.' 대기 · 'T' 누르기 · 'D' 드래그
   // 곡 내내 같은 턴으로 간다 — 구간을 나누지 않는다
   pattern: ['.','.','T','D'],
-  bars: 32,
 };
 window.CONFIG = CONFIG;
 
@@ -402,6 +407,7 @@ const Audio_ = {
  */
 const AUDIO_BLOB = {
   'sfx':     '631dbb98c5552255260861e40f4859a3',
+  'voice':   'e95c9c2a08dc9ec25ba1b4ceff3c1317',
   'level-1': 'd9ea3de6bf33522bd49e002cfd1f5359',
   'level-2': '45fb980fa468072ac4db6238528fcdec',
   'level-3': '7ba614621086053a16be4706b7ecd14a',
@@ -447,6 +453,10 @@ function loadBank(){
     if(!j) return false;
     await decodeInto(j);
     Bank.ready = true;
+    // 누를 때 나는 동물 소리 — voice0~5 가 PETS 순서(푸들·봄베이·치즈냥·오리엔탈·허스키·시바).
+    // Ludo 로 뽑아 tools/sfx-prep.html 로 앞 무음을 자르고 0.5초 안으로 다듬었다
+    const v = await fetchAudioJson('voice');
+    if(v) await decodeInto(v);
     return true;
   })();
   return bankJob;
@@ -590,21 +600,41 @@ const songTime = () => clock() - S.hold;
  */
 let BEAT = 60/CONFIG.bpm, BARS = [], TOTAL_BEATS = 0, SONG_LEN = 0;
 
-const levelOfBar = i => Math.floor(i / CONFIG.level.everyBars);
+const levelOfCombo = c => Math.min(CONFIG.level.max - 1, Math.floor(c / CONFIG.level.comboPer));
 const bpmOfLevel = L => Math.min(CONFIG.level.maxBpm, Math.round(CONFIG.bpm * Math.pow(CONFIG.level.stepMul, L)));
 
+/*
+ * 마디는 그때그때 한 칸씩 붙인다. 지도 끝에는 늘 "아직 템포가 안 정해진 다음 마디"가 하나 달려 있다.
+ * 다음 마디의 시작 시각은 앞 마디로 정해지므로 미리 알 수 있고, 템포(한 박 길이)는 그 마디에 들어서는
+ * 순간(finalizeBar) 방금 끝난 턴까지의 콤보로 정한다. 콤보는 4박에 오르고 끊김은 4박이 지날 때 정해지니
+ * 마디 머리가 바로 결정 시점이다. 둘째 박부터는 정해진 뒤에만 예약한다(pump).
+ */
+function makeBar(startBeat, startTime, level){
+  const pattern = CONFIG.pattern, bpm = bpmOfLevel(level);
+  return { pattern, meter:pattern.length, startBeat, startTime, beatLen:60/bpm, bpm, level, final:false };
+}
+function appendBar(){
+  const L = BARS[BARS.length-1];
+  BARS.push(makeBar(L.startBeat + L.meter, L.startTime + L.meter*L.beatLen, L.level));
+  const N = BARS[BARS.length-1];
+  TOTAL_BEATS = N.startBeat + N.meter;
+  SONG_LEN = N.startTime + N.meter*N.beatLen;
+}
 function buildTimeline(){
-  BARS = []; let beat = 0, t = 0;
-  const pattern = CONFIG.pattern;
-  for(let i=0;i<CONFIG.bars;i++){
-    const level = levelOfBar(i), bpm = bpmOfLevel(level), beatLen = 60/bpm;
-    BARS.push({ pattern, meter:pattern.length, startBeat:beat, startTime:t, beatLen, bpm, level });
-    beat += pattern.length;
-    t += pattern.length * beatLen;
-  }
-  TOTAL_BEATS = beat;
-  SONG_LEN = t;
+  BARS = [makeBar(0, 0, 0)];
+  BARS[0].final = true;
+  appendBar();
   BEAT = BARS[0].beatLen;                          // 첫 마디 기준 — 남은 참조용
+}
+/** 마디 k 에 들어선다 — 지금 콤보로 레벨·템포를 정하고 그 다음 마디를 붙인다. 새로 정했으면 true */
+function finalizeBar(k){
+  const bar = BARS[k];
+  if(!bar || bar.final) return false;
+  const level = levelOfCombo(S.combo), bpm = bpmOfLevel(level);
+  Object.assign(bar, { level, bpm, beatLen:60/bpm, final:true });
+  BARS.length = k + 1;
+  appendBar();
+  return true;
 }
 
 /** 곡 시각 t 가 속한 마디 번호 (곡 끝을 넘으면 마지막 마디) */
@@ -932,9 +962,9 @@ function hasMove(g){
 const S = {
   live:false, grid:[], score:0, mult:1, maxMult:1,
   waves:[], fx:[], bits:[], rings:[], flashAt:-9, flashA:0, swapAnim:null,
-  stats:{perfect:0,good:0,miss:0,pops:0,cascades:0,crossed:0,longest:0,turns:0,blocked:0,reshuffles:0,blasts:0,maxCombo:0,maxLevel:1},
+  stats:{perfect:0,good:0,miss:0,pops:0,cascades:0,crossed:0,longest:0,turns:0,blocked:0,reshuffles:0,blasts:0,maxCombo:0,maxLevel:1,overBars:0},
   actedBeats:{}, blockFlash:-9,
-  errors:[], shake:0, hold:0, holding:false, releasedBar:0, dropPlan:null, popGroups:null, planBar:0, pin:null, droppedBar:-1, reshuffling:false, lastSwap:null, combo:0, comboMade:false, announceAt:-9, level:0,
+  errors:[], shake:0, hold:0, holding:false, releasedBar:0, dropPlan:null, popGroups:null, planBar:0, pin:null, droppedBar:-1, reshuffling:false, lastSwap:null, combo:0, comboMade:false, announceAt:-9, level:0, timeUp:false, lastPlayBar:Infinity, overAt:0,
   barIndex:-1, beatIndex:-1, drag:null, sel:null,
 };
 
@@ -1123,6 +1153,7 @@ function popStep(now, depth){
  * 다시 깔기는 정확히 한 턴을 쓴다. 그동안 빈 칸에는 새 판이 미리 비쳐 보인다.
  */
 function reshuffleIfStuck(now){
+  if(S.timeUp && S.barIndex > S.lastPlayBar) return false;   // 시간 끝 — 연쇄만 본다
   if(hasMove(S.grid)) return false;
 
   const all = [];
@@ -1358,7 +1389,7 @@ function cellFromEvent(e){
 }
 
 cv.addEventListener('pointerdown', e => {
-  if(!S.live) return;
+  if(!S.live || locked()) return;
   const p = cellFromEvent(e);
   if(!p) return;
   cv.setPointerCapture(e.pointerId);
@@ -1412,7 +1443,8 @@ function trySelect(r, c, now, quiet){
   }
   S.sel = { id:S.grid[r][c].id, bar:S.barIndex };
   applyJudge(j);
-  if(!sfx('select', Audio_.startAC+now, 0.5))
+  // 누른 말이 짖거나 운다 — 품종마다 제 소리. 없으면 예전 딸깍
+  if(!sfx('voice' + S.grid[r][c].color, Audio_.startAC+now, 0.55) && !sfx('select', Audio_.startAC+now, 0.5))
     Audio_.tone(Audio_.startAC+now, 1568, 0.06, 'square', 0.09);
   return true;
 }
@@ -1463,7 +1495,7 @@ function tryResolveDrag(now){
 }
 
 cv.addEventListener('pointermove', e => {
-  if(!S.drag || S.drag.done || !S.live) return;
+  if(!S.drag || S.drag.done || !S.live || locked()) return;
   S.drag.dx = e.clientX - S.drag.x0;
   S.drag.dy = e.clientY - S.drag.y0;
   tryResolveDrag(clock());
@@ -1524,6 +1556,8 @@ function pump(){
   while(nextBeatToSchedule <= TOTAL_BEATS){
     // 다음 마디의 첫 박은 판이 다 정리된 뒤에만 예약한다
     if(nextBeatToSchedule > 0 && nextBeatToSchedule % barLen === 0 && !boardSettled(clock())) break;
+    const nb = BARS[barAtBeat(nextBeatToSchedule)];
+    if(!nb.final && nextBeatToSchedule > nb.startBeat) break;   // 템포가 정해진 뒤에 둘째 박부터
     if(beatAC(nextBeatToSchedule) >= ahead) break;
     scheduleBeat(nextBeatToSchedule); nextBeatToSchedule++;
   }
@@ -1878,14 +1912,15 @@ function frame(){
 
   if(bi !== S.barIndex) S.barIndex = bi;
 
-  // 레벨업 — 곡이 한 단계 빨라진다. BGM 도 새 속도로 그 자리에서 갈아탄다.
-  if(bar.level > S.level){
-    S.level = bar.level;
-    S.stats.maxLevel = Math.max(S.stats.maxLevel, bar.level + 1);
-    levelUp(now, bar);
-    if(Bgm.src) bgmStart(song);
-  }
   paintSky('drag');
+
+  // 1분 타임어택 — 시간이 다 되면 그 마디(턴)의 4박까지만 손을 쓸 수 있다
+  if(!S.timeUp && song >= CONFIG.timeLimit){
+    S.timeUp = true;
+    S.lastPlayBar = bi;
+    announce('시간 끝!');
+  }
+  if(locked() && (S.drag || S.pin)){ S.drag = null; if(S.pin) releasePin(now); S.sel = null; }
 
   const ib = Math.floor(beat);
   if(ib !== S.beatIndex){
@@ -1894,26 +1929,46 @@ function frame(){
     const prev = S.beatIndex;
     if(prev >= 0){
       const ps = slotAt(prev);
+      const prevLocked = S.timeUp && barAtBeat(prev) > S.lastPlayBar;   // 시간 끝난 뒤 박은 놓친 걸로 안 친다
       if(ps === 'D' && !S.reshuffling){ finishPin(now); settleCombo(now); }
-      if((ps==='T' || ps==='D') && !S.actedBeats[prev] && !S.reshuffling){
+      if((ps==='T' || ps==='D') && !S.actedBeats[prev] && !S.reshuffling && !prevLocked){
         S.stats.miss++;
         S.mult = Math.max(1, S.mult * CONFIG.combo.missFactor);
         if(ps==='T') S.sel = null;
       }
     }
     S.beatIndex = ib;
+
+    // 마디 머리 — 방금 끝난 턴까지의 콤보로 이 마디의 레벨·템포를 정한다
+    if(ib === bar.startBeat && finalizeBar(bi)) changeLevel(now, bar, song);
+
+    // 시간이 끝난 뒤엔 떨어져서 터지는 연쇄가 이어지는 동안만 간다. 콤보가 끊기면 끝
+    if(S.timeUp && bi > S.lastPlayBar && !S.overAt){
+      if(S.combo === 0){
+        S.overAt = now;
+        announce(S.stats.overBars ? '연쇄 끝!' : '게임 오버');
+      } else if(ib === bar.startBeat) S.stats.overBars++;
+    }
+
     flashBeat(ib - bar.startBeat, bar.pattern);
   }
   const slot = slotAt(ib);
 
   el('lvl').textContent = bar.level + 1;
-  el('hudSub').textContent = bar.bpm + ' BPM · ' + Math.max(0, BARS.length - bi - 1) + '마디';
+  el('hudSub').textContent = bar.bpm + ' BPM';
+  const left = Math.max(0, CONFIG.timeLimit - Math.max(0, song));
+  const tv = el('time');
+  tv.textContent = S.timeUp ? '0' : Math.ceil(left);
+  tv.classList.toggle('low', left <= 10);
   el('score').textContent = S.score.toLocaleString();
   const m = el('mult');
   m.textContent = '×' + S.mult.toFixed(1);
   m.classList.toggle('hot', S.mult > 2.4);
   el('chip').innerHTML =
-      S.reshuffling ? '다시 깔기 <em>옮길 수가 없었습니다</em>'
+      S.overAt ? '끝 <em>콤보가 끊겼습니다</em>'
+    : S.timeUp && bi > S.lastPlayBar ? '연쇄 중 <em>터지는 동안 계속 갑니다</em>'
+    : S.timeUp ? '마지막 수 <em>이 턴 4박까지</em>'
+    : S.reshuffling ? '다시 깔기 <em>옮길 수가 없었습니다</em>'
     : S.holding ? '정리 중 <em>곡이 기다립니다</em>'
     : slot==='T' ? '누르기 <em>옮길 말 고르기</em>'
     : slot==='D' ? (S.sel ? '드래그 <em>고른 말 밀기</em>' : '드래그 <em>밀 방향</em>')
@@ -1922,7 +1977,23 @@ function frame(){
   el('callout').classList.toggle('waiting', S.holding);
 
   draw(now);
-  if(song > SONG_LEN + 0.6) finish();
+  if(S.overAt && now - S.overAt > 1.1) finish();   // 마지막 터짐을 보고 끝낸다
+}
+
+/** 시간이 끝나고 마지막 턴도 지났다 — 이제 손을 못 댄다 */
+function locked(){
+  return !!S.overAt || (S.timeUp && S.barIndex > S.lastPlayBar);
+}
+
+/** 마디 머리에서 레벨이 바뀌었다 — 오르면 레벨업, 콤보가 끊겨 떨어지면 레벨 1. 곡도 그 자리에서 갈아탄다 */
+function changeLevel(now, bar, song){
+  if(bar.level === S.level) return;
+  const up = bar.level > S.level;
+  S.level = bar.level;
+  S.stats.maxLevel = Math.max(S.stats.maxLevel, bar.level + 1);
+  if(up) levelUp(now, bar);
+  else levelDown(now, bar);
+  if(Bgm.src) bgmStart(song);
 }
 
 function paintSky(k){
@@ -1950,6 +2021,16 @@ function levelUp(now, bar){
   Audio_.tone(t + 0.08, Audio_.penta(7),  0.12, 'square',   0.12);
   Audio_.tone(t + 0.16, Audio_.penta(10), 0.24, 'triangle', 0.14);
   buzz([20, 40, 30]);
+  const v = el('lvl');
+  v.classList.remove('up'); void v.offsetWidth; v.classList.add('up');
+}
+
+/** 콤보가 끊겨 레벨 1 로 — 내려가는 소리, 조용하게 */
+function levelDown(now, bar){
+  announce('레벨 ' + (bar.level + 1));
+  const t = Audio_.startAC + now;
+  Audio_.tone(t,        Audio_.penta(7), 0.12, 'triangle', 0.10);
+  Audio_.tone(t + 0.10, Audio_.penta(3), 0.20, 'triangle', 0.10);
   const v = el('lvl');
   v.classList.remove('up'); void v.offsetWidth; v.classList.add('up');
 }
@@ -2042,9 +2123,9 @@ function start(){
   Object.assign(S, {
     live:true, grid, score:0, mult:1, maxMult:1,
     waves:[], fx:[], bits:[], rings:[], flashAt:-9, flashA:0, swapAnim:null,
-    stats:{perfect:0,good:0,miss:0,pops:0,cascades:0,crossed:0,longest:0,turns:0,blocked:0,reshuffles:0,blasts:0,maxCombo:0,maxLevel:1},
+    stats:{perfect:0,good:0,miss:0,pops:0,cascades:0,crossed:0,longest:0,turns:0,blocked:0,reshuffles:0,blasts:0,maxCombo:0,maxLevel:1,overBars:0},
     actedBeats:{}, blockFlash:-9,
-    errors:[], shake:0, hold:0, holding:false, releasedBar:0, dropPlan:null, popGroups:null, planBar:0, pin:null, droppedBar:-1, reshuffling:false, lastSwap:null, combo:0, comboMade:false, announceAt:-9, level:0,
+    errors:[], shake:0, hold:0, holding:false, releasedBar:0, dropPlan:null, popGroups:null, planBar:0, pin:null, droppedBar:-1, reshuffling:false, lastSwap:null, combo:0, comboMade:false, announceAt:-9, level:0, timeUp:false, lastPlayBar:Infinity, overAt:0,
       barIndex:-1, beatIndex:-1, drag:null, sel:null,
   });
   el('start').hidden = true; el('end').hidden = true;
@@ -2075,6 +2156,7 @@ function finish(){
     <div><dt>퍼펙트 / 굿 / 미스</dt><dd style="font-size:17px">${S.stats.perfect} / ${S.stats.good} / ${S.stats.miss}</dd></div>
     <div><dt>도달 레벨</dt><dd>${S.stats.maxLevel} <span style="font-size:13px;color:var(--cream-dim)">${bpmOfLevel(S.stats.maxLevel-1)} BPM</span></dd></div>
     <div><dt>최고 콤보</dt><dd>${S.stats.maxCombo}</dd></div>
+    <div><dt>시간 끝난 뒤 연쇄</dt><dd>${S.stats.overBars} <span style="font-size:13px;color:var(--cream-dim)">턴</span></dd></div>
     <div><dt>모양 폭발</dt><dd>${S.stats.blasts}</dd></div>
     <div><dt>둔 수 / 차례 아님</dt><dd>${S.stats.turns} <span style="font-size:13px;color:var(--cream-dim)">/ ${S.stats.blocked}</span></dd></div>`;
 
