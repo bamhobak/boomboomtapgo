@@ -1,7 +1,7 @@
 {
   "name": "멍멍냥냥",
   "short_name": "멍멍냥냥",
-  "description": "박자에 맞춰 뚱뚱한 강아지 천사를 밀어 맞추는 리듬 퍼즐",
+  "description": "박자에 맞춰 강아지·고양이를 밀어 맞추는 1분 리듬 퍼즐",
   "start_url": "./",
   "scope": "./",
   "display": "fullscreen",
