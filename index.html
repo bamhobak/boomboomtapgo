@@ -143,6 +143,9 @@
            justify-content:center;gap:20px;padding:26px;background:rgba(10,10,18,.94);
            text-align:center;overflow-y:auto}
   .overlay[hidden]{display:none}
+  /* 버전 — 오른쪽 아래 구석에 작게. 시작·게임·결과 화면 어디서나 보인다 */
+  .ver{position:absolute;right:8px;bottom:6px;z-index:12;font-size:10px;letter-spacing:.06em;
+       color:var(--cream-dim);opacity:.7;pointer-events:none;user-select:none;font-variant-numeric:tabular-nums}
   /* 가운데 정렬하되, 내용이 화면보다 길면 위가 잘리지 않고 위에서부터 스크롤되게 */
   .overlay{justify-content:flex-start}
   .overlay > :first-child{margin-top:auto}
@@ -271,6 +274,7 @@
 
 <div id="app">
 <div id="stage">
+  <div class="ver" id="ver" aria-hidden="true"></div>
   <div class="hud">
     <div class="stat"><span class="k">레벨</span><span class="v" id="lvl">1</span><span class="s" id="hudSub">72 BPM</span></div>
     <div class="score"><span id="score">0</span></div>
@@ -380,6 +384,9 @@
      · 낙하는 계획(dropPlan)을 먼저 세우고 4박에 적용 → 유니티도 같은 계획을 재생만 하면 됨
      · 시계는 clock() 하나 → AudioContext.currentTime ↔ AudioSettings.dspTime
    ========================================================================= */
+
+// 게임 버전 — 수정해서 배포할 때마다 끝 두 자리를 1씩 올린다(v0.1.01 → v0.1.02). 화면 오른쪽 아래에 보인다
+const GAME_VERSION = 'v0.1.01';
 
 const CONFIG = {
   bpm: 72,                   // 시작 템포(고정 — 레벨별 곡이 72 부터 맞춰져 있다). 레벨마다 level.stepMul 배씩 빨라진다
@@ -2350,6 +2357,7 @@ el('snd').addEventListener('click', () => {
 el('again').addEventListener('click', start);
 el('back').addEventListener('click', () => { el('end').hidden=true; el('start').hidden=false; Rank.refresh('boardStart'); });
 
+el('ver').textContent = GAME_VERSION;
 layout(); flashBeat(-1, CONFIG.pattern);
 Rank.refresh('boardStart');
 </script>
