@@ -176,10 +176,19 @@
   /* 콤보 — 폭발 문구와 같은 자리, 한 줄 아래에서 크게 터진다 */
   #combo{position:absolute;left:0;right:0;top:50%;z-index:5;pointer-events:none;text-align:center;
          transform:translateY(-50%);opacity:0;
-         font-size:clamp(38px,12.5vw,68px);line-height:1;color:var(--gold);
+         font-size:calc(clamp(38px,12.5vw,68px) * var(--cz, 1));line-height:1;color:var(--gold);
          text-shadow:4px 4px 0 rgba(0,0,0,.5)}
   #combo em{font-style:normal;font-size:.48em;color:var(--cyan);letter-spacing:.04em}
   #combo.go{animation:swipe 900ms cubic-bezier(.2,.8,.2,1)}
+  /* 콤보 단계 — 금 → 주황 → 분홍 → 무지개 */
+  #combo.t2{color:#FB923C}
+  #combo.t3{color:#FF3860}
+  #combo.t4 #combov{background:linear-gradient(90deg,#FF3860,#FB923C,#FDE047,#4ADE80,#22D3EE,#A855F7);
+                    -webkit-background-clip:text;background-clip:text;color:transparent;text-shadow:none}
+  #combov{display:inline-block}
+  #combov.wg{animation:wig 150ms ease-in-out 4}
+  @keyframes wig{0%{transform:rotate(0)}25%{transform:rotate(-9deg) scale(1.08)}75%{transform:rotate(9deg) scale(1.08)}100%{transform:rotate(0)}}
+  @media (prefers-reduced-motion:reduce){ #combov.wg{animation:none} }
 
   #announce{position:absolute;left:0;right:0;top:50%;transform:translateY(-50%);z-index:5;pointer-events:none;
             text-align:center;font-size:clamp(40px,14vw,76px);opacity:0;color:var(--gold);text-shadow:4px 4px 0 rgba(0,0,0,.5);
@@ -346,6 +355,7 @@ const Audio_ = {
     this.noise = buf;
   },
   tone(t, freq, dur, type='triangle', vol=0.25, glideTo=null){
+    t = Math.max(this.ac.currentTime, t);          // 이미 지난 시각이면 오류 대신 지금 울린다
     const o=this.ac.createOscillator(), g=this.ac.createGain();
     o.type=type; o.frequency.setValueAtTime(freq,t);
     if(glideTo) o.frequency.exponentialRampToValueAtTime(glideTo, t+dur);
@@ -355,6 +365,7 @@ const Audio_ = {
     o.connect(g); g.connect(this.master); o.start(t); o.stop(t+dur+0.02);
   },
   hit(t, dur, vol, hp){
+    t = Math.max(this.ac.currentTime, t);
     const s=this.ac.createBufferSource(); s.buffer=this.noise;
     const f=this.ac.createBiquadFilter(); f.type='highpass'; f.frequency.value=hp;
     const g=this.ac.createGain();
@@ -912,7 +923,7 @@ function hasMove(g){
 
 const S = {
   live:false, grid:[], score:0, mult:1, maxMult:1,
-  waves:[], fx:[], bits:[], swapAnim:null,
+  waves:[], fx:[], bits:[], rings:[], flashAt:-9, flashA:0, swapAnim:null,
   stats:{perfect:0,good:0,miss:0,pops:0,cascades:0,crossed:0,longest:0,turns:0,blocked:0,reshuffles:0,blasts:0,maxCombo:0,maxLevel:1},
   actedBeats:{}, blockFlash:-9,
   errors:[], shake:0, hold:0, holding:false, releasedBar:0, dropPlan:null, popGroups:null, planBar:0, pin:null, droppedBar:-1, reshuffling:false, lastSwap:null, combo:0, comboMade:false, announceAt:-9, level:0,
@@ -997,11 +1008,26 @@ function clearCells(cells, now, depth, label, noScore){
   cells.forEach(([r,c]) => { if(inb(r,c) && S.grid[r][c]) set.set(key(r,c),[r,c]); });
   if(!set.size) return;
 
+  const J = noScore ? 0 : juiceLevel();
+  // 칸당 파편 수 — 흥이 오를수록 많게, 한 번에 터지는 칸이 많으면 칸당 줄여 총량을 묶는다
+  const perCell = Math.max(2, Math.min(4 + J, Math.ceil(170 / set.size)));
+  let sx = 0, sy = 0;
   for(const [,[r,c]] of set){
     const t = S.grid[r][c];
-    S.fx.push({ r, c, t0:now, cell:t });
-    if(!REDUCED) spawnBits(r, c, t, now);
+    S.fx.push({ r, c, t0:now, cell:t, j:J });
+    if(!REDUCED) spawnBits(r, c, t, now, J, perCell);
+    sx += (c+0.5)*cell; sy += (r+0.5)*cell;
     S.grid[r][c] = null;
+  }
+  // 충격파 고리 · 화면 번쩍 · 흔들림 — 콤보가 쌓일수록
+  if(!REDUCED && J >= 1){
+    const cx = sx/set.size, cy = sy/set.size;
+    const col = PETS[(S.grid && set.size ? (Math.random()*PETS.length)|0 : 0)].hex;
+    S.rings.push({ x:cx, y:cy, t0:now, R:cell*(1.0 + 0.22*J), col:'#FFFFFF', life:0.32 + J*0.015, w:2 + J*0.45, dia:false });
+    if(J >= 4) S.rings.push({ x:cx, y:cy, t0:now + 0.07, R:cell*(1.2 + 0.25*J), col:'#FDE047', life:0.38 + J*0.015, w:2 + J*0.35, dia:true });
+    if(J >= 8) S.rings.push({ x:cx, y:cy, t0:now + 0.14, R:cell*(1.5 + 0.28*J), col, life:0.45, w:3, dia:false });
+    if(J >= 3){ S.flashAt = now; S.flashA = Math.min(0.28, 0.035*J); }
+    if(J >= 2) S.shake = Math.max(S.shake, Math.min(14, J*1.1));
   }
 
   if(!noScore){
@@ -1201,14 +1227,70 @@ function finishPin(now){
   afterPin(now);
 }
 
-function spawnBits(r,c,t,now){
-  const col = PETS[t.color].hex;
-  for(let i=0;i<4;i++){
-    const a=Math.random()*Math.PI*2, sp=60+Math.random()*180;
+/*
+ * 흥 — 콤보가 쌓일수록 터짐이 커진다. 0(평소) ~ 12.
+ * 내 수로 터지는 순간엔 곧 오를 콤보까지 친다(콤보는 터진 직후에 올라간다).
+ */
+function juiceLevel(){
+  const c = S.combo + (S.comboMade ? 1 : 0);
+  return Math.max(0, Math.min(12, c - 1));
+}
+
+/* 도트 파편 모양 — 콤보가 오를수록 하나씩 풀린다. 강아지 게임이라 뼈다귀·발바닥·하트 */
+const PIX = {
+  plus:    ['.#.','###','.#.'],
+  diamond: ['..#..','.###.','#####','.###.','..#..'],
+  spark:   ['..#..','..#..','##.##','..#..','..#..'],
+  heart:   ['.#.#.','#####','#####','.###.','..#..'],
+  bone:    ['##...##','.#####.','##...##'],
+  paw:     ['#.#.#','.....','.###.','#####','.###.'],
+  ring:    ['.###.','#...#','#...#','#...#','.###.'],
+};
+function shapesFor(J){
+  const sh = ['dot'];
+  if(J >= 1) sh.push('plus', 'diamond');
+  if(J >= 3) sh.push('spark');
+  if(J >= 5) sh.push('heart', 'bone');
+  if(J >= 7) sh.push('paw', 'ring');
+  return sh;
+}
+function drawPix(name, x, y, px, col){
+  const g = PIX[name], h = g.length, w = g[0].length, q = Math.max(1, Math.round(px));
+  const ox = Math.round(x - w*q/2), oy = Math.round(y - h*q/2);
+  ctx.fillStyle = col;
+  for(let r=0;r<h;r++) for(let c=0;c<w;c++) if(g[r][c] === '#') ctx.fillRect(ox + c*q, oy + r*q, q, q);
+}
+
+const BITS_MAX = 520;                              // 폰이 버벅이지 않게 — 한 화면 파편 상한
+function spawnBits(r,c,t,now,J,perCell){
+  J = J || 0;
+  const col = PETS[t.color].hex, shapes = shapesFor(J);
+  const n = perCell || 4;
+  const spd = 1 + J*0.07, big = 1 + J*0.06;
+  for(let i=0;i<n;i++){
+    const a = Math.random()*Math.PI*2, sp = (60 + Math.random()*180) * spd;
+    const shape = shapes[(Math.random()*shapes.length)|0];
+    const tint = J >= 3 && Math.random() < 0.2 ? (Math.random() < 0.5 ? '#FFFFFF' : '#FDE047') : col;   // 반짝이
     S.bits.push({ x:(c+0.5)*cell, y:(r+0.5)*cell,
-      vx:Math.cos(a)*sp, vy:Math.sin(a)*sp-90, t0:now, col, sz:2+Math.random()*3 });
+      vx:Math.cos(a)*sp, vy:Math.sin(a)*sp - 90*spd, t0:now, col:tint,
+      sz:(2 + Math.random()*3) * big, shape, life:0.7 + J*0.03, g:620 });
   }
-  if(S.bits.length > 260) S.bits.splice(0, S.bits.length-260);
+  if(S.bits.length > BITS_MAX) S.bits.splice(0, S.bits.length - BITS_MAX);
+}
+
+/** 5콤보마다 — 판 위에서 폭죽이 쏟아진다 */
+function confetti(now, combo){
+  if(REDUCED) return;
+  const n = Math.min(140, 50 + combo*4), shapes = shapesFor(12);
+  for(let i=0;i<n;i++){
+    const col = i % 4 === 0 ? '#FFFFFF' : PETS[(Math.random()*PETS.length)|0].hex;
+    S.bits.push({ x:Math.random()*cell*CONFIG.cols, y:-cell*0.2 + Math.random()*cell*0.6,
+      vx:(Math.random()-0.5)*160, vy:-40 - Math.random()*140, t0:now + Math.random()*0.15, col,
+      sz:3 + Math.random()*4, shape:shapes[(Math.random()*shapes.length)|0], life:1.5 + Math.random()*0.4, g:260 });
+  }
+  if(S.bits.length > BITS_MAX + 140) S.bits.splice(0, S.bits.length - BITS_MAX - 140);
+  S.rings.push({ x:cell*CONFIG.cols/2, y:cell*CONFIG.rows/2, t0:now, R:cell*CONFIG.cols*0.7, col:'#FDE047', life:0.55, w:6, dia:false });
+  S.flashAt = now; S.flashA = 0.3;
 }
 
 /* ------------------------------------------------------------------ 조작 */
@@ -1663,24 +1745,54 @@ function draw(now){
     if(raw >= 1) return false;
     const p = Math.max(0,raw);
     ctx.globalAlpha = 1-p;
-    const sc = 1 + p*1.1;
+    const sc = 1 + p*(1.1 + 0.08*(f.j || 0));
     const x=(f.c+0.5)*cell, y=(f.r+0.5)*cell;
     drawPet(x, y, cell*0.88, f.cell.color, sc);
     ctx.globalAlpha = 1;
     return true;
   });
 
+  S.rings = S.rings.filter(g => {
+    const q = (now - g.t0) / g.life;
+    if(q >= 1) return false;
+    if(q < 0) return true;
+    const rr = g.R * (1 - Math.pow(1 - q, 3));
+    ctx.globalAlpha = (1 - q) * 0.9;
+    ctx.strokeStyle = g.col;
+    ctx.lineWidth = Math.max(1, g.w * (1 - q));
+    if(g.dia){                                     // 마름모 고리
+      ctx.beginPath();
+      ctx.moveTo(g.x, g.y - rr); ctx.lineTo(g.x + rr, g.y); ctx.lineTo(g.x, g.y + rr); ctx.lineTo(g.x - rr, g.y);
+      ctx.closePath(); ctx.stroke();
+    } else ctx.strokeRect(Math.round(g.x - rr), Math.round(g.y - rr), Math.round(rr*2), Math.round(rr*2));   // 네모 고리 — 도트 판
+    ctx.globalAlpha = 1;
+    return true;
+  });
+
   S.bits = S.bits.filter(b => {
-    const e = Math.max(0, now-b.t0);
-    if(now-b.t0 > 0.7) return false;
-    ctx.globalAlpha = 1 - e/0.7;
-    ctx.fillStyle = b.col;
-    ctx.beginPath(); ctx.arc(b.x+b.vx*e, b.y+b.vy*e+620*e*e, b.sz, 0, Math.PI*2); ctx.fill();
+    const life = b.life || 0.7, e = now - b.t0;
+    if(e > life) return false;
+    if(e < 0) return true;                         // 폭죽은 조금씩 늦게 출발한다
+    ctx.globalAlpha = 1 - e/life;
+    const x = b.x + b.vx*e, y = b.y + b.vy*e + (b.g || 620)*e*e;
+    if(!b.shape || b.shape === 'dot'){
+      ctx.fillStyle = b.col;
+      ctx.beginPath(); ctx.arc(x, y, b.sz, 0, Math.PI*2); ctx.fill();
+    } else drawPix(b.shape, x, y, b.sz*0.55, b.col);
     ctx.globalAlpha = 1;
     return true;
   });
 
   ctx.restore(); ctx.restore();
+
+  // 화면 번쩍 — 높은 콤보에서 터지는 순간
+  const fq = (now - (S.flashAt || -9)) / 0.12;
+  if(fq >= 0 && fq < 1){
+    ctx.globalAlpha = (S.flashA || 0) * (1 - fq);
+    ctx.fillStyle = '#FFFFFF';
+    ctx.fillRect(0, 0, w, h);
+    ctx.globalAlpha = 1;
+  }
   drawBeatFrame(w, h);
 }
 
@@ -1818,7 +1930,19 @@ function bumpCombo(now){
   // 폭발 문구가 아직 떠 있으면 그 문구를 한 줄 위로 올리고 콤보가 중앙을 쓴다
   el('announce').classList.toggle('up', now - S.announceAt < 0.9);
   el('combov').textContent = S.combo;
+  const tier = S.combo >= 15 ? 4 : S.combo >= 10 ? 3 : S.combo >= 7 ? 2 : 1;
+  box.classList.remove('t2', 't3', 't4');
+  if(tier > 1) box.classList.add('t' + tier);
+  box.style.setProperty('--cz', (1 + Math.min(0.6, (S.combo - 4) * 0.05)).toFixed(2));
   box.classList.remove('go'); void box.offsetWidth; box.classList.add('go');
+  const cv_ = el('combov');
+  cv_.classList.remove('wg');
+  if(tier >= 3){ void cv_.offsetWidth; cv_.classList.add('wg'); }      // 10콤보부터 숫자가 들썩인다
+  if(S.combo % 5 === 0){                           // 5콤보마다 폭죽 + 팡파레
+    confetti(now, S.combo);
+    const ft = Audio_.startAC + now;
+    [0, 4, 7, 12].forEach((st, i) => Audio_.tone(ft + 0.06 + i*0.07, Audio_.penta(8 + i*2), 0.18, 'square', 0.11));
+  }
   const t = Audio_.startAC + now;
   // 콤보가 쌓일수록 반음씩 올라간다 — 표본도 재생속도로 같이 올린다
   if(!sfx('combo', t, 0.7, 1 + Math.min(0.5, (S.combo - 4) * 0.045))){
@@ -1883,7 +2007,7 @@ function start(){
 
   Object.assign(S, {
     live:true, grid, score:0, mult:1, maxMult:1,
-    waves:[], fx:[], bits:[], swapAnim:null,
+    waves:[], fx:[], bits:[], rings:[], flashAt:-9, flashA:0, swapAnim:null,
     stats:{perfect:0,good:0,miss:0,pops:0,cascades:0,crossed:0,longest:0,turns:0,blocked:0,reshuffles:0,blasts:0,maxCombo:0,maxLevel:1},
     actedBeats:{}, blockFlash:-9,
     errors:[], shake:0, hold:0, holding:false, releasedBar:0, dropPlan:null, popGroups:null, planBar:0, pin:null, droppedBar:-1, reshuffling:false, lastSwap:null, combo:0, comboMade:false, announceAt:-9, level:0,
