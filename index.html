@@ -77,11 +77,25 @@
   #lvl.up{animation:lvlup 520ms cubic-bezier(.2,.8,.2,1);color:var(--gold)}
   @keyframes lvlup{0%{transform:scale(1)}30%{transform:scale(1.6)}100%{transform:scale(1)}}
   @media (prefers-reduced-motion:reduce){ #lvl.up{animation-duration:1ms} }
-  .score{font-size:32px;font-variant-numeric:tabular-nums;text-align:center;line-height:1;color:var(--gold);text-shadow:3px 3px 0 rgba(253,224,71,.2);white-space:nowrap}
-  .score small{display:block;font-size:10px;letter-spacing:.12em;color:var(--cream-dim);margin-top:4px;text-shadow:none}
+  /* 점수 — 크게. 진한 테두리를 둘러 판 위에서도 또렷하게 */
+  .score{font-size:clamp(40px,12vw,56px);font-variant-numeric:tabular-nums;text-align:center;line-height:1;color:var(--gold);white-space:nowrap;
+         text-shadow:-2px -2px 0 #3A2A00,2px -2px 0 #3A2A00,-2px 2px 0 #3A2A00,2px 2px 0 #3A2A00,0 4px 0 #3A2A00,0 0 18px rgba(253,224,71,.35)}
   #mult{color:#FF3860}
-  #time.low{color:#FF3860;animation:tick 1s steps(1) infinite}
-  @keyframes tick{50%{opacity:.45}}
+
+  /* 시간 게이지 — 둥근 막대가 줄어든다. 10초 남으면 빨갛게 깜빡 */
+  .timebar{flex:0 0 auto;display:flex;align-items:center;gap:10px;padding:2px 14px 8px}
+  .timebar .track{flex:1;height:18px;border-radius:999px;overflow:hidden;background:rgba(255,255,255,.07);
+                  box-shadow:0 0 0 2px var(--edge),inset 0 3px 5px rgba(0,0,0,.55)}
+  .timebar .fill{height:100%;width:100%;border-radius:999px;
+                 background:linear-gradient(180deg,#FFE680 0%,#FFB627 45%,#FF7A1A 100%);
+                 box-shadow:inset 0 3px 0 rgba(255,255,255,.55),inset 0 -2px 0 rgba(0,0,0,.18)}
+  .timebar .fill.low{background:linear-gradient(180deg,#FF9AA8 0%,#FF3860 55%,#C4163C 100%);animation:tick 0.5s steps(1) infinite}
+  .timebar .clock{flex:none;width:40px;height:40px;border-radius:50%;display:grid;place-items:center;
+                  background:var(--panel);box-shadow:0 0 0 3px var(--edge),inset 0 -3px 0 rgba(0,0,0,.35);
+                  font-size:18px;font-variant-numeric:tabular-nums;color:var(--cream)}
+  .timebar .clock.low{color:#FF3860;box-shadow:0 0 0 3px #FF3860}
+  @keyframes tick{50%{opacity:.55}}
+  @media (prefers-reduced-motion:reduce){ .timebar .fill.low{animation:none} }
   #mult.hot{color:var(--gold);text-shadow:0 0 16px rgba(253,224,71,.7)}
 
   .boardwrap{flex:1 1 auto;position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:0;padding:0 10px}
@@ -254,8 +268,14 @@
 <div id="stage">
   <div class="hud">
     <div class="stat"><span class="k">레벨</span><span class="v" id="lvl">1</span><span class="s" id="hudSub">72 BPM</span></div>
-    <div class="score"><span id="score">0</span><small>점수 · 배율 <b id="mult">×1.0</b></small></div>
-    <div class="stat right"><span class="k">남은 시간</span><span class="v" id="time">60</span><span class="s">초</span></div>
+    <div class="score"><span id="score">0</span></div>
+    <div class="stat right"><span class="k">배율</span><span class="v" id="mult">×1.0</span></div>
+  </div>
+
+  <!-- 남은 시간 — 가득 찬 게이지가 줄어든다. 오른쪽 동그라미에 남은 초 -->
+  <div class="timebar" role="timer" aria-label="남은 시간">
+    <div class="track"><div class="fill" id="timeFill"></div></div>
+    <div class="clock" id="time">60</div>
   </div>
 
   <div class="boardwrap">
@@ -1953,9 +1973,11 @@ function frame(){
   el('lvl').textContent = bar.level + 1;
   el('hudSub').textContent = bar.bpm + ' BPM';
   const left = Math.max(0, CONFIG.timeLimit - Math.max(0, song));
-  const tv = el('time');
+  const tv = el('time'), tf = el('timeFill'), low = left <= 10;
   tv.textContent = S.timeUp ? '0' : Math.ceil(left);
-  tv.classList.toggle('low', left <= 10);
+  tv.classList.toggle('low', low);
+  tf.style.width = (left / CONFIG.timeLimit * 100).toFixed(2) + '%';
+  tf.classList.toggle('low', low);
   el('score').textContent = S.score.toLocaleString();
   const m = el('mult');
   m.textContent = '×' + S.mult.toFixed(1);
