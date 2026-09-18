@@ -187,7 +187,7 @@
 <div id="app">
 <div id="stage">
   <div class="hud">
-    <div class="stat"><span class="k">레벨</span><span class="v" id="lvl">1</span><span class="s" id="hudSub">64 BPM · 32마디</span></div>
+    <div class="stat"><span class="k">레벨</span><span class="v" id="lvl">1</span><span class="s" id="hudSub">72 BPM · 32마디</span></div>
     <div class="score"><span id="score">0</span><small>점수</small></div>
     <div class="stat right"><span class="k">배율</span><span class="v" id="mult">×1.0</span></div>
   </div>
@@ -227,13 +227,13 @@
       <b>터지는 기준</b><span><b>내가 민 칸</b>이 기준이 된다</span>
       <b>붙잡기</b><span>떨어질 말을 <b>누른 채로 버티면</b> 그 말과 위쪽이 안 떨어진다. <b>놓으면 그 순간</b> 떨어진다</span>
       <b>미는 방향</b><span>위·아래·왼쪽·오른쪽 네 방향</span>
-      <b>레벨</b><span><b>4마디마다</b> 한 단계 오르고 템포가 <b>6 BPM</b> 빨라진다</span>
+      <b>레벨</b><span><b>4마디마다</b> 한 단계 오르고 템포가 <b>7%</b>씩 빨라진다</span>
     </div>
 
     <div class="knobs">
       <div class="knob">
-        <div class="row"><label for="bpm">시작 템포</label><b><span id="bpmv">64</span> BPM</b></div>
-        <input type="range" id="bpm" min="40" max="160" step="2" value="64">
+        <div class="row"><label for="bpm">시작 템포</label><b><span id="bpmv">72</span> BPM</b></div>
+        <input type="range" id="bpm" min="40" max="160" step="2" value="72">
       </div>
       <div class="knob">
         <div class="row"><label for="cols">색 개수</label><b><span id="colv">6</span> 색</b></div>
@@ -281,8 +281,10 @@
    ========================================================================= */
 
 const CONFIG = {
-  bpm: 64,                   // 시작 템포. 레벨이 오를 때마다 level.stepBpm 씩 빨라진다
-  level:   { everyBars: 4, stepBpm: 6, maxBpm: 160 },
+  bpm: 72,                   // 시작 템포. 레벨이 오를 때마다 level.stepMul 배씩 빨라진다
+  // 템포는 비율로 느낀다 — +6 BPM 은 64 에선 9% 인데 100 에선 6% 라 뒤로 갈수록 덜 느껴진다.
+  // 곱으로 올리면 매 레벨이 "한 단계 빨라졌다"로 고르게 느껴지고, 음악 음정도 레벨마다 반음쯤씩 고르게 오른다.
+  level:   { everyBars: 4, stepMul: 1.07, maxBpm: 160 },
   cols: 8,
   rows: 8,
   colors: 6,                 // 강아지 여섯 색. 매칭 키는 오직 색
@@ -578,7 +580,7 @@ const songTime = () => clock() - S.hold;
 let BEAT = 60/CONFIG.bpm, BARS = [], TOTAL_BEATS = 0, SONG_LEN = 0;
 
 const levelOfBar = i => Math.floor(i / CONFIG.level.everyBars);
-const bpmOfLevel = L => Math.min(CONFIG.level.maxBpm, CONFIG.bpm + L*CONFIG.level.stepBpm);
+const bpmOfLevel = L => Math.min(CONFIG.level.maxBpm, Math.round(CONFIG.bpm * Math.pow(CONFIG.level.stepMul, L)));
 
 function buildTimeline(){
   BARS = []; let beat = 0, t = 0;
