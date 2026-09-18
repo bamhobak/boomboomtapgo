@@ -1069,6 +1069,21 @@ function clearCells(cells, now, depth, label, noScore){
  * 그래서 대기 두 박과 누르기 박 동안 판에는 구멍이 보인 채로 남고,
  * 그 구멍을 보면서 다음 수를 고르게 된다.
  */
+/**
+ * 한 덩어리가 콤보를 몇 올리나 — 모양이 클수록 많이.
+ *   일직선 3개 · 2×2           → 1
+ *   일직선 4개 · ㄱ·ㄴ·+(3×3)  → 2
+ *   일직선 5개 이상            → 3
+ * 한 번에 여러 덩어리가 터지면 더한다. 모양 폭발에 휩쓸린 말은 세지 않는다.
+ */
+function comboValue(gr){
+  const lines = gr.runs.filter(r => r.dir === 'line');
+  const longest = lines.reduce((m, r) => Math.max(m, r.len), 0);
+  if(longest >= 5) return 3;
+  if(longest === 4 || lines.length >= 2) return 2;
+  return 1;
+}
+
 function popStep(now, depth){
   const groups = findMatches(S.grid);
   if(!groups.length) return false;
@@ -1089,7 +1104,14 @@ function popStep(now, depth){
   S.stats.crossed += crossed;
   S.stats.longest = Math.max(S.stats.longest, biggest);
 
+  // 콤보는 터진 모양만큼 오른다 — 터지기 전에 올려야 흥(juiceLevel)이 새 콤보로 터진다
+  const prevCombo = S.combo;
+  S.combo += groups.reduce((n, gr) => n + comboValue(gr), 0);
+  S.comboMade = true;                              // 이 턴은 무언가 터졌다
+  S.stats.maxCombo = Math.max(S.stats.maxCombo, S.combo);
+
   clearCells([...toClear.values()], now, depth, label);
+  if(S.combo >= 4) bumpCombo(now, prevCombo);      // 폭발 문구가 뜬 다음에 띄운다
   S.lastSwap = null;                               // 기준 칸은 그 수에만 쓴다
   setDropPlan(computeDrop(S.grid));                // 낙하는 미루되, 결과는 지금 정한다
   return true;
@@ -1200,16 +1222,10 @@ function resolveTurn(now, forceHeldAt){
   if(!cascadePop(now)) reshuffleIfStuck(now);            // 낙하가 부른 연쇄
 }
 
-/**
- * 낙하가 부른 연쇄 — 내가 안 밀어도 떨어진 말이 터지면 그 턴도 콤보로 친다.
- * 한 턴에 연쇄와 내 수가 다 터져도 콤보는 한 번만 오른다.
- */
+/** 낙하가 부른 연쇄 — 내가 안 밀어도 떨어진 말이 터지면 그 모양만큼 콤보가 오르고 턴도 이어진다 */
 function cascadePop(now){
-  const fresh = !S.comboMade;
-  S.comboMade = true;                                    // 터지는 순간 흥(juiceLevel)이 오를 콤보를 알게
-  if(!popStep(now, 1)){ if(fresh) S.comboMade = false; return false; }
+  if(!popStep(now, 1)) return false;
   S.stats.cascades++;
-  if(fresh) raiseCombo(now);
   return true;
 }
 
@@ -1249,11 +1265,10 @@ function finishPin(now){
 
 /*
  * 흥 — 콤보가 쌓일수록 터짐이 커진다. 0(평소) ~ 12.
- * 내 수로 터지는 순간엔 곧 오를 콤보까지 친다(콤보는 터진 직후에 올라간다).
+ * 콤보는 터지기 직전에 모양만큼 먼저 올라가 있으므로 지금 콤보를 그대로 쓴다.
  */
 function juiceLevel(){
-  const c = S.combo + (S.comboMade ? 1 : 0);
-  return Math.max(0, Math.min(12, c - 1));
+  return Math.max(0, Math.min(12, S.combo - 1));
 }
 
 /* 도트 파편 모양 — 콤보가 오를수록 하나씩 풀린다. 강아지 게임이라 뼈다귀·발바닥·하트 */
@@ -1330,11 +1345,8 @@ function trySwap(a, b, now){
   S.grid[ar][ac]=tb; S.grid[br][bc]=ta;
   sfx('swap', Audio_.startAC+now, 0.45);
   S.swapAnim = { a, b, t0:now, revert:false };
-  const fresh = !S.comboMade;                       // 이번 턴 연쇄로 이미 올랐으면 또 올리지 않는다
-  S.comboMade = true;                              // 이 턴은 매치를 성사시켰다
   S.lastSwap = b;                                  // 민 칸 — 여기가 폭발의 기준이 된다
-  popStep(now, 0);
-  if(fresh) raiseCombo(now);                       // 폭발 문구가 뜬 다음에 올린다
+  popStep(now, 0);                                 // 콤보도 여기서 모양만큼 오른다
   return true;
 }
 
@@ -1921,16 +1933,6 @@ function paintSky(k){
 }
 
 /**
- * 콤보가 오르는 순간 — 4박에 매치가 성사된 바로 그 자리.
- * 다음 박까지 기다리지 않는다. 터진 것과 숫자가 같은 순간에 보여야 한 방으로 읽힌다.
- */
-function raiseCombo(now){
-  S.combo++;
-  S.stats.maxCombo = Math.max(S.stats.maxCombo, S.combo);
-  if(S.combo >= 4) bumpCombo(now);
-}
-
-/**
  * 콤보가 끊기는 순간 — 드래그 박이 지날 때 한 번.
  * 박자를 맞췄는지가 아니라 **이번 턴에 무엇이든 터졌는지**만 본다(내 수든, 떨어진 말의 연쇄든).
  * 헛스와이프도, 아무것도 안 둔 턴도 똑같이 0으로 돌아간다.
@@ -1953,7 +1955,11 @@ function levelUp(now, bar){
 }
 
 /** 4연속부터 화면에 남는다 — 숫자가 오를 때마다 한 번 튄다 */
-function bumpCombo(now){
+/**
+ * 콤보가 오르는 순간 — 터진 바로 그 자리에서 띄운다.
+ * 다음 박까지 기다리지 않는다. 터진 것과 숫자가 같은 순간에 보여야 한 방으로 읽힌다.
+ */
+function bumpCombo(now, prev){
   const box = el('combo');
   // 폭발 문구가 아직 떠 있으면 그 문구를 한 줄 위로 올리고 콤보가 중앙을 쓴다
   el('announce').classList.toggle('up', now - S.announceAt < 0.9);
@@ -1966,7 +1972,7 @@ function bumpCombo(now){
   const cv_ = el('combov');
   cv_.classList.remove('wg');
   if(tier >= 3){ void cv_.offsetWidth; cv_.classList.add('wg'); }      // 10콤보부터 숫자가 들썩인다
-  if(S.combo % 5 === 0){                           // 5콤보마다 폭죽 + 팡파레
+  if(Math.floor(prev / 5) < Math.floor(S.combo / 5)){   // 5콤보를 넘을 때마다 폭죽 + 팡파레 (한 번에 2~3씩 올라도 안 건너뛴다)
     confetti(now, S.combo);
     const ft = Audio_.startAC + now;
     [0, 4, 7, 12].forEach((st, i) => Audio_.tone(ft + 0.06 + i*0.07, Audio_.penta(8 + i*2), 0.18, 'square', 0.11));
