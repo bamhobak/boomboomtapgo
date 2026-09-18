@@ -172,6 +172,30 @@
   .results div{background:var(--panel);padding:12px 15px;display:flex;flex-direction:column;gap:3px;text-align:left}
   .results dt{font-size:11px;letter-spacing:.12em;color:var(--cream-dim);margin:0}
   .results dd{margin:0;font-size:21px;font-variant-numeric:tabular-nums}
+  /* 랭킹판 — 금·은·동 줄은 크게, 나머지는 촘촘히. 늘 10칸을 그려 판 크기가 안 흔들린다 */
+  .rank{width:min(360px,100%);display:flex;flex-direction:column;gap:8px}
+  .rank h2 small{font-size:10px;letter-spacing:.05em;color:var(--cream-dim);margin-left:6px}
+  .board{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:2px;
+         background:var(--edge);box-shadow:0 0 0 3px var(--edge)}
+  .board li{display:grid;grid-template-columns:30px 1fr auto;align-items:center;gap:8px;
+            padding:6px 10px;background:var(--panel);font-size:14px;text-align:left}
+  .board li .rk{font-variant-numeric:tabular-nums;color:var(--cream-dim);text-align:center}
+  .board li .nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .board li .nm small{font-size:10px;color:var(--cream-dim);margin-left:6px}
+  .board li .sc{font-variant-numeric:tabular-nums;color:var(--gold)}
+  .board li.p1,.board li.p2,.board li.p3{font-size:16px;padding:8px 10px}
+  .board li.p1 .rk,.board li.p2 .rk,.board li.p3 .rk{font-size:18px}
+  .board li.ghost{opacity:.35}
+  .board li.me{box-shadow:inset 0 0 0 2px var(--cyan)}
+  .board li.msg{display:block;padding:14px;text-align:center;font-size:13px;color:var(--cream-dim)}
+  .nameform{display:flex;flex-direction:column;gap:8px}
+  .nameform p{margin:0;font-size:15px;color:var(--gold)}
+  .namerow{display:flex;gap:8px}
+  .namerow input{flex:1;min-width:0;font:inherit;font-size:16px;padding:10px 12px;border:none;border-radius:0;
+                 background:var(--panel);color:var(--cream);box-shadow:inset 0 0 0 3px var(--edge)}
+  .namerow input:focus{outline:none;box-shadow:inset 0 0 0 3px var(--gold)}
+  .namerow button{font-size:15px;padding:10px 18px;box-shadow:4px 4px 0 #8A6D00}
+
   .note{font-size:13px;line-height:1.65;color:var(--cream-dim);max-width:38ch;margin:0;text-wrap:balance}
   .note b{color:var(--gold);font-weight:900}
 
@@ -275,12 +299,28 @@
     </div>
 
     <button id="go">시작</button>
+
+    <section class="rank" aria-label="이번 주 랭킹">
+      <h2>이번 주 랭킹 <small id="rankReset"></small></h2>
+      <ol class="board" id="boardStart"></ol>
+    </section>
     <p class="note">헤드폰을 쓰면 판정이 정확해집니다. 끝나면 평균 오차를 보고 오프셋을 다시 맞추세요.</p>
   </div>
 
   <div class="overlay" id="end" hidden>
     <h2>게임 끝</h2>
     <div class="results" id="rows"></div>
+    <section class="rank" aria-label="이번 주 랭킹">
+      <form class="nameform" id="nameForm" hidden>
+        <p id="nameTag">🎉 순위 진입! 이름을 남기세요</p>
+        <div class="namerow">
+          <input id="nameInput" maxlength="12" placeholder="이름 (12자까지)" autocomplete="nickname" enterkeyhint="done">
+          <button id="btnSave" type="submit">등록</button>
+        </div>
+      </form>
+      <h2>이번 주 랭킹 <small id="rankReset2"></small></h2>
+      <ol class="board" id="boardOver"></ol>
+    </section>
     <p class="note" id="advice"></p>
     <div style="display:flex;gap:12px;flex-wrap:wrap;justify-content:center">
       <button id="again">다시</button>
@@ -306,12 +346,15 @@ const CONFIG = {
   // 곱으로 올리면 매 레벨이 "한 단계 빨라졌다"로 고르게 느껴지고, 음악 음정도 레벨마다 반음쯤씩 고르게 오른다.
   // 레벨은 콤보가 정한다 — comboPer 콤보마다 한 단계. 콤보가 끊기면 레벨 1 로 돌아간다. 곡이 8개라 8레벨에서 멈춘다
   level:   { comboPer: 5, stepMul: 1.07, maxBpm: 160, max: 8 },
+  // 시간 따라 최소 레벨 — 20초부터 레벨 2, 40초부터 레벨 3 밑으로는 안 내려간다.
+  // 단 그때까지 한 번도 닿아 본 적 없는 레벨로 끌어올리지는 않는다(그때까지 최고 레벨이 상한)
+  floors: [ { at:20, level:2 }, { at:40, level:3 } ],
   timeLimit: 60,             // 1분 타임어택 — 곡 시계 기준(판이 정리되느라 곡이 기다리는 동안은 안 줄어든다)
   cols: 8,
   rows: 8,
   colors: 6,                 // 강아지 여섯 색. 매칭 키는 오직 색
   judge:   { perfect: 0.090, good: 0.170 },
-  combo:   { perfect: 0.2, good: 0.1, missFactor: 0.55, max: 5 },
+  combo:   { perfect: 0.2, good: 0.1, missFactor: 0, max: 5 },   // 놓치면 배율이 ×1.0 으로 (예전엔 0.55배로 깎였다)
   cascade: { stepBeats: 0.5, maxDepth: 8 },
   // 리필이 즉석 매치를 피할 확률. 1.0이면 연쇄가 거의 사라지고, 낮으면 보드가 혼자 굴러간다.
   refillSafety: 0.85,
@@ -626,11 +669,31 @@ function buildTimeline(){
   appendBar();
   BEAT = BARS[0].beatLen;                          // 첫 마디 기준 — 남은 참조용
 }
+/**
+ * 열기 0~1 — 콤보(흥 단계)와 레벨을 섞는다. 누르기·밀기 소리가 이걸 따라 격해진다.
+ *   0.25~ 쿵(낮은 몸통)  ·  0.5~ 목소리 메아리 / 밀기 휘익  ·  0.75~ 치익(노이즈 크래시)
+ */
+function heat(){
+  return Math.max(0, Math.min(1, juiceLevel()/12*0.6 + S.level/(CONFIG.level.max-1)*0.4));
+}
+function hitLayers(t, I, drag){
+  if(I > 0.25) Audio_.tone(t, drag ? 140 : 110, 0.14, 'sine', 0.35*I, 45);         // 쿵
+  if(drag && I > 0.5) Audio_.tone(t, 320, 0.10 + 0.04*I, 'square', 0.08*I, 1100);  // 휘익 — 위로 쓸어 올린다
+  if(I > 0.75) Audio_.hit(t, 0.07 + 0.05*I, 0.16*I, 2600);                          // 치익
+  if(I > 0.5) buzz(Math.round(8 + 14*I));
+}
+
+/** 곡 시각 t 에서 내려갈 수 있는 가장 낮은 레벨(0부터) — 시간 문턱과 지금까지 최고 레벨 중 낮은 쪽 */
+function floorLevel(t){
+  let f = 0;
+  for(const x of CONFIG.floors) if(t >= x.at) f = Math.max(f, x.level - 1);
+  return Math.min(f, S.stats.maxLevel - 1);
+}
 /** 마디 k 에 들어선다 — 지금 콤보로 레벨·템포를 정하고 그 다음 마디를 붙인다. 새로 정했으면 true */
 function finalizeBar(k){
   const bar = BARS[k];
   if(!bar || bar.final) return false;
-  const level = levelOfCombo(S.combo), bpm = bpmOfLevel(level);
+  const level = Math.max(levelOfCombo(S.combo), floorLevel(bar.startTime)), bpm = bpmOfLevel(level);
   Object.assign(bar, { level, bpm, beatLen:60/bpm, final:true });
   BARS.length = k + 1;
   appendBar();
@@ -1374,7 +1437,9 @@ function trySwap(a, b, now){
   }
   ta.fromRow = null; tb.fromRow = null;                   // 낙하 잔상과 교환 애니가 겹치지 않게
   S.grid[ar][ac]=tb; S.grid[br][bc]=ta;
-  sfx('swap', Audio_.startAC+now, 0.45);
+  const I = heat(), st = Audio_.startAC+now;
+  sfx('swap', st, 0.45 + 0.4*I, 1 + 0.2*I);                             // 밀기 — 콤보·레벨이 오를수록 세게
+  hitLayers(st, I, 1);
   S.swapAnim = { a, b, t0:now, revert:false };
   S.lastSwap = b;                                  // 민 칸 — 여기가 폭발의 기준이 된다
   popStep(now, 0);                                 // 콤보도 여기서 모양만큼 오른다
@@ -1443,9 +1508,12 @@ function trySelect(r, c, now, quiet){
   }
   S.sel = { id:S.grid[r][c].id, bar:S.barIndex };
   applyJudge(j);
-  // 누른 말이 짖거나 운다 — 품종마다 제 소리. 없으면 예전 딸깍
-  if(!sfx('voice' + S.grid[r][c].color, Audio_.startAC+now, 0.55) && !sfx('select', Audio_.startAC+now, 0.5))
-    Audio_.tone(Audio_.startAC+now, 1568, 0.06, 'square', 0.09);
+  // 누른 말이 짖거나 운다 — 품종마다 제 소리. 콤보·레벨이 오를수록 크고 높고 겹겹이
+  const I = heat(), vt = Audio_.startAC+now, vk = 'voice' + S.grid[r][c].color;
+  if(sfx(vk, vt, 0.55 + 0.35*I, 1 + 0.12*I)){
+    if(I > 0.5) sfx(vk, vt + 0.07, 0.25*I, 1.45 + 0.1*I);             // 한 번 더 — 메아리처럼 높게
+  } else if(!sfx('select', vt, 0.5)) Audio_.tone(vt, 1568, 0.06, 'square', 0.09);
+  hitLayers(vt, I, 0);
   return true;
 }
 
@@ -2170,7 +2238,119 @@ function finish(){
   el('offv').textContent = el('off').value;
   CONFIG.offset = +el('off').value/1000;
   el('end').hidden = false;
+  Rank.afterGame(S.score, S.stats.maxLevel, S.stats.maxCombo);
 }
+
+/* ---------------------------------------------------------------- 랭킹 */
+/*
+ * 이번 주 랭킹 — 이피재피똥피와 같은 Supabase 프로젝트, 테이블만 따로(mungnyang_scores).
+ * 테이블은 sql/mungnyang_leaderboard.sql 을 대시보드 SQL Editor 에서 한 번 실행해야 생긴다.
+ * 그 전이거나 오프라인이면 판에 '준비 중'만 뜨고 게임은 그대로 돈다.
+ * 매주 월요일 0시(한국시간)에 새로 시작 — 기록을 지우지 않고 이번 주 것만 조회한다.
+ * 한 기기당 한 줄(기기별 최고), TOP 10. 이름은 textContent 로만 넣는다.
+ */
+const Rank = (() => {
+  const URL_ = 'https://osfbhhdpqdydbkgbgmat.supabase.co';
+  const KEY  = 'sb_publishable_IOCUMux3jedTRKdTSGvDdg_1YCPmMw0';   // 공개용 키(읽기·등록만 허용된 정책)
+  const TABLE = 'mungnyang_scores', TOP = 10;
+  const H = extra => Object.assign({ apikey:KEY, Authorization:'Bearer '+KEY }, extra || {});
+  const store = {
+    get(k){ try{ return localStorage.getItem(k); }catch(e){ return null; } },
+    set(k,v){ try{ localStorage.setItem(k,v); }catch(e){} },
+  };
+  let device = store.get('mungnyang_device');
+  if(!device){ device = (crypto.randomUUID ? crypto.randomUUID() : String(Math.random()).slice(2)); store.set('mungnyang_device', device); }
+
+  const KST = 9*3600*1000;
+  function weekStart(){
+    const k = new Date(Date.now() + KST);
+    const mon = (k.getUTCDay() + 6) % 7;
+    return Date.UTC(k.getUTCFullYear(), k.getUTCMonth(), k.getUTCDate() - mon) - KST;
+  }
+  function resetNote(){
+    const left = weekStart() + 7*86400000 - Date.now();
+    const d = Math.floor(left/86400000), h = Math.floor(left/3600000) % 24, m = Math.floor(left/60000) % 60;
+    return '초기화까지 ' + (d > 0 ? d+'일' : h > 0 ? h+'시간' : m+'분');
+  }
+
+  let list = [], mine = null;
+  async function fetchTop(){
+    const res = await fetch(URL_ + '/rest/v1/rpc/mungnyang_top', {
+      method:'POST', headers:H({'Content-Type':'application/json'}),
+      body: JSON.stringify({ since:new Date(weekStart()).toISOString(), until:null, lim:TOP }),
+    });
+    if(!res.ok) throw new Error('HTTP ' + res.status);
+    list = await res.json();
+    return list;
+  }
+  function render(elId, msg){
+    const box = el(elId);
+    if(!box) return;
+    box.innerHTML = '';
+    if(msg){ const d = document.createElement('li'); d.className = 'msg'; d.textContent = msg; box.appendChild(d); return; }
+    const medal = ['🥇','🥈','🥉'];
+    for(let i=0;i<TOP;i++){
+      const row = list[i];
+      const li = document.createElement('li');
+      li.className = (i < 3 ? 'p'+(i+1) : '') + (row ? '' : ' ghost') + (row && mine && row.name === mine.name && row.score === mine.score ? ' me' : '');
+      const rk = document.createElement('span'); rk.className = 'rk'; rk.textContent = i < 3 ? medal[i] : i+1;
+      const nm = document.createElement('span'); nm.className = 'nm'; nm.textContent = row ? row.name : '-';
+      if(row){
+        const sm = document.createElement('small');
+        sm.textContent = 'Lv' + (row.level || 1) + (row.combo ? ' · ' + row.combo + '콤보' : '');
+        nm.appendChild(sm);
+      }
+      const sc = document.createElement('span'); sc.className = 'sc'; sc.textContent = row ? Number(row.score).toLocaleString() : '';
+      li.append(rk, nm, sc);
+      box.appendChild(li);
+    }
+  }
+  function notes(){ el('rankReset').textContent = resetNote(); el('rankReset2').textContent = resetNote(); }
+
+  async function refresh(elId){
+    notes();
+    try{ await fetchTop(); render(elId); }
+    catch(e){ render(elId, '랭킹 준비 중입니다 (연결 안 됨)'); }
+  }
+
+  const qualifies = sc => sc > 0 && (list.length < TOP || sc > Number(list[TOP-1].score));
+
+  async function afterGame(score, level, combo){
+    const f = el('nameForm');
+    f.hidden = true;
+    notes();
+    try{ await fetchTop(); }
+    catch(e){ render('boardOver', '랭킹 준비 중입니다 (연결 안 됨)'); return; }
+    render('boardOver');
+    if(!qualifies(score)) return;
+    const pos = list.findIndex(r => score > Number(r.score));
+    el('nameTag').textContent = '🎉 이번 주 ' + ((pos < 0 ? list.length : pos) + 1) + '위 진입! 이름을 남기세요';
+    el('nameInput').value = store.get('mungnyang_name') || '';
+    el('btnSave').disabled = false;
+    f.hidden = false;
+    f.onsubmit = async ev => {
+      ev.preventDefault();
+      const name = el('nameInput').value.trim().slice(0, 12);
+      if(!name){ el('nameInput').focus(); return; }
+      el('btnSave').disabled = true;
+      store.set('mungnyang_name', name);
+      try{
+        const res = await fetch(URL_ + '/rest/v1/' + TABLE, {
+          method:'POST', headers:H({'Content-Type':'application/json', Prefer:'return=minimal'}),
+          body: JSON.stringify({ name, score:Math.min(1e9, Math.round(score)), level, combo, device }),
+        });
+        if(!res.ok) throw new Error('HTTP ' + res.status);
+        mine = { name, score:Math.round(score) };
+        f.hidden = true;
+        await refresh('boardOver');
+      }catch(e){
+        el('nameTag').textContent = '등록 실패 — 다시 눌러 보세요';
+        el('btnSave').disabled = false;
+      }
+    };
+  }
+  return { refresh, afterGame };
+})();
 
 /* ------------------------------------------------------------ UI 바인딩 */
 
@@ -2189,7 +2369,8 @@ el('vbeat').addEventListener('click', () => {
   el('vbeat').classList.toggle('off', !CONFIG.visualBeat);
 });
 el('again').addEventListener('click', start);
-el('back').addEventListener('click', () => { el('end').hidden=true; el('start').hidden=false; });
+el('back').addEventListener('click', () => { el('end').hidden=true; el('start').hidden=false; Rank.refresh('boardStart'); });
 
 layout(); flashBeat(-1, CONFIG.pattern);
+Rank.refresh('boardStart');
 </script>
