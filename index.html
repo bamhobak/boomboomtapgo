@@ -124,6 +124,7 @@
            justify-content:center;gap:20px;padding:26px;background:rgba(10,10,18,.94);
            text-align:center;overflow-y:auto}
   .overlay[hidden]{display:none}
+  #help{z-index:11}                                   /* 시작 화면 위에 */
   h1{margin:0;font-size:clamp(38px,12vw,60px);line-height:.98;text-wrap:balance;text-shadow:4px 4px 0 rgba(253,224,71,.18)}
   h1 span{color:var(--gold)}
   .tag{margin:0;font-size:14px;color:var(--cream-dim);max-width:36ch;line-height:1.6;text-wrap:balance}
@@ -267,26 +268,9 @@
     </div>
     <p class="tag" style="margin-top:-6px">한 마디가 <b>한 턴</b>입니다. 두 박 동안 판을 읽고, 3박에 옮길 말을 누르고, 4박에 그 말을 밀 방향으로 드래그합니다. <b>차례가 아닌 박에는 판이 움직이지 않습니다.</b></p>
 
-    <div class="legend">
-      <b>같은 색 3개</b><span>한 줄로 모이면 터진다</span>
-      <b>줄의 방향</b><span>가로 · 세로 두 가지</span>
-      <b>2×2 뭉치</b><span>네모로 모여도 터진다</span>
-      <b>4개 한 줄</b><span><b>직교하는 줄</b>이 통째로 터진다 — 세로↔가로</span>
-      <b>5개 한 줄</b><span>판 위의 <b>그 색이 전부</b> 터진다</span>
-      <b>ㄱ · ㄴ · + 모양</b><span>교차 칸에서 <b>가로 3칸 + 대각선 두 줄</b></span>
-      <b>터지는 기준</b><span><b>내가 민 칸</b>이 기준이 된다</span>
-      <b>붙잡기</b><span>떨어질 말을 <b>누른 채로 버티면</b> 그 말과 위쪽이 안 떨어진다. <b>놓으면 그 순간</b> 떨어진다</span>
-      <b>미는 방향</b><span>위·아래·왼쪽·오른쪽 네 방향</span>
-      <b>시간</b><span><b>1분</b> 타임어택. 시간이 끝나면 그 턴 4박까지 둘 수 있고, 그 뒤엔 <b>떨어져서 터지는 연쇄가 이어지는 동안</b> 계속 간다</span>
-      <b>콤보</b><span>3줄·2×2 <b>+1</b> · 4줄·ㄱㄴ+ <b>+2</b> · 5줄 <b>+3</b>. 한 턴 동안 아무것도 안 터지면 끊긴다</span>
-      <b>레벨</b><span>콤보 <b>5</b>마다 한 단계 오르고 템포가 <b>7%</b>씩 빨라진다. <b>콤보가 끊기면 레벨 1</b></span>
-    </div>
+    <button class="ghost" id="helpBtn" type="button">게임 설명</button>
 
     <div class="knobs">
-      <div class="knob">
-        <div class="row"><label for="cols">색 개수</label><b><span id="colv">6</span> 색</b></div>
-        <input type="range" id="cols" min="4" max="6" step="1" value="6">
-      </div>
       <div class="knob">
         <div class="row"><label for="off">입력 오프셋</label><b><span id="offv">0</span> ms</b></div>
         <input type="range" id="off" min="-150" max="150" step="5" value="0">
@@ -305,6 +289,25 @@
       <ol class="board" id="boardStart"></ol>
     </section>
     <p class="note">헤드폰을 쓰면 판정이 정확해집니다. 끝나면 평균 오차를 보고 오프셋을 다시 맞추세요.</p>
+  </div>
+
+  <div class="overlay" id="help" hidden role="dialog" aria-modal="true" aria-labelledby="helpTitle">
+    <h2 id="helpTitle">게임 설명</h2>
+    <div class="legend">
+      <b>같은 동물 3마리</b><span>한 줄로 모이면 터진다</span>
+      <b>줄의 방향</b><span>가로 · 세로 두 가지</span>
+      <b>2×2 뭉치</b><span>네모로 모여도 터진다</span>
+      <b>4개 한 줄</b><span><b>직교하는 줄</b>이 통째로 터진다 — 세로↔가로</span>
+      <b>5개 한 줄</b><span>판 위의 <b>그 동물이 전부</b> 터진다</span>
+      <b>ㄱ · ㄴ · + 모양</b><span>교차 칸에서 <b>가로 3칸 + 대각선 두 줄</b></span>
+      <b>터지는 기준</b><span><b>내가 민 칸</b>이 기준이 된다</span>
+      <b>붙잡기</b><span>떨어질 말을 <b>누른 채로 버티면</b> 그 말과 위쪽이 안 떨어진다. <b>놓으면 그 순간</b> 떨어진다</span>
+      <b>미는 방향</b><span>위·아래·왼쪽·오른쪽 네 방향</span>
+      <b>시간</b><span><b>1분</b> 타임어택. 시간이 끝나면 그 턴 4박까지 둘 수 있고, 그 뒤엔 <b>떨어져서 터지는 연쇄가 이어지는 동안</b> 계속 간다</span>
+      <b>콤보</b><span>3줄·2×2 <b>+1</b> · 4줄·ㄱㄴ+ <b>+2</b> · 5줄 <b>+3</b>. 한 턴 동안 아무것도 안 터지면 끊긴다</span>
+      <b>레벨</b><span>콤보 <b>5</b>마다 한 단계 오르고 템포가 <b>7%</b>씩 빨라진다. <b>콤보가 끊기면 레벨 1</b></span>
+    </div>
+    <button id="helpClose" type="button">닫기</button>
   </div>
 
   <div class="overlay" id="end" hidden>
@@ -2254,8 +2257,11 @@ const Rank = (() => {
 /* ------------------------------------------------------------ UI 바인딩 */
 
 el('off').addEventListener('input', e => { CONFIG.offset=+e.target.value/1000; el('offv').textContent=e.target.value; });
-el('cols').addEventListener('input', e => { CONFIG.colors=+e.target.value; el('colv').textContent=e.target.value; });
 el('go').addEventListener('click', start);
+// 게임 설명 — 시작 화면 위에 창으로 띄운다
+el('helpBtn').addEventListener('click', () => { el('help').hidden = false; el('helpClose').focus(); });
+el('helpClose').addEventListener('click', () => { el('help').hidden = true; el('helpBtn').focus(); });
+addEventListener('keydown', e => { if(e.key === 'Escape' && !el('help').hidden){ el('help').hidden = true; el('helpBtn').focus(); } });
 el('snd').addEventListener('click', () => {
   CONFIG.sound = !CONFIG.sound;
   el('snd').textContent = CONFIG.sound ? '소리 켜짐' : '소리 꺼짐';
