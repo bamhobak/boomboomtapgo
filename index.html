@@ -517,12 +517,14 @@ function bgmLoopLen(b, mult){
  *   bars   — 루프로 쓸 온전한 마디 수 (꼬리는 버린다)
  */
 const BGM_TRACKS = [
-  { key:'bgmA',         file:'track-a',         name:'밝은 칩튠',        bpm:104.97, offset:0.000, bars:14 },
-  { key:'bgmB',         file:'track-b',         name:'신나는 신스',      bpm:104.00, offset:0.006, bars:13 },
-  { key:'bgmDisco',     file:'track-disco',     name:'펑키 디스코',      bpm:104.00, offset:0.070, bars:15 },
-  { key:'bgmTropical',  file:'track-tropical',  name:'트로피컬 마림바',  bpm:104.00, offset:0.038, bars:14 },
-  { key:'bgmSynthwave', file:'track-synthwave', name:'레트로 신스웨이브', bpm:104.00, offset:0.075, bars:15 },
-  { key:'bgmBigbeat',   file:'track-bigbeat',   name:'빅비트',           bpm:104.00, offset:0.000, bars:15 },
+  // 첫 박(offset)은 tools/bgm-onset.html 의 '세대역' 값 — 귀가 박을 느끼는 어택 기준.
+  // 킥 저음만 보면 몸통이 부푸는 20~50ms 뒤로 잡혀 틀린다. 생성 곡은 전부 0초에 박이 있었다.
+  { key:'bgmA',         file:'track-a',         name:'밝은 칩튠',        bpm:104.97, offset:0, bars:14 },
+  { key:'bgmB',         file:'track-b',         name:'신나는 신스',      bpm:104.00, offset:0, bars:13 },
+  { key:'bgmDisco',     file:'track-disco',     name:'펑키 디스코',      bpm:104.00, offset:0, bars:15 },
+  { key:'bgmTropical',  file:'track-tropical',  name:'트로피컬 마림바',  bpm:104.00, offset:0, bars:14 },
+  { key:'bgmSynthwave', file:'track-synthwave', name:'레트로 신스웨이브', bpm:104.00, offset:0, bars:15 },
+  { key:'bgmBigbeat',   file:'track-bigbeat',   name:'빅비트',           bpm:104.00, offset:0, bars:15 },
 ];
 const BGM_BPM = 104;                                   // 템포를 모르는 곡의 기본값
 const trackNow = () => BGM_TRACKS[CONFIG.bgmTrack] || BGM_TRACKS[0];
