@@ -268,6 +268,11 @@
     </div>
     <p class="tag" style="margin-top:-6px">한 마디가 <b>한 턴</b>입니다. 두 박 동안 판을 읽고, 3박에 옮길 말을 누르고, 4박에 그 말을 밀 방향으로 드래그합니다. <b>차례가 아닌 박에는 판이 움직이지 않습니다.</b></p>
 
+    <section class="rank" aria-label="이번 주 랭킹">
+      <h2>이번 주 랭킹 <small id="rankReset"></small></h2>
+      <ol class="board" id="boardStart"></ol>
+    </section>
+
     <button class="ghost" id="helpBtn" type="button">게임 설명</button>
 
     <div class="knobs">
@@ -279,16 +284,10 @@
 
     <div class="toggles">
       <button class="ghost" id="snd" type="button">소리 켜짐</button>
-      <button class="ghost" id="vbeat" type="button">화면 박자 켜짐</button>
     </div>
 
     <button id="go">시작</button>
 
-    <section class="rank" aria-label="이번 주 랭킹">
-      <h2>이번 주 랭킹 <small id="rankReset"></small></h2>
-      <ol class="board" id="boardStart"></ol>
-    </section>
-    <p class="note">헤드폰을 쓰면 판정이 정확해집니다. 끝나면 평균 오차를 보고 오프셋을 다시 맞추세요.</p>
   </div>
 
   <div class="overlay" id="help" hidden role="dialog" aria-modal="true" aria-labelledby="helpTitle">
@@ -364,7 +363,7 @@ const CONFIG = {
   offset: 0,
   haptics: true,
   sound: true,               // 소리 전체 켜고 끄기
-  visualBeat: true,          // 화면 박자 — 말 까딱 · 테두리 박동 · 모여드는 테두리
+  visualBeat: true,          // 화면 박자 — 말 까딱 · 테두리 박동 · 모여드는 테두리 (늘 켜 둔다)
 
   // 한 턴 = 한 마디(4/4). 슬롯: '.' 대기 · 'T' 누르기 · 'D' 드래그
   // 곡 내내 같은 턴으로 간다 — 구간을 나누지 않는다
@@ -2267,11 +2266,6 @@ el('snd').addEventListener('click', () => {
   el('snd').textContent = CONFIG.sound ? '소리 켜짐' : '소리 꺼짐';
   el('snd').classList.toggle('off', !CONFIG.sound);
   if(Audio_.master) Audio_.master.gain.value = CONFIG.sound ? 0.5 : 0;
-});
-el('vbeat').addEventListener('click', () => {
-  CONFIG.visualBeat = !CONFIG.visualBeat;
-  el('vbeat').textContent = CONFIG.visualBeat ? '화면 박자 켜짐' : '화면 박자 꺼짐';
-  el('vbeat').classList.toggle('off', !CONFIG.visualBeat);
 });
 el('again').addEventListener('click', start);
 el('back').addEventListener('click', () => { el('end').hidden=true; el('start').hidden=false; Rank.refresh('boardStart'); });
