@@ -82,7 +82,21 @@
   #mult{color:#FF3860}
   #mult.hot{color:var(--gold);text-shadow:0 0 16px rgba(253,224,71,.7)}
 
-  .boardwrap{flex:1 1 auto;position:relative;display:flex;align-items:center;justify-content:center;min-height:0;padding:0 10px}
+  .boardwrap{flex:1 1 auto;position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:0;padding:0 10px}
+
+  /* 박자 구호 — 판 바로 위. 박마다 그 박 글자가 커지며 켜진다: 챱 · 챱 · 클릭 · 드래그! */
+  .callout{display:flex;gap:18px;align-items:flex-end;justify-content:center;height:34px;margin-bottom:6px;
+           font-size:19px;line-height:1;color:var(--cream-faint);pointer-events:none;user-select:none}
+  .callout span{display:inline-block;transform-origin:50% 80%;transition:color 90ms ease,transform 90ms ease,text-shadow 90ms ease}
+  .callout span.t{color:rgba(253,224,71,.38)}
+  .callout span.d{color:rgba(34,211,238,.38)}
+  .callout span.on{color:var(--cream);transform:scale(1.35)}
+  .callout span.t.on{color:var(--gold);text-shadow:0 0 14px rgba(253,224,71,.65)}
+  .callout span.d.on{color:var(--cyan);text-shadow:0 0 14px rgba(34,211,238,.65)}
+  .callout span.hit{animation:callhit 240ms cubic-bezier(.2,.8,.2,1)}
+  @keyframes callhit{0%{transform:scale(1.75)}100%{transform:scale(1.35)}}
+  .callout.waiting{opacity:.35}
+  @media (prefers-reduced-motion:reduce){ .callout span.hit{animation:none} }
   canvas{display:block;touch-action:none}
 
   .rail{flex:0 0 auto;display:flex;flex-direction:column;align-items:center;gap:10px;
@@ -193,6 +207,7 @@
   </div>
 
   <div class="boardwrap">
+    <div class="callout" id="callout" aria-hidden="true"></div>
     <canvas id="cv"></canvas>
     <div id="announce"></div>
     <div id="combo"><span id="combov">4</span><em>combo</em></div>
@@ -912,7 +927,9 @@ const PAD = 6;                    // 판 안쪽 여백 — 여기서 아케이�
 
 function layout(){
   const wrap = cv.parentElement;
-  const w = wrap.clientWidth, h = wrap.clientHeight;
+  const co = el('callout');
+  const callH = co ? co.offsetHeight + 6 : 0;        // 판 위 박자 구호 줄 자리
+  const w = wrap.clientWidth, h = wrap.clientHeight - callH;
   cell = Math.max(8, Math.floor(Math.min((w-PAD*2)/CONFIG.cols, (h-PAD*2)/CONFIG.rows)));
   const cw = cell*CONFIG.cols + PAD*2, ch = cell*CONFIG.rows + PAD*2;
   const dpr = Math.min(devicePixelRatio||1, 2);   // 2를 넘겨도 화질 차이는 거의 없고 발열만 커진다
@@ -1750,6 +1767,7 @@ function frame(){
     : slot==='D' ? (S.sel ? '드래그 <em>고른 말 밀기</em>' : '드래그 <em>밀 방향</em>')
     : '대기 <em>다음 수 읽기</em>';
   el('beats').classList.toggle('waiting', S.holding);
+  el('callout').classList.toggle('waiting', S.holding);
 
   draw(now);
   if(song > SONG_LEN + 0.6) finish();
@@ -1829,6 +1847,27 @@ function flashBeat(pos, pattern){
     }
   }
   [...box.children].forEach((d,i)=>d.classList.toggle('hit', i===pos));
+
+  // 판 위 구호 — 대기 박은 "챱", 누르기는 "클릭", 드래그는 "드래그!"
+  const co = el('callout');
+  if(co){
+    if(co.dataset.sig !== sig){
+      co.dataset.sig = sig;
+      co.innerHTML = '';
+      for(const sl of pattern){
+        const w = document.createElement('span');
+        w.textContent = sl==='T' ? '클릭' : sl==='D' ? '드래그!' : '챱';
+        if(sl==='T') w.className = 't';
+        if(sl==='D') w.className = 'd';
+        co.appendChild(w);
+      }
+    }
+    [...co.children].forEach((w,i)=>{
+      w.classList.toggle('on', i===pos);
+      w.classList.remove('hit');
+      if(i===pos){ void w.offsetWidth; w.classList.add('hit'); }   // 박마다 한 번 튄다
+    });
+  }
 }
 
 /* --------------------------------------------------------- 시작 / 종료 */
