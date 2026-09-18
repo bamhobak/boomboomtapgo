@@ -1189,14 +1189,26 @@ function resolveTurn(now, forceHeldAt){
   }
 
   if(!dropStep(now)) return;
-  if(popStep(now, 1)) S.stats.cascades++;                // 낙하가 부른 연쇄
-  else reshuffleIfStuck(now);
+  if(!cascadePop(now)) reshuffleIfStuck(now);            // 낙하가 부른 연쇄
+}
+
+/**
+ * 낙하가 부른 연쇄 — 내가 안 밀어도 떨어진 말이 터지면 그 턴도 콤보로 친다.
+ * 한 턴에 연쇄와 내 수가 다 터져도 콤보는 한 번만 오른다.
+ */
+function cascadePop(now){
+  const fresh = !S.comboMade;
+  S.comboMade = true;                                    // 터지는 순간 흥(juiceLevel)이 오를 콤보를 알게
+  if(!popStep(now, 1)){ if(fresh) S.comboMade = false; return false; }
+  S.stats.cascades++;
+  if(fresh) raiseCombo(now);
+  return true;
 }
 
 /** 붙잡은 뒤 정리 — 연쇄를 보고, 남은 구멍이 있으면 다음 낙하를 예약한다 */
 function afterPin(now){
   S.pin = null;
-  if(popStep(now, 1)){ S.stats.cascades++; return; }
+  if(cascadePop(now)) return;
   let hole = false;
   for(let r=0;r<CONFIG.rows && !hole;r++) for(let c=0;c<CONFIG.cols;c++)
     if(!S.grid[r][c]){ hole = true; break; }
@@ -1310,10 +1322,11 @@ function trySwap(a, b, now){
   S.grid[ar][ac]=tb; S.grid[br][bc]=ta;
   sfx('swap', Audio_.startAC+now, 0.45);
   S.swapAnim = { a, b, t0:now, revert:false };
+  const fresh = !S.comboMade;                       // 이번 턴 연쇄로 이미 올랐으면 또 올리지 않는다
   S.comboMade = true;                              // 이 턴은 매치를 성사시켰다
   S.lastSwap = b;                                  // 민 칸 — 여기가 폭발의 기준이 된다
   popStep(now, 0);
-  raiseCombo(now);                                 // 폭발 문구가 뜬 다음에 올린다
+  if(fresh) raiseCombo(now);                       // 폭발 문구가 뜬 다음에 올린다
   return true;
 }
 
@@ -1904,7 +1917,7 @@ function raiseCombo(now){
 
 /**
  * 콤보가 끊기는 순간 — 드래그 박이 지날 때 한 번.
- * 박자를 맞췄는지가 아니라 **이번 턴에 실제로 터뜨렸는지**만 본다.
+ * 박자를 맞췄는지가 아니라 **이번 턴에 무엇이든 터졌는지**만 본다(내 수든, 떨어진 말의 연쇄든).
  * 헛스와이프도, 아무것도 안 둔 턴도 똑같이 0으로 돌아간다.
  */
 function settleCombo(now){
