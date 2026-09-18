@@ -2,7 +2,7 @@
 
 박자에 맞춰 강아지·고양이를 밀어 맞추는 1분 리듬 퍼즐.
 
-👉 **플레이: https://bamhobak.github.io/mungnyang/**
+👉 **플레이: https://bamhobak.github.io/boomboomtapgo/**
 
 ## 조작
 한 마디(4박)가 한 턴입니다.

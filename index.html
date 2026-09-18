@@ -2150,8 +2150,8 @@ function finish(){
 
 /* ---------------------------------------------------------------- 랭킹 */
 /*
- * 이번 주 랭킹 — 이피재피똥피와 같은 Supabase 프로젝트, 테이블만 따로(mungnyang_scores).
- * 테이블은 sql/mungnyang_leaderboard.sql 을 대시보드 SQL Editor 에서 한 번 실행해야 생긴다.
+ * 이번 주 랭킹 — 이피재피똥피와 같은 Supabase 프로젝트, 테이블만 따로(boomboomtapgo_scores).
+ * 테이블은 sql/boomboomtapgo_leaderboard.sql 을 대시보드 SQL Editor 에서 한 번 실행해야 생긴다.
  * 그 전이거나 오프라인이면 판에 '준비 중'만 뜨고 게임은 그대로 돈다.
  * 매주 월요일 0시(한국시간)에 새로 시작 — 기록을 지우지 않고 이번 주 것만 조회한다.
  * 한 기기당 한 줄(기기별 최고), TOP 10. 이름은 textContent 로만 넣는다.
@@ -2159,14 +2159,19 @@ function finish(){
 const Rank = (() => {
   const URL_ = 'https://osfbhhdpqdydbkgbgmat.supabase.co';
   const KEY  = 'sb_publishable_IOCUMux3jedTRKdTSGvDdg_1YCPmMw0';   // 공개용 키(읽기·등록만 허용된 정책)
-  const TABLE = 'mungnyang_scores', TOP = 10;
+  const TABLE = 'boomboomtapgo_scores', TOP = 10;
   const H = extra => Object.assign({ apikey:KEY, Authorization:'Bearer '+KEY }, extra || {});
   const store = {
     get(k){ try{ return localStorage.getItem(k); }catch(e){ return null; } },
     set(k,v){ try{ localStorage.setItem(k,v); }catch(e){} },
   };
-  let device = store.get('mungnyang_device');
-  if(!device){ device = (crypto.randomUUID ? crypto.randomUUID() : String(Math.random()).slice(2)); store.set('mungnyang_device', device); }
+  // 옛 이름(멍멍냥냥) 시절 저장값은 새 이름으로 옮긴다 — 같은 기기가 순위에 두 줄 생기지 않게
+  for(const k of ['device', 'name']){
+    const old = store.get('mungnyang_' + k);
+    if(old && !store.get('boomboomtapgo_' + k)) store.set('boomboomtapgo_' + k, old);
+  }
+  let device = store.get('boomboomtapgo_device');
+  if(!device){ device = (crypto.randomUUID ? crypto.randomUUID() : String(Math.random()).slice(2)); store.set('boomboomtapgo_device', device); }
 
   const KST = 9*3600*1000;
   function weekStart(){
@@ -2182,7 +2187,7 @@ const Rank = (() => {
 
   let list = [], mine = null;
   async function fetchTop(){
-    const res = await fetch(URL_ + '/rest/v1/rpc/mungnyang_top', {
+    const res = await fetch(URL_ + '/rest/v1/rpc/boomboomtapgo_top', {
       method:'POST', headers:H({'Content-Type':'application/json'}),
       body: JSON.stringify({ since:new Date(weekStart()).toISOString(), until:null, lim:TOP }),
     });
@@ -2232,7 +2237,7 @@ const Rank = (() => {
     if(!qualifies(score)) return;
     const pos = list.findIndex(r => score > Number(r.score));
     el('nameTag').textContent = '🎉 이번 주 ' + ((pos < 0 ? list.length : pos) + 1) + '위 진입! 이름을 남기세요';
-    el('nameInput').value = store.get('mungnyang_name') || '';
+    el('nameInput').value = store.get('boomboomtapgo_name') || '';
     el('btnSave').disabled = false;
     f.hidden = false;
     f.onsubmit = async ev => {
@@ -2240,7 +2245,7 @@ const Rank = (() => {
       const name = el('nameInput').value.trim().slice(0, 12);
       if(!name){ el('nameInput').focus(); return; }
       el('btnSave').disabled = true;
-      store.set('mungnyang_name', name);
+      store.set('boomboomtapgo_name', name);
       try{
         const res = await fetch(URL_ + '/rest/v1/' + TABLE, {
           method:'POST', headers:H({'Content-Type':'application/json', Prefer:'return=minimal'}),
