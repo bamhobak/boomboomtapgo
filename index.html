@@ -387,7 +387,10 @@ const CONFIG = {
   timeLimit: 60,             // 1분 타임어택 — 곡 시계 기준(판이 정리되느라 곡이 기다리는 동안은 안 줄어든다)
   cols: 8,
   rows: 8,
-  colors: 6,                 // 여섯 색 = 여섯 품종. 매칭 키는 오직 색
+  // 판에 나오는 품종(PETS 번호). 매칭 키는 오직 색 = 품종.
+  // 0 레드 푸들은 뺐다 — 얼굴 그림 털색(Lab 중앙값)을 재 보니 시바견과 가장 비슷했다(차이 20.1, 다음이 오리엔탈↔허스키 21.7).
+  // 둘 중 로고에 나오는 시바를 남겼다. 바꾸려면 번호만 바꾸면 된다
+  roster: [1, 2, 3, 4, 5],
   judge:   { perfect: 0.090, good: 0.170 },
   combo:   { perfect: 0.2, good: 0.1, missFactor: 0, max: 5 },   // 놓치면 배율이 ×1.0 으로 (예전엔 0.55배로 깎였다)
   // 리필이 즉석 매치를 피할 확률. 1.0이면 연쇄가 거의 사라지고, 낮으면 보드가 혼자 굴러간다.
@@ -741,12 +744,14 @@ function slotAt(beatIndex){
 /* ============================ 보드 로직 (순수 영역) ======================= */
 
 let nextId = 1;
+/** 판에 나오는 품종 중 아무거나 하나 */
+const randColor = () => CONFIG.roster[(Math.random()*CONFIG.roster.length)|0];
 const inb = (r,c) => r>=0 && c>=0 && r<CONFIG.rows && c<CONFIG.cols;
 const key = (r,c) => r*CONFIG.cols + c;
 
 const makePet = (color) => ({
   id: nextId++,
-  color: color !== undefined ? color : (Math.random()*CONFIG.colors)|0,
+  color: color !== undefined ? color : randColor(),
   fromRow:null, fallAt:0,
 });
 // 매칭 키는 오직 색. 색마다 품종이 하나라 색이 곧 정체다.
@@ -886,7 +891,7 @@ function safeOptions(g, r, c){
   banSq(at(r+1,c),   at(r+1,c+1), at(r,c+1));
 
   const opts = [];
-  for(let i=0;i<CONFIG.colors;i++) if(!banned.has(i)) opts.push(i);
+  for(const i of CONFIG.roster) if(!banned.has(i)) opts.push(i);
   return opts;
 }
 
@@ -895,9 +900,9 @@ function safeOptions(g, r, c){
  * 이게 없으면 무작위 리필이 연쇄를 자가발전시켜 보드가 혼자 굴러간다.
  */
 function pickSafeColor(g, r, c){
-  if(Math.random() > CONFIG.refillSafety) return (Math.random()*CONFIG.colors)|0;
+  if(Math.random() > CONFIG.refillSafety) return randColor();
   const opts = safeOptions(g, r, c);
-  return opts.length ? opts[(Math.random()*opts.length)|0] : (Math.random()*CONFIG.colors)|0;
+  return opts.length ? opts[(Math.random()*opts.length)|0] : randColor();
 }
 
 /**
@@ -984,7 +989,7 @@ function newGrid(){
   for(let r=0;r<CONFIG.rows;r++) g.push(new Array(CONFIG.cols).fill(null));
   for(let r=0;r<CONFIG.rows;r++) for(let c=0;c<CONFIG.cols;c++){
     const opts = safeOptions(g, r, c);
-    g[r][c] = makePet(opts.length ? opts[(Math.random()*opts.length)|0] : (Math.random()*CONFIG.colors)|0);
+    g[r][c] = makePet(opts.length ? opts[(Math.random()*opts.length)|0] : randColor());
   }
   return g;
 }
@@ -1115,7 +1120,7 @@ function clearCells(cells, now, depth, label, noScore){
   // 충격파 고리 · 화면 번쩍 · 흔들림 — 콤보가 쌓일수록
   if(!REDUCED && J >= 1){
     const cx = sx/set.size, cy = sy/set.size;
-    const col = PETS[(S.grid && set.size ? (Math.random()*PETS.length)|0 : 0)].hex;
+    const col = PETS[randColor()].hex;
     S.rings.push({ x:cx, y:cy, t0:now, R:cell*(1.0 + 0.22*J), col:'#FFFFFF', life:0.32 + J*0.015, w:2 + J*0.45, dia:false });
     if(J >= 4) S.rings.push({ x:cx, y:cy, t0:now + 0.07, R:cell*(1.2 + 0.25*J), col:'#FDE047', life:0.38 + J*0.015, w:2 + J*0.35, dia:true });
     if(J >= 8) S.rings.push({ x:cx, y:cy, t0:now + 0.14, R:cell*(1.5 + 0.28*J), col, life:0.45, w:3, dia:false });
@@ -1389,7 +1394,7 @@ function confetti(now, combo){
   if(REDUCED) return;
   const n = Math.min(140, 50 + combo*4), shapes = shapesFor(12);
   for(let i=0;i<n;i++){
-    const col = i % 4 === 0 ? '#FFFFFF' : PETS[(Math.random()*PETS.length)|0].hex;
+    const col = i % 4 === 0 ? '#FFFFFF' : PETS[randColor()].hex;
     S.bits.push({ x:Math.random()*cell*CONFIG.cols, y:-cell*0.2 + Math.random()*cell*0.6,
       vx:(Math.random()-0.5)*160, vy:-40 - Math.random()*140, t0:now + Math.random()*0.15, col,
       sz:3 + Math.random()*4, shape:shapes[(Math.random()*shapes.length)|0], life:1.5 + Math.random()*0.4, g:260 });
