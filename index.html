@@ -94,6 +94,11 @@
                   background:var(--panel);box-shadow:0 0 0 3px var(--edge),inset 0 -3px 0 rgba(0,0,0,.35);
                   font-size:18px;font-variant-numeric:tabular-nums;color:var(--cream)}
   .timebar .clock.low{color:#FF3860;box-shadow:0 0 0 3px #FF3860}
+  .timebar{position:relative}
+  .timebar .plus{position:absolute;right:8px;top:100%;margin-top:-6px;font-size:15px;color:#4ADE80;white-space:nowrap;
+                 text-shadow:0 2px 0 rgba(0,0,0,.6);opacity:0;pointer-events:none}
+  .timebar .plus.go{animation:plus 800ms cubic-bezier(.2,.8,.2,1)}
+  @keyframes plus{0%{opacity:0;transform:translateY(6px) scale(.8)}20%{opacity:1;transform:translateY(0) scale(1.15)}75%{opacity:1}100%{opacity:0;transform:translateY(-10px)}}
   @keyframes tick{50%{opacity:.55}}
   @media (prefers-reduced-motion:reduce){ .timebar .fill.low{animation:none} }
   #mult.hot{color:var(--gold);text-shadow:0 0 16px rgba(253,224,71,.7)}
@@ -276,6 +281,7 @@
   <div class="timebar" role="timer" aria-label="남은 시간">
     <div class="track"><div class="fill" id="timeFill"></div></div>
     <div class="clock" id="time">60</div>
+    <span class="plus" id="timePlus" aria-hidden="true"></span>
   </div>
 
   <div class="boardwrap">
@@ -384,6 +390,7 @@ const CONFIG = {
   // 시간 따라 최소 레벨 — 20초부터 레벨 2, 40초부터 레벨 3 밑으로는 안 내려간다.
   // 단 그때까지 한 번도 닿아 본 적 없는 레벨로 끌어올리지는 않는다(그때까지 최고 레벨이 상한)
   floors: [ { at:20, level:2 }, { at:40, level:3 } ],
+  timeBonus: 0.5,            // 콤보가 1 오를 때마다 시간 +0.5초 (3줄 +0.5 · 4줄·ㄱㄴ+ +1 · 5줄 +1.5). 시간 끝난 뒤엔 안 붙는다
   timeLimit: 60,             // 1분 타임어택 — 곡 시계 기준(판이 정리되느라 곡이 기다리는 동안은 안 줄어든다)
   cols: 8,
   rows: 8,
@@ -1031,7 +1038,7 @@ const S = {
   fx:[], bits:[], rings:[], flashAt:-9, flashA:0, swapAnim:null,
   stats:{perfect:0,good:0,miss:0,turns:0,blocked:0,blasts:0,maxCombo:0,maxLevel:1,overBars:0},
   actedBeats:{}, blockFlash:-9,
-  errors:[], shake:0, hold:0, holding:false, releasedBar:0, dropPlan:null, popGroups:null, planBar:0, pin:null, droppedBar:-1, reshuffling:false, lastSwap:null, combo:0, comboMade:false, announceAt:-9, countShown:'', level:0, timeUp:false, lastPlayBar:Infinity, overAt:0,
+  errors:[], shake:0, hold:0, holding:false, releasedBar:0, dropPlan:null, popGroups:null, planBar:0, pin:null, droppedBar:-1, reshuffling:false, lastSwap:null, combo:0, comboMade:false, announceAt:-9, countShown:'', level:0, timeUp:false, bonusTime:0, lastPlayBar:Infinity, overAt:0,
   barIndex:-1, beatIndex:-1, drag:null, sel:null,
 };
 
@@ -1189,7 +1196,9 @@ function popStep(now, depth){
 
   // 콤보는 터진 모양만큼 오른다 — 터지기 전에 올려야 흥(juiceLevel)이 새 콤보로 터진다
   const prevCombo = S.combo;
-  S.combo += groups.reduce((n, gr) => n + comboValue(gr), 0);
+  const gain = groups.reduce((n, gr) => n + comboValue(gr), 0);
+  S.combo += gain;
+  if(!S.timeUp) addTime(gain * CONFIG.timeBonus);  // 콤보만큼 시간이 늘어난다
   S.comboMade = true;                              // 이 턴은 무언가 터졌다
   S.stats.maxCombo = Math.max(S.stats.maxCombo, S.combo);
 
@@ -1936,7 +1945,7 @@ function frame(){
 
 
   // 1분 타임어택 — 시간이 다 되면 그 마디(턴)의 4박까지만 손을 쓸 수 있다
-  if(!S.timeUp && song >= CONFIG.timeLimit){
+  if(!S.timeUp && song >= CONFIG.timeLimit + S.bonusTime){
     S.timeUp = true;
     S.lastPlayBar = bi;
     announce('시간 끝!');
@@ -1977,11 +1986,11 @@ function frame(){
 
   el('lvl').textContent = bar.level + 1;
   el('hudSub').textContent = bar.bpm + ' BPM';
-  const left = Math.max(0, CONFIG.timeLimit - Math.max(0, song));
+  const left = Math.max(0, CONFIG.timeLimit + S.bonusTime - Math.max(0, song));
   const tv = el('time'), tf = el('timeFill'), low = left <= 10;
   tv.textContent = S.timeUp ? '0' : Math.ceil(left);
   tv.classList.toggle('low', low);
-  tf.style.width = (left / CONFIG.timeLimit * 100).toFixed(2) + '%';
+  tf.style.width = Math.min(100, left / CONFIG.timeLimit * 100).toFixed(2) + '%';   // 60초 넘게 모이면 꽉 찬 채로
   tf.classList.toggle('low', low);
   el('score').textContent = S.score.toLocaleString();
   const m = el('mult');
@@ -2001,6 +2010,15 @@ function frame(){
 
   draw(now);
   if(S.overAt && now - S.overAt > 1.1) finish();   // 마지막 터짐을 보고 끝낸다
+}
+
+/** 시간 보너스 — 남은 시간이 늘고 시계 옆에 +N초 가 튄다 */
+function addTime(sec){
+  if(!(sec > 0)) return;
+  S.bonusTime += sec;
+  const b = el('timePlus');
+  b.textContent = '+' + sec.toFixed(1) + '초';
+  b.classList.remove('go'); void b.offsetWidth; b.classList.add('go');
 }
 
 /** 시간이 끝나고 마지막 턴도 지났다 — 이제 손을 못 댄다 */
@@ -2146,7 +2164,7 @@ function start(){
     fx:[], bits:[], rings:[], flashAt:-9, flashA:0, swapAnim:null,
     stats:{perfect:0,good:0,miss:0,turns:0,blocked:0,blasts:0,maxCombo:0,maxLevel:1,overBars:0},
     actedBeats:{}, blockFlash:-9,
-    errors:[], shake:0, hold:0, holding:false, releasedBar:0, dropPlan:null, popGroups:null, planBar:0, pin:null, droppedBar:-1, reshuffling:false, lastSwap:null, combo:0, comboMade:false, announceAt:-9, countShown:'', level:0, timeUp:false, lastPlayBar:Infinity, overAt:0,
+    errors:[], shake:0, hold:0, holding:false, releasedBar:0, dropPlan:null, popGroups:null, planBar:0, pin:null, droppedBar:-1, reshuffling:false, lastSwap:null, combo:0, comboMade:false, announceAt:-9, countShown:'', level:0, timeUp:false, bonusTime:0, lastPlayBar:Infinity, overAt:0,
       barIndex:-1, beatIndex:-1, drag:null, sel:null,
   });
   el('start').hidden = true; el('end').hidden = true;
