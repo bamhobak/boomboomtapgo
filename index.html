@@ -452,7 +452,7 @@
    ========================================================================= */
 
 // 게임 버전 — 수정해서 배포할 때마다 끝 두 자리를 1씩 올린다(v0.1.01 → v0.1.02). 화면 오른쪽 아래에 보인다
-const GAME_VERSION = 'v0.1.39';
+const GAME_VERSION = 'v0.1.40';
 /*
  * 번쩍임 줄이기 (v0.1.22) — 광과민성 배려. 켜면 화면 전체 번쩍임·흔들림을 끄고, 발판 조명·테두리 박동을 약하게.
  * 폰의 '동작 줄이기'가 켜져 있으면 처음부터 켠다. 고른 값은 이 기기에 기억한다.
@@ -2082,20 +2082,39 @@ function rowLit(i, now){
   }
   return i < S.level ? 1 : 0;
 }
+/* 레벨 불빛 — 칸이 아니라 칸 사이·둘레의 흰 판 바탕을 줄마다 판 전체 폭으로 채운다 (v0.1.40). 판 좌표(여백 포함)에서 그린다 */
+function drawMeterBands(w, h, now){
+  if(!S.live) return;
+  const V = BEATV, n = CONFIG.cols, rows = CONFIG.rows, k = (V ? V.k : 0) * (CALM.on ? 0.35 : 1);
+  const nextRow = S.level, per = CONFIG.level.comboPer;
+  const pending = levelOfCombo(S.combo) > S.level;
+  const frac = pending ? 1 : Math.max(0, Math.min(1, (S.combo - S.level*per) / per));
+  ctx.save();
+  roundRectPath(0, 0, w, h, boardR()); ctx.clip();
+  for(let r=0;r<rows;r++){
+    const i = rows - 1 - r;
+    const colr = METER_COLS[i] || METER_COLS[METER_COLS.length-1];
+    const y0 = r === 0 ? 0 : PAD + r*cell, y1 = r === rows - 1 ? h : PAD + (r + 1)*cell;   // 맨 윗줄·아랫줄은 판 끝까지
+    const litA = rowLit(i, now);
+    if(litA > 0){ ctx.globalAlpha = litA * (0.78 + 0.22*k); ctx.fillStyle = colr; ctx.fillRect(0, y0, w, y1 - y0); }
+    if(i === nextRow && nextRow < rows && frac > 0){                        // 다음 줄 — 콤보만큼 왼쪽부터, 오를 참이면 깜빡
+      const blink = pending ? 0.5 + 0.5*Math.sin(now*18) : 1;
+      ctx.globalAlpha = (pending ? 0.8 : 0.55) * blink; ctx.fillStyle = colr;
+      ctx.fillRect(0, y0, w * frac, y1 - y0);
+    }
+    ctx.globalAlpha = 1;
+  }
+  ctx.restore();
+}
 function drawFloor(now){
   const V = BEATV, n = CONFIG.cols, rows = CONFIG.rows;
   const ib = V ? V.ib : 0, k = (V ? V.k : 0) * (CALM.on ? 0.35 : 1);   // 번쩍임 줄이기면 조명 깜빡임을 약하게
-  const gap = Math.max(1, Math.round(cell*0.05)), rr = Math.max(3, cell*0.2);
+  const gap = Math.max(2, Math.round(cell*0.08)), rr = Math.max(3, cell*0.2);   // v0.1.40 칸 간격을 넓혀 판 바탕(레벨 불빛)이 보이게
   const live = S.live;
-  // 다음 줄 예고 — 콤보가 다음 레벨까지 얼마나 찼나
-  const nextRow = S.level, per = CONFIG.level.comboPer;
-  const pending = live && levelOfCombo(S.combo) > S.level;                // 기준을 넘었다 — 다음 마디부터 빨라진다
-  const frac = !live ? 0 : pending ? 1 : Math.max(0, Math.min(1, (S.combo - S.level*per) / per));
   const floorTop = live ? floorLevel(Math.max(0, now - S.hold)) : 0;     // 최소 레벨 — 이 줄 수만큼은 안 꺼진다
   for(let r=0;r<rows;r++){
     const i = rows - 1 - r;                                               // 아래에서 몇 번째 줄
     const colr = METER_COLS[i] || METER_COLS[METER_COLS.length-1];
-    const litA = live ? rowLit(i, now) : 0;
     for(let c=0;c<n;c++){
       const x = c*cell + gap, y = r*cell + gap, sz = cell - gap*2;
       // 바탕 패널 — 파스텔 스티커 칸 (v0.1.31)
@@ -2103,33 +2122,20 @@ function drawFloor(now){
       roundRectPath(x, y, sz, sz, rr); ctx.fill();
       ctx.fillStyle = 'rgba(59,35,20,0.10)';                                 // 아래쪽 살짝 그늘 — 스티커 두께
       roundRectPath(x, y + sz*0.84, sz, sz*0.16, rr*0.5); ctx.fill();
-      // 켜진 줄 — 그 줄 색으로 옅게(말을 가리지 않게), 박마다 살짝 밝아진다
-      if(litA > 0){
-        ctx.globalAlpha = litA * (0.34 + 0.16*k);
-        ctx.fillStyle = colr; roundRectPath(x, y, sz, sz, rr); ctx.fill();
-      }
-      // 다음 줄 — 콤보만큼 왼쪽부터 차오른다. 다 차서 오를 참이면 깜빡
-      if(live && i === nextRow && nextRow < rows && frac > 0){
-        const part = Math.max(0, Math.min(1, frac*n - c));
-        if(part > 0){
-          const blink = pending ? 0.5 + 0.5*Math.sin(now*18) : 1;
-          ctx.save(); roundRectPath(x, y, sz, sz, rr); ctx.clip();
-          ctx.globalAlpha = (pending ? 0.5 : 0.28) * blink;
-          ctx.fillStyle = colr; ctx.fillRect(x, y, sz*part, sz);
-          ctx.restore();
-        }
-      }
       // 박 반짝 — 체크무늬 절반이 하얗게
       const lit = ((r + c + ib) & 1) === 0;
       const a = k*(lit ? 0.3 : 0.08)*(V && V.pos === 0 ? 1.25 : 1);
       if(a > 0.01){ ctx.globalAlpha = Math.min(0.45, a); ctx.fillStyle = '#FFFFFF'; roundRectPath(x, y, sz, sz, rr); ctx.fill(); }
       ctx.globalAlpha = 1;
-      // 최소 레벨 줄 — 두꺼운 테두리
-      if(live && floorTop > 0 && i === floorTop - 1){
-        ctx.strokeStyle = colr; ctx.globalAlpha = 0.9; ctx.lineWidth = Math.max(2, cell*0.08);
-        roundRectPath(x + 1, y + 1, sz - 2, sz - 2, rr); ctx.stroke(); ctx.globalAlpha = 1;
-      }
     }
+  }
+  // 최소 레벨 — 그 줄 위쪽 경계에 두꺼운 선 "여기 아래로는 안 떨어진다"
+  if(live && floorTop > 0){
+    const yy = (rows - floorTop) * cell;
+    ctx.strokeStyle = '#3B2314'; ctx.lineWidth = Math.max(3, cell*0.09);
+    ctx.beginPath(); ctx.moveTo(-PAD, yy); ctx.lineTo(n*cell + PAD, yy); ctx.stroke();
+    ctx.strokeStyle = METER_COLS[floorTop - 1]; ctx.lineWidth = Math.max(2, cell*0.05);
+    ctx.beginPath(); ctx.moveTo(-PAD, yy); ctx.lineTo(n*cell + PAD, yy); ctx.stroke();
   }
 }
 /* 파스텔 스티커 칸 다섯 색 — 살구 · 분홍 · 하늘 · 연두 · 연보라 */
@@ -2157,6 +2163,7 @@ function draw(now){
 
   const R = boardR();
   ctx.fillStyle='#FFF4E6'; roundRectPath(0,0,w,h,R); ctx.fill();   // v0.1.31 판 바탕은 크림색 쟁반 · v0.1.34 모서리 둥글게
+  drawMeterBands(w, h, now);                                        // v0.1.40 레벨 불빛이 판 바탕을 아래에서부터 채운다
 
   // 차례가 아닐 때 조작하면 판 테두리가 튕겨낸다
   const bf = (now - S.blockFlash)/0.28;
