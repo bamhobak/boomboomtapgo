@@ -389,7 +389,7 @@
    ========================================================================= */
 
 // 게임 버전 — 수정해서 배포할 때마다 끝 두 자리를 1씩 올린다(v0.1.01 → v0.1.02). 화면 오른쪽 아래에 보인다
-const GAME_VERSION = 'v0.1.09';
+const GAME_VERSION = 'v0.1.10';
 
 const CONFIG = {
   bpm: 64,                   // 시작 템포 — 초심자가 편하게 시작하도록 72 → 64 로 낮췄다. 레벨마다 level.stepMul 배씩 빨라진다
@@ -624,7 +624,9 @@ function bgmLoopLen(b, tr){
   return Math.max(1, Math.floor(b.duration / barSec + 0.02)) * barSec;
 }
 
-const Bgm = { src:null, gain:null, level:-1 };
+const Bgm = { src:null, gain:null, level:-1, run:null, resume:{} };
+// run    — 지금 곡이 한 레벨 동안 이어 도는 구간 { key, first(시작 마디), base(그때 곡 위치), rate, len }
+// resume — 곡마다 떠날 때의 위치(곡 마디 머리). 그 레벨로 돌아오면 처음이 아니라 여기서 이어 튼다(v0.1.10)
 // BGM 크기 — 효과음보다 7~10dB 작게 들려 0.34 → 0.55 로 올렸다(v0.1.07). 곡별 차이는 LEVEL_TRACKS.gain 이 맞춘다
 const BGM_VOL = 0.55;
 
@@ -656,7 +658,12 @@ function bgmStart(songPos){
   while(first > 0 && BARS[first-1].level === bar.level) first--;
   const rate = bar.bpm / tr.bpm;                       // 곡의 **실제** 템포 기준 — 1.00배 안팎
   const len = bgmLoopLen(b, tr);
-  const pos = ((tr.offset || 0) + (songPos - BARS[first].startTime) * rate) % len;
+  // 새 구간이면 — 전에 이 곡을 틀다 떠났으면 그 자리에서, 처음이면 첫 박에서 시작한다
+  if(!Bgm.run || Bgm.run.first !== first || Bgm.run.key !== tr.key){
+    const saved = Bgm.resume[tr.key];
+    Bgm.run = { key:tr.key, first, base: saved !== undefined ? saved : (tr.offset || 0), rate, len };
+  }
+  const pos = (Bgm.run.base + (songPos - BARS[first].startTime) * rate) % len;
   bgmStop(0.04);
   const src = Audio_.ac.createBufferSource();
   src.buffer = b; src.loop = true; src.playbackRate.value = rate;
@@ -2068,7 +2075,19 @@ function changeLevel(now, bar, song){
   S.stats.maxLevel = Math.max(S.stats.maxLevel, bar.level + 1);
   if(up) levelUp(now, bar);
   else levelDown(now, bar);
+  bgmRemember(bar.startTime);
   if(Bgm.src) bgmStart(song);
+}
+
+/**
+ * 레벨이 바뀌는 마디 머리에서, 떠나는 곡이 어디까지 흘렀는지 적어 둔다.
+ * 게임 마디 머리 = 곡 마디 머리(재생속도로 템포를 맞추므로)라 이어 틀어도 박이 안 어긋난다.
+ */
+function bgmRemember(atSong){
+  const r = Bgm.run;
+  if(!r) return;
+  Bgm.resume[r.key] = (r.base + (atSong - BARS[r.first].startTime) * r.rate) % r.len;
+  Bgm.run = null;
 }
 
 /**
@@ -2189,6 +2208,7 @@ function start(){
   if(Audio_.ac.state==='suspended') Audio_.ac.resume();
   loadBank();                                    // 받아지면 그때부터 표본으로 바뀐다
   buildTimeline();
+  Bgm.run = null; Bgm.resume = {};                 // 판마다 곡은 처음부터
 
   let grid = newGrid(), guard = 0;
   while(!hasMove(grid) && guard++ < 20) grid = newGrid();
