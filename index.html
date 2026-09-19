@@ -363,13 +363,6 @@
     <div id="combo"><span id="combov">4</span><em>combo</em></div>
   </div>
 
-  <div class="rail">
-    <i class="grill" aria-hidden="true"></i>
-    <div class="deckmid">
-      <div class="beats" id="beats"></div>
-    </div>
-    <i class="grill" aria-hidden="true"></i>
-  </div>
 
   <div class="overlay" id="start">
     <div>
@@ -458,7 +451,7 @@
    ========================================================================= */
 
 // 게임 버전 — 수정해서 배포할 때마다 끝 두 자리를 1씩 올린다(v0.1.01 → v0.1.02). 화면 오른쪽 아래에 보인다
-const GAME_VERSION = 'v0.1.54';
+const GAME_VERSION = 'v0.1.55';
 /*
  * 번쩍임 줄이기 (v0.1.22) — 광과민성 배려. 켜면 화면 전체 번쩍임·흔들림을 끄고, 발판 조명·테두리 박동을 약하게.
  * 폰의 '동작 줄이기'가 켜져 있으면 처음부터 켠다. 고른 값은 이 기기에 기억한다.
@@ -2197,8 +2190,16 @@ function drawMeterWave(w, h, now){
   ctx.globalAlpha = 1;
   ctx.restore();
 }
+/* 박마다 튀어오르는 세기와 색 — 1박 약한 하양 · 2박 중간 하양 · 3박(딱) 주황 강하게 · 4박(숑) 파랑 강하게 (v0.1.55) */
+const BEAT_POP = [
+  { amp: 0.8, a: 0.16, col: '#FFFFFF' },
+  { amp: 1.2, a: 0.3,  col: '#FFFFFF' },
+  { amp: 2.2, a: 0.5,  col: '#FF8A1E' },
+  { amp: 2.2, a: 0.5,  col: '#4C8DFF' },
+];
 function drawFloor(now){
   const V = BEATV, n = CONFIG.cols, rows = CONFIG.rows;
+  const BP = BEAT_POP[V ? V.pos % 4 : 0];
   const ib = V ? V.ib : 0, k = (V ? V.k : 0) * (CALM.on ? 0.35 : 1);   // 번쩍임 줄이기면 조명 깜빡임을 약하게
   const gap = Math.max(2, Math.round(cell*0.08)), rr = Math.max(3, cell*0.2);   // v0.1.40 칸 간격을 넓혀 판 바탕(레벨 불빛)이 보이게
   for(let r=0;r<rows;r++){
@@ -2209,10 +2210,10 @@ function drawFloor(now){
       roundRectPath(x, y, sz, sz, rr); ctx.fill();
       ctx.fillStyle = 'rgba(59,35,20,0.10)';                                 // 아래쪽 살짝 그늘 — 스티커 두께
       roundRectPath(x, y + sz*0.84, sz, sz*0.16, rr*0.5); ctx.fill();
-      // 박 반짝 — 체크무늬 절반이 하얗게
+      // 박 반짝 — 1박 옅은 하양 · 2박 중간 하양 · 3박 주황 · 4박 파랑 (v0.1.55)
       const lit = ((r + c + ib) & 1) === 0;
-      const a = k*(lit ? 0.3 : 0.08)*(V && V.pos === 0 ? 1.25 : 1);
-      if(a > 0.01){ ctx.globalAlpha = Math.min(0.45, a); ctx.fillStyle = '#FFFFFF'; roundRectPath(x, y, sz, sz, rr); ctx.fill(); }
+      const a = k*BP.a*(lit ? 1 : 0.35);
+      if(a > 0.01){ ctx.globalAlpha = Math.min(0.6, a); ctx.fillStyle = BP.col; roundRectPath(x, y, sz, sz, rr); ctx.fill(); }
       ctx.globalAlpha = 1;
     }
   }
@@ -2231,7 +2232,9 @@ function draw(now){
   BEATV = beatVisual(now);
   vibBeat();                                          // 박이 바뀌는 순간 폰 진동
   const lvAmp = 0.45 + (S.live ? S.level : 0) * 0.42;                  // v0.1.38 레벨 1 졸린 끄덕 0.45배 → 레벨 9 3.8배
-  BOB = (BEATV ? cell * 0.045 * BEATV.k * (BEATV.pos === 0 ? 1.5 : 1) * lvAmp : 0) + lvHop(now);
+  // v0.1.55 박마다 세기가 다르다 — 1박 약 · 2박 중 · 3박(딱)·4박(숑) 강하게 튀어오른다
+  const beatAmp = BEATV ? BEAT_POP[BEATV.pos % 4].amp : 1;
+  BOB = (BEATV ? cell * 0.045 * BEATV.k * beatAmp * lvAmp : 0) + lvHop(now);
   SWAY = BEATV && S.level >= 4 ? (BEATV.ib % 2 ? 1 : -1) * cell * 0.012 * (S.level - 3) * BEATV.k : 0;   // 높은 레벨은 머리를 좌우로도 흔든다
   const w = cell*CONFIG.cols + PAD*2, h = cell*CONFIG.rows + PAD*2;
   ctx.clearRect(0,0,w,h);
@@ -2527,7 +2530,7 @@ function frame(){
     : slot==='T' ? '누르기 <em>옮길 말 고르기</em>'
     : slot==='D' ? (S.sel ? '드래그 <em>고른 말 밀기</em>' : '드래그 <em>밀 방향</em>')
     : '대기 <em>다음 수 읽기</em>';
-  el('beats').classList.toggle('waiting', S.holding);
+  if(el('beats')) el('beats').classList.toggle('waiting', S.holding);
   el('callout').classList.toggle('waiting', S.holding);
 
   draw(now);
@@ -2650,8 +2653,9 @@ function announce(text, cd){
 }
 
 function flashBeat(pos, pattern){
-  const box = el('beats');
+  const box = el('beats');                          // v0.1.55 조작판을 없앴다 — 박 점이 없으면 구호만 갱신한다
   const sig = pattern.join('');
+  if(box){
   if(box.dataset.sig !== sig){
     box.dataset.sig = sig;
     box.innerHTML = '';
@@ -2662,6 +2666,7 @@ function flashBeat(pos, pattern){
     }
   }
   [...box.children].forEach((d,i)=>d.classList.toggle('hit', i===pos));
+  }
 
   // 판 위 구호 — 둠 · 칫 · 딱(3박 누르기) · 숑(4박 드래그)
   const co = el('callout');
