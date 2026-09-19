@@ -389,7 +389,7 @@
    ========================================================================= */
 
 // 게임 버전 — 수정해서 배포할 때마다 끝 두 자리를 1씩 올린다(v0.1.01 → v0.1.02). 화면 오른쪽 아래에 보인다
-const GAME_VERSION = 'v0.1.13';
+const GAME_VERSION = 'v0.1.14';
 
 const CONFIG = {
   bpm: 64,                   // 시작 템포 — 초심자가 편하게 시작하도록 72 → 64 로 낮췄다. 레벨마다 level.stepMul 배씩 빨라진다
@@ -498,7 +498,7 @@ const Audio_ = {
  *   /_blob/<id>  아티팩트 에셋 (mp3 는 에셋으로 못 올려 base64 json 으로 묶었다)
  */
 const AUDIO_BLOB = {
-  'sfx':     '631dbb98c5552255260861e40f4859a3',
+  'sfx':     '8aaff069b6ee6bf8055adfdca24508c4',   // v0.1.14 터지는 소리 4종을 반짝·차임 소리로 교체
   'voice':   'e95c9c2a08dc9ec25ba1b4ceff3c1317',
   'level-1': '0e7783e9e97d8ab09a6df23ec0583ef0',
   'level-2': '8a7d0608720a75043f6dd535eef7292b',
@@ -1737,14 +1737,40 @@ function drawBeatFrame(w, h){
 
 /** 곧 터질 말 — 깜빡이는 흰 테두리. 떨어지는 중인 말은 그 그려진 자리에 두른다 */
 let POPSET = new Set();
-function popMark(x, y, now){
+/*
+ * 곧 터질 말 — 네모가 아니라 캐릭터 모양 그대로 흰 테두리가 깜빡인다(v0.1.14).
+ * 얼굴 그림을 흰색으로 칠한 실루엣을 둘레 12방향으로 조금씩 밀어 찍고, 그 위에 말을 그린다.
+ * 그래서 말을 그리기 **전에** 부른다.
+ */
+const SIL = [];
+function silhouette(color){
+  if(SIL[color]) return SIL[color];
+  const im = FACES[color];
+  if(!im || !im.complete || !im.naturalWidth) return null;
+  const c = document.createElement('canvas');
+  c.width = im.naturalWidth; c.height = im.naturalHeight;
+  const g = c.getContext('2d');
+  g.drawImage(im, 0, 0);
+  g.globalCompositeOperation = 'source-in';
+  g.fillStyle = '#FFFFFF'; g.fillRect(0, 0, c.width, c.height);
+  return (SIL[color] = c);
+}
+function popMark(x, y, now, color){
   const p = 0.5 + 0.5*Math.sin(now*14);
-  const sz = cell*0.88, lw = Math.max(2, Math.round(cell*0.07));
+  const sil = silhouette(color);
   ctx.save();
-  ctx.globalAlpha = 0.45 + 0.5*p;
-  ctx.strokeStyle = '#FFFFFF';
-  ctx.lineWidth = lw;
-  ctx.strokeRect(Math.round(x - sz/2 - lw/2), Math.round(y - sz/2 - lw/2), Math.round(sz + lw), Math.round(sz + lw));
+  ctx.globalAlpha = 0.5 + 0.5*p;
+  if(sil){
+    const k = cell*0.88*1.04, r = Math.max(2, cell*0.07);
+    for(let i=0;i<12;i++){
+      const a = i*Math.PI/6;
+      ctx.drawImage(sil, Math.round(x - k/2 + Math.cos(a)*r), Math.round(y - k/2 + Math.sin(a)*r), Math.round(k), Math.round(k));
+    }
+  } else {                                           // 그림이 아직 없으면 예전 네모
+    const sz = cell*0.88, lw = Math.max(2, Math.round(cell*0.07));
+    ctx.strokeStyle = '#FFFFFF'; ctx.lineWidth = lw;
+    ctx.strokeRect(Math.round(x - sz/2 - lw/2), Math.round(y - sz/2 - lw/2), Math.round(sz + lw), Math.round(sz + lw));
+  }
   ctx.restore();
 }
 
@@ -1757,10 +1783,10 @@ function drawTile(t, r, c, now, dx, dy){
   }
   const hint = t.fromRow===null ? fallHint(t,r,c) : 0;
   const x = (c+0.5)*cell + dx, y = (dr+0.5)*cell + dy + hint + BOB;
+  if(POPSET.has(t.id)) popMark(x, y, now, t.color);   // 떨어지면 곧바로 터질 말 — 말 뒤에 모양 테두리
   if(hint > 0) ctx.globalAlpha = 0.72;             // 곧 내려올 말은 연하게
   drawPet(x, y, cell*0.88, t.color, 1);
   ctx.globalAlpha = 1;
-  if(POPSET.has(t.id)) popMark(x, y, now);          // 떨어지면 곧바로 터질 말
 }
 
 function draw(now){
@@ -1828,10 +1854,10 @@ function draw(now){
         if(t && t.dropFrom === -1){ next = t; break; }   // 그 열에 맨 먼저 들어올 말
       }
       if(!next) continue;
+      if(POPSET.has(next.id)) popMark((c+0.5)*cell, -0.5*cell + cell*FALL_HINT, now, next.color);
       ctx.globalAlpha = 0.72;
       drawPet((c+0.5)*cell, -0.5*cell + cell*FALL_HINT, cell*0.88, next.color, 1);
       ctx.globalAlpha = 1;
-      if(POPSET.has(next.id)) popMark((c+0.5)*cell, -0.5*cell + cell*FALL_HINT, now);
     }
   }
 
@@ -1850,10 +1876,10 @@ function draw(now){
       ctx.strokeStyle = PETS[t.color].deep;
       ctx.lineWidth = 2;
       ctx.strokeRect(Math.round(x-cell*0.44)+1, Math.round(y-cell*0.44)+1, Math.round(cell*0.88)-2, Math.round(cell*0.88)-2);
+      if(POPSET.has(t.id)) popMark(x, y, now, t.color);
       ctx.globalAlpha = 0.16;
       drawPet(x, y, cell*0.88, t.color, 1);
       ctx.globalAlpha = 1;
-      if(POPSET.has(t.id)) popMark(x, y, now);
     }
   }
 
