@@ -389,7 +389,7 @@
    ========================================================================= */
 
 // 게임 버전 — 수정해서 배포할 때마다 끝 두 자리를 1씩 올린다(v0.1.01 → v0.1.02). 화면 오른쪽 아래에 보인다
-const GAME_VERSION = 'v0.1.15';
+const GAME_VERSION = 'v0.1.16';
 
 const CONFIG = {
   bpm: 64,                   // 시작 템포 — 초심자가 편하게 시작하도록 72 → 64 로 낮췄다. 레벨마다 level.stepMul 배씩 빨라진다
@@ -500,6 +500,7 @@ const Audio_ = {
 const AUDIO_BLOB = {
   'sfx':     '8aaff069b6ee6bf8055adfdca24508c4',   // v0.1.14 터지는 소리 4종을 반짝·차임 소리로 교체
   'voice':   'e95c9c2a08dc9ec25ba1b4ceff3c1317',
+  'menu':    '26629809f2d3943fe028a515b38b75cb',
   'level-1': '9842b48729158b56fcb87445b3869de8',
   'level-2': '52f2ad49efa41ee2d2793426a042fd68',
   'level-3': '96810ea52f864a6f12531e0feebe9a52',
@@ -2240,7 +2241,61 @@ function flashBeat(pos, pattern){
 const COUNT_IN = 3;                                      // 시작 전에 세는 박 수
 const bpmBeat = L => 60 / bpmOfLevel(L);
 
+/*
+ * 메뉴 음악 — 시작·결과 화면에서 도는 '둠 칫 딱 숑' 구호송(사용자 Suno, src/menu.mp3). v0.1.16
+ * 실측 112.54 BPM · 첫 박 0.14초 · 정확히 18마디(38.4초) + 끝맺음 꼬리.
+ * 끝나고 처음으로 돌아갈 때 자연스럽게: 다음 바퀴를 **18마디째 박에 맞춰** 미리 겹쳐 틀고,
+ * 앞 바퀴의 끝맺음 꼬리는 그 위에서 서서히 줄인다 — 박이 끊기지 않고 이어진다.
+ * 브라우저는 화면을 한 번 누르기 전엔 소리를 막으므로 첫 터치 때 켠다.
+ */
+const MENU = { file:'menu', bpm:112.54, first:0.14, bars:18, gain:1.29 };
+const Menu = { on:false, timer:null, nodes:[], job:null };
+function menuLoad(){
+  if(!Menu.job) Menu.job = (async () => { const j = await fetchAudioJson(MENU.file); if(j) await decodeInto(j); return !!j; })();
+  return Menu.job;
+}
+function menuStart(){
+  if(Menu.on || S.live) return;
+  Audio_.init();
+  if(Audio_.ac.state === 'suspended') Audio_.ac.resume();
+  Menu.on = true;
+  menuLoad().then(() => { if(Menu.on && !Menu.nodes.length) menuLap(Audio_.ac.currentTime + 0.05); });
+}
+function menuLap(t){
+  const b = Bank.buf.menu;
+  if(!b || !Menu.on) return;
+  const ac = Audio_.ac, L = MENU.bars * 240 / MENU.bpm, vol = BGM_VOL * MENU.gain;
+  const src = ac.createBufferSource(), g = ac.createGain();
+  src.buffer = b;
+  g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(vol, t + 0.03);
+  g.gain.setValueAtTime(vol, t + L);                            // 다음 바퀴가 박에 맞춰 들어오면
+  g.gain.linearRampToValueAtTime(0.0001, t + b.duration);        // 끝맺음 꼬리는 서서히 줄인다
+  src.connect(g); g.connect(Audio_.master);
+  src.start(t); src.stop(t + b.duration + 0.05);
+  const node = { src, g };
+  Menu.nodes.push(node);
+  src.onended = () => { Menu.nodes = Menu.nodes.filter(n => n !== node); };
+  clearTimeout(Menu.timer);
+  Menu.timer = setTimeout(() => menuLap(t + L), Math.max(0, (t + L - ac.currentTime - 1) * 1000));
+}
+function menuStop(fade){
+  Menu.on = false;
+  clearTimeout(Menu.timer);
+  if(!Audio_.ac) return;
+  const t = Audio_.ac.currentTime, f = fade || 0.4;
+  for(const n of Menu.nodes){
+    try{ n.g.gain.cancelScheduledValues(t); n.g.gain.setValueAtTime(n.g.gain.value, t);
+         n.g.gain.linearRampToValueAtTime(0, t + f); n.src.stop(t + f + 0.02); }catch(e){}
+  }
+  Menu.nodes = [];
+}
+// 첫 터치(또는 키)에 메뉴 음악을 켠다 — 게임 중이 아니고 시작·결과 화면이 떠 있을 때만
+['pointerup', 'touchend', 'keydown'].forEach(ev => addEventListener(ev, () => {
+  if(!S.live && (!el('start').hidden || !el('end').hidden)) menuStart();
+}, { passive:true }));
+
 function start(){
+  menuStop(0.3);
   Audio_.init();
   if(Audio_.ac.state==='suspended') Audio_.ac.resume();
   loadBank();                                    // 받아지면 그때부터 표본으로 바뀐다
@@ -2279,6 +2334,7 @@ function finish(){
   S.live = false;
   bgmStop();
   clearInterval(schedTimer);
+  setTimeout(menuStart, 600);                      // 결과 화면에서 메뉴 음악이 다시 돈다
 
   const total = S.stats.perfect + S.stats.good + S.stats.miss;
   const avg = S.errors.length ? S.errors.reduce((a,b)=>a+b,0)/S.errors.length*1000 : 0;
