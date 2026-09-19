@@ -573,7 +573,7 @@
    ========================================================================= */
 
 // 게임 버전 — 수정해서 배포할 때마다 끝 두 자리를 1씩 올린다(v0.1.01 → v0.1.02). 화면 오른쪽 아래에 보인다
-const GAME_VERSION = 'v0.1.75';
+const GAME_VERSION = 'v0.1.76';
 /*
  * 번쩍임 줄이기 (v0.1.22) — 광과민성 배려. 켜면 화면 전체 번쩍임·흔들림을 끄고, 발판 조명·테두리 박동을 약하게.
  * 폰의 '동작 줄이기'가 켜져 있으면 처음부터 켠다. 고른 값은 이 기기에 기억한다.
@@ -2095,7 +2095,7 @@ function drawBarRing(w, h){
   const band = Math.max(8, cell*0.55);
   // v0.1.58 고리는 들어오면서 색이 이어져 바뀐다: 바깥 하양 → 노랑 → 주황 → 가운데 파랑
   const rgb = ringColorAt(prog);
-  const A = CALM.on ? 0.1 : 0.18;                                    // v0.1.41 0.4 → 0.18 (판이 가려진다)
+  const A = CALM.on ? 0.18 : 0.32;                                   // v0.1.76 다시 또렷하게(0.18 → 0.32)
   // 고정 과녁 — 빛 고리가 3박(누르기)·4박(드래그) 정박에 닿는 자리. 고리가 여기 겹칠 때 누르고 · 민다 (v0.1.38)
   const Rmax = Math.hypot(w, h)/2, meter = V.meter || 4;
   ctx.save();
@@ -2123,16 +2123,16 @@ function drawBarRing(w, h){
   const tail = cell * (0.3 + (S.level || 0) * 0.35), steps = 3;       // v0.1.41 잔상 7 → 3줄, 짧고 옅게
   for(let j=1;j<=steps;j++){
     const rr = r + tail * j / steps;
-    ctx.strokeStyle = `rgba(${rgb},${(CALM.on ? 0.1 : 0.18) * (1 - j/(steps+1))})`;
-    ctx.lineWidth = Math.max(1.5, cell*0.05);
+    ctx.strokeStyle = `rgba(${rgb},${(CALM.on ? 0.16 : 0.3) * (1 - j/(steps+1))})`;
+    ctx.lineWidth = Math.max(2, cell*0.06);
     ctx.beginPath(); ctx.arc(cx, cy, rr, 0, Math.PI*2); ctx.stroke();
   }
   if(prog < 0.45){                                                    // 밝은 색 선은 크림 판에 묻히니 밑에 옅은 남색 그림자
-    ctx.strokeStyle = 'rgba(26,18,56,0.16)'; ctx.lineWidth = Math.max(3, cell*0.08);
+    ctx.strokeStyle = 'rgba(26,18,56,0.3)'; ctx.lineWidth = Math.max(5, cell*0.13);   // 밝은 색 선 밑그림자도 진하게
     ctx.beginPath(); ctx.arc(cx, cy, Math.max(0.5, r), 0, Math.PI*2); ctx.stroke();
   }
-  ctx.strokeStyle = `rgba(${rgb},${CALM.on ? 0.3 : 0.5})`;           // 띠 한가운데 가는 선 (v0.1.41 0.8 → 0.5)
-  ctx.lineWidth = Math.max(2, cell*0.05);
+  ctx.strokeStyle = `rgba(${rgb},${CALM.on ? 0.55 : 0.92})`;         // 띠 한가운데 선 (v0.1.76 0.5 → 0.92)
+  ctx.lineWidth = Math.max(3, cell*0.075);
   ctx.beginPath(); ctx.arc(cx, cy, Math.max(0.5, r), 0, Math.PI*2); ctx.stroke();
   ctx.restore();
 }
