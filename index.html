@@ -164,11 +164,22 @@
                background:radial-gradient(ellipse at 50% 0%,rgba(var(--tc),calc(.5 * var(--tk))),transparent 72%);
                filter:blur(3px)}
   /* 3·4박 판정 글자 — 우퍼 위에 뜬다 (v0.1.60) */
-  .thump .judge{position:absolute;left:0;right:0;top:20px;text-align:center;font-size:26px;letter-spacing:.06em;
-                line-height:1;opacity:0;pointer-events:none;-webkit-text-stroke:5px rgba(10,7,24,.85);paint-order:stroke fill}
-  .thump .judge.go{animation:judgein 620ms cubic-bezier(.2,.8,.2,1)}
-  @keyframes judgein{0%{opacity:0;transform:translateY(8px) scale(.8)}18%{opacity:1;transform:translateY(0) scale(1.12)}
-                     40%{transform:scale(1)}75%{opacity:1}100%{opacity:0;transform:translateY(-10px)}}
+  /*
+   * 판정 글자는 팝콘처럼 튄다 (v0.1.62) — 우퍼에서 튀어 올라 판 위까지 올라간다.
+   * 높이는 판정이 정하고(퍼펙트 제일 높이), 좌우 방향·기울기는 튈 때마다 다르다.
+   * --jx 좌우 거리 · --jh 높이 · --jr 기울기 — 자바스크립트가 넣는다.
+   */
+  .thump .judge{position:absolute;left:0;right:0;top:16px;z-index:7;text-align:center;font-size:28px;letter-spacing:.06em;
+                line-height:1;opacity:0;pointer-events:none;-webkit-text-stroke:5px rgba(10,7,24,.85);paint-order:stroke fill;
+                will-change:transform,opacity;--jx:0px;--jh:120px;--jr:0deg}
+  .thump .judge.go{animation:judgepop var(--jd,820ms) cubic-bezier(.16,.9,.3,1) forwards}
+  @keyframes judgepop{
+      0%{opacity:0;transform:translate(0,14px) rotate(0) scale(.6)}
+     10%{opacity:1;transform:translate(calc(var(--jx) * .18), calc(var(--jh) * -.5)) rotate(calc(var(--jr) * .3)) scale(1.25)}
+     38%{opacity:1;transform:translate(calc(var(--jx) * .62), calc(var(--jh) * -1)) rotate(var(--jr)) scale(1.05)}
+     62%{opacity:1;transform:translate(calc(var(--jx) * .86), calc(var(--jh) * -.8)) rotate(calc(var(--jr) * 1.25)) scale(1)}
+    100%{opacity:0;transform:translate(var(--jx), calc(var(--jh) * -.3)) rotate(calc(var(--jr) * 1.6)) scale(.86)}
+  }
   @media (prefers-reduced-motion:reduce){ .thump .cone{transform:none} .thump .judge.go{animation:none;opacity:1} }
 
   .overlay{position:absolute;inset:0;z-index:10;display:flex;flex-direction:column;align-items:center;
@@ -474,7 +485,7 @@
    ========================================================================= */
 
 // 게임 버전 — 수정해서 배포할 때마다 끝 두 자리를 1씩 올린다(v0.1.01 → v0.1.02). 화면 오른쪽 아래에 보인다
-const GAME_VERSION = 'v0.1.61';
+const GAME_VERSION = 'v0.1.62';
 /*
  * 번쩍임 줄이기 (v0.1.22) — 광과민성 배려. 켜면 화면 전체 번쩍임·흔들림을 끄고, 발판 조명·테두리 박동을 약하게.
  * 폰의 '동작 줄이기'가 켜져 있으면 처음부터 켠다. 고른 값은 이 기기에 기억한다.
@@ -1242,13 +1253,25 @@ function judgeFor(t, type){
  * 점수·배율 규칙은 그대로(퍼펙트 0.09 · 굿 0.17) — 글자만 네 단계로 나눠 보여 준다.
  */
 const JUDGE_LOOK = {
-  PERFECT: '#FDE047', NICE: '#4ADE80', OK: '#7FD8FF', MISS: '#FF5C7A',
+  // 색 · 튀어오르는 높이(판 높이 대비) · 좌우 흔들림 · 기울기 · 시간
+  PERFECT: { col: '#FDE047', h: 0.72, x: 0.3,  rot: 16, ms: 950 },
+  NICE:    { col: '#4ADE80', h: 0.46, x: 0.26, rot: 13, ms: 850 },
+  OK:      { col: '#7FD8FF', h: 0.24, x: 0.2,  rot: 10, ms: 760 },
+  MISS:    { col: '#FF5C7A', h: 0.08, x: 0.12, rot: 7,  ms: 620 },
 };
 function showJudge(kind){
   const e = el('judgeTxt');
   if(!e) return;
+  const L = JUDGE_LOOK[kind] || JUDGE_LOOK.OK;
+  const board = (cv && cv.clientHeight) || 360;
+  const side = Math.random() < 0.5 ? -1 : 1;                 // 왼쪽·오른쪽 번갈아 아무렇게나
+  const spread = (0.55 + Math.random() * 0.45) * side;       // 같은 쪽이어도 거리는 매번 다르게
   e.textContent = kind;
-  e.style.color = JUDGE_LOOK[kind] || '#E9E9F2';
+  e.style.color = L.col;
+  e.style.setProperty('--jh', Math.round(board * L.h * (0.9 + Math.random() * 0.2)) + 'px');
+  e.style.setProperty('--jx', Math.round(board * L.x * spread) + 'px');
+  e.style.setProperty('--jr', (L.rot * spread).toFixed(1) + 'deg');   // 튀는 쪽으로 기운다
+  e.style.setProperty('--jd', L.ms + 'ms');
   e.classList.remove('go'); void e.offsetWidth; e.classList.add('go');
 }
 function judgeLabel(err, w){
