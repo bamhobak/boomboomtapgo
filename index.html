@@ -413,7 +413,7 @@
       <b>2×2 뭉치</b><span>네모로 모여도 터진다</span>
       <b>4개 한 줄</b><span><b>직교하는 줄</b>이 통째로 터진다 — 세로↔가로</span>
       <b>5개 한 줄</b><span>판 위의 <b>그 동물이 전부</b> 터진다</span>
-      <b>ㄱ · ㄴ · + 모양</b><span>교차 칸에서 <b>가로 3칸 + 대각선 두 줄</b></span>
+      <b>ㄱ · ㄴ · + 모양</b><span>교차 칸 둘레 <b>3×3 한 덩어리</b>가 터진다</span>
       <b>터지는 기준</b><span><b>내가 민 칸</b>이 기준이 된다</span>
       <b>붙잡기</b><span>떨어질 말을 <b>누른 채로 버티면</b> 그 말과 위쪽이 안 떨어진다. <b>놓으면 그 순간</b> 떨어진다</span>
       <b>미는 방향</b><span>위·아래·왼쪽·오른쪽 네 방향</span>
@@ -458,7 +458,7 @@
    ========================================================================= */
 
 // 게임 버전 — 수정해서 배포할 때마다 끝 두 자리를 1씩 올린다(v0.1.01 → v0.1.02). 화면 오른쪽 아래에 보인다
-const GAME_VERSION = 'v0.1.52';
+const GAME_VERSION = 'v0.1.53';
 /*
  * 번쩍임 줄이기 (v0.1.22) — 광과민성 배려. 켜면 화면 전체 번쩍임·흔들림을 끄고, 발판 조명·테두리 박동을 약하게.
  * 폰의 '동작 줄이기'가 켜져 있으면 처음부터 켠다. 고른 값은 이 기기에 기억한다.
@@ -953,8 +953,8 @@ const CROSS_DIR = { '0,1':[1,0], '1,0':[0,1] };
  * 매치 모양이 부르는 추가 폭발 범위.
  *   4개 한 줄  → 직교하는 줄 한 줄 통째로
  *   5개 이상   → 판 전체에서 그 색 전부
- *   교차(ㄱ·ㄴ·+) → 교차 칸 기준 가로 3칸 + 두 대각선 한 줄씩
- *                    (매치는 가로·세로만 되지만, 폭발 범위는 대각선으로도 뻗는다)
+ *   교차(ㄱ·ㄴ·+) → 교차 칸 둘레 3×3 한 덩어리 (v0.1.53, 로얄킹덤의 폭탄식.
+ *                    전에는 가로 3칸 + 대각선 두 줄이었는데 대각선이 판을 너무 길게 갈랐다)
  * 기준 칸은 내가 민 칸을 우선으로 잡는다 — 어디가 터질지 플레이어가 정할 수 있어야 한다.
  */
 function blastCells(gr, g){
@@ -998,8 +998,7 @@ function blastCells(gr, g){
     for(const [k,n] of hit){
       if(n < 2) continue;
       const r = (k / CONFIG.cols)|0, c = k % CONFIG.cols;
-      add(r, c-1); add(r, c); add(r, c+1);              // 가로 3칸
-      line(r, c, 1, 1); line(r, c, -1, 1);              // 대각선 두 줄
+      for(let dr=-1;dr<=1;dr++) for(let dc=-1;dc<=1;dc++) add(r+dr, c+dc);   // 3×3 한 덩어리
       mark(2, '별 폭발');
     }
   }
@@ -1910,8 +1909,8 @@ function lvHop(now){
   const F = S.lvFx, q = levelFxQ(now);
   if(q === null) return 0;
   const u = q * 2;                                    // 박 단위(0~2)
-  if(F.up) return u < 0.6 ? -Math.sin(Math.PI * u / 0.6) * cell * 0.32 : 0;              // 폴짝
-  return u < 1.2 ? Math.sin(Math.PI * Math.min(1, u / 1.2)) * cell * 0.14 : 0;          // 축
+  if(F.up) return u < 0.6 ? -Math.sin(Math.PI * u / 0.6) * cell * 0.12 : 0;              // 폴짝 (v0.1.53 0.32→0.12 — 너무 많이 뛰었다)
+  return u < 1.2 ? Math.sin(Math.PI * Math.min(1, u / 1.2)) * cell * 0.06 : 0;          // 축
 }
 function drawLevelFx(w, h, now){
   const F = S.lvFx, q = levelFxQ(now);
@@ -2084,8 +2083,10 @@ function drawTile(t, r, c, now, dx, dy){
   if(S.sel && S.sel.id === t.id) selMark(x, y, now, t.color);   // 3박에 고른 말 — 캐릭터 색 모양 테두리
   if(hint > 0) ctx.globalAlpha = 0.5;              // 곧 내려올 말은 연하게 (v0.1.50 0.72→0.5)
   drawPet(x, y, cell*0.88, t.color, 1, POPSET.has(t.id) || (S.sel && S.sel.id === t.id));   // 곧 터질 말 · 3박에 고른 말은 '오!' 표정 (v0.1.24)
-  // 다음 턴에 내려갈 말(안 터지는 말)은 아래로 간다는 표시
-  if(S.willFall && S.willFall.has(t.id) && !POPSET.has(t.id) && t.fromRow === null) fallMark(x, y, now, t.color);
+  // 다음 턴에 내려갈 말(안 터지는 말)은 아래로 간다는 표시.
+  // 내가 3박에 고른 말·붙잡은 말은 내려가지 않으니 표시도 지운다 (v0.1.53)
+  const held = (S.sel && S.sel.id === t.id) || (S.pin && S.pin.col === c && r <= S.pin.row);
+  if(S.willFall && S.willFall.has(t.id) && !POPSET.has(t.id) && t.fromRow === null && !held) fallMark(x, y, now, t.color);
   ctx.globalAlpha = 1;
 }
 
