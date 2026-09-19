@@ -389,7 +389,7 @@
    ========================================================================= */
 
 // 게임 버전 — 수정해서 배포할 때마다 끝 두 자리를 1씩 올린다(v0.1.01 → v0.1.02). 화면 오른쪽 아래에 보인다
-const GAME_VERSION = 'v0.1.18';
+const GAME_VERSION = 'v0.1.19';
 
 const CONFIG = {
   bpm: 64,                   // 시작 템포 — 초심자가 편하게 시작하도록 72 → 64 로 낮췄다. 레벨마다 level.stepMul 배씩 빨라진다
@@ -1716,7 +1716,7 @@ function beatVisual(now){
   const bar = BARS[barAtBeat(ib)];
   const pos = ib - bar.startBeat;
   const k = S.holding ? 0 : Math.exp(-ph * 7);         // 박 직후 1 → 금방 0
-  return { ph, pos, slot: slotAt(ib), next: slotAt(ib + 1), k };
+  return { ib, ph, pos, slot: slotAt(ib), next: slotAt(ib + 1), k };
 }
 
 /** 테두리 박동 + 모여드는 테두리. 말 위에 얹혀야 하므로 draw() 맨 끝에서 그린다 */
@@ -1795,6 +1795,53 @@ function drawTile(t, r, c, now, dx, dy){
   ctx.globalAlpha = 1;
 }
 
+/*
+ * 댄스 발판 (v0.1.19) — 8×8 칸이 오락실 댄스 게임기의 발판이다. 박마다 발판이 은은하게 켜진다.
+ * 레벨이 곧 조명: 레벨 1 은 따뜻하고 어둑한 한 가지 색, 오를수록 색이 늘고, 레벨 9 는 무지개.
+ * 콤보가 끊겨 레벨이 떨어지면 조명도 같이 줄어든다.
+ * 안전: 번쩍임은 발판 안쪽에서만, 밝기 차이는 작게(켜진 칸도 알파 0.3 을 넘지 않는다). 화면 전체를 번쩍이지 않는다.
+ */
+const FLOOR_LIGHTS = [
+  ['#FFB347'],                                                   // 1 — 따뜻한 호박색 하나
+  ['#FFB347', '#FF7EB6'],                                        // 2
+  ['#FFB347', '#FF7EB6', '#7FD8FF'],                             // 3
+  ['#FFB347', '#FF7EB6', '#7FD8FF', '#9DFF8A'],                  // 4
+  ['#FFB347', '#FF7EB6', '#7FD8FF', '#9DFF8A', '#C69CFF'],       // 5
+  ['#FF9F43', '#FF6BA8', '#5CC8FF', '#7DFF6B', '#B38BFF', '#FFE45C'],   // 6
+  ['#FF9F43', '#FF5C9A', '#45BFFF', '#6BFF5C', '#A67BFF', '#FFE03D', '#FF6B6B'], // 7
+  ['#FF8C2E', '#FF4F90', '#33B5FF', '#5CFF4F', '#9A6BFF', '#FFDA2E', '#FF5C5C', '#2EFFE0'], // 8
+];
+function drawFloor(now){
+  const V = BEATV, L = S.live ? S.level : 0, n = CONFIG.cols;
+  const ib = V ? V.ib : 0, k = V ? V.k : 0;
+  const gap = Math.max(1, Math.round(cell*0.06)), rr = Math.max(2, cell*0.14);
+  for(let r=0;r<CONFIG.rows;r++) for(let c=0;c<n;c++){
+    const x = c*cell + gap, y = r*cell + gap, sz = cell - gap*2;
+    // 바탕 패널 — 늘 보이는 어두운 발판
+    ctx.fillStyle = 'rgba(255,255,255,0.035)';
+    roundRectPath(x, y, sz, sz, rr); ctx.fill();
+    // 조명 — 박마다 체크무늬 절반이 번갈아 켜지고, 1박은 전부 조금 더 밝다
+    let col;
+    if(L >= 8) col = `hsl(${((r + c)*28 + ib*36) % 360},95%,62%)`;          // 9 — 무지개가 흐른다
+    else { const P = FLOOR_LIGHTS[L]; col = P[(r + c + ib) % P.length]; }
+    const lit = ((r + c + ib) & 1) === 0;
+    const base = 0.05 + L*0.012;                                             // 레벨이 오를수록 은은한 밑불도 조금씩
+    const a = Math.min(0.3, base + k*(lit ? 0.2 : 0.06)*(V && V.pos === 0 ? 1.25 : 1));
+    ctx.globalAlpha = a;
+    ctx.fillStyle = col;
+    roundRectPath(x, y, sz, sz, rr); ctx.fill();
+    ctx.globalAlpha = Math.min(0.45, a*1.6);                                 // 발판 테두리 — 네온 선
+    ctx.strokeStyle = col; ctx.lineWidth = Math.max(1, cell*0.03);
+    roundRectPath(x + 0.5, y + 0.5, sz - 1, sz - 1, rr); ctx.stroke();
+    ctx.globalAlpha = 1;
+  }
+}
+function roundRectPath(x, y, w, h, r){
+  ctx.beginPath();
+  if(ctx.roundRect) ctx.roundRect(x, y, w, h, r);
+  else ctx.rect(x, y, w, h);
+}
+
 function draw(now){
   POPSET = willPopIds();
   BEATV = beatVisual(now);
@@ -1819,6 +1866,7 @@ function draw(now){
 
   ctx.save(); ctx.beginPath(); ctx.rect(PAD,PAD,w-PAD*2,h-PAD*2); ctx.clip();
   ctx.translate(PAD, PAD);
+  drawFloor(now);                                   // 댄스 발판 — 말보다 먼저(밑에)
 
   // 교환 애니메이션 (되돌리기는 갔다 오게)
   let sa = null;
@@ -1878,10 +1926,6 @@ function draw(now){
 
       if(cur) continue;                              // 말이 있는 칸은 건드리지 않는다
 
-      ctx.globalAlpha = 0.22;
-      ctx.strokeStyle = PETS[t.color].deep;
-      ctx.lineWidth = 2;
-      ctx.strokeRect(Math.round(x-cell*0.44)+1, Math.round(y-cell*0.44)+1, Math.round(cell*0.88)-2, Math.round(cell*0.88)-2);
       if(POPSET.has(t.id)) popMark(x, y, now, t.color);
       ctx.globalAlpha = 0.16;
       drawPet(x, y, cell*0.88, t.color, 1);
