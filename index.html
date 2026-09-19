@@ -187,7 +187,15 @@
   @keyframes judgefade{
       0%{opacity:0}  10%{opacity:.8}  72%{opacity:.8}  100%{opacity:0}
   }
-  @media (prefers-reduced-motion:reduce){ .thump .cone{transform:none} .thump .judge.go{animation:none;opacity:1} }
+  /* 미스 — 튀지 않고 그 자리에서 떴다 사라진다 (v0.1.71) */
+  .thump .judge.flat{animation:judgeflat var(--jd,620ms) ease forwards}
+  @keyframes judgeflat{
+      0%{opacity:0;transform:translate(0,6px) scale(.9)}
+     16%{opacity:.8;transform:translate(0,0) scale(1)}
+     70%{opacity:.75;transform:translate(0,0) scale(1)}
+    100%{opacity:0;transform:translate(0,-6px) scale(.96)}
+  }
+  @media (prefers-reduced-motion:reduce){ .thump .cone{transform:none} .thump .judge.go,.thump .judge.flat{animation:none;opacity:1} }
 
   /*
    * 시작 화면 — 스티커 포스터 (v0.1.68, 디자인 캔버스 B안).
@@ -548,7 +556,7 @@
    ========================================================================= */
 
 // 게임 버전 — 수정해서 배포할 때마다 끝 두 자리를 1씩 올린다(v0.1.01 → v0.1.02). 화면 오른쪽 아래에 보인다
-const GAME_VERSION = 'v0.1.70';
+const GAME_VERSION = 'v0.1.71';
 /*
  * 번쩍임 줄이기 (v0.1.22) — 광과민성 배려. 켜면 화면 전체 번쩍임·흔들림을 끄고, 발판 조명·테두리 박동을 약하게.
  * 폰의 '동작 줄이기'가 켜져 있으면 처음부터 켠다. 고른 값은 이 기기에 기억한다.
@@ -1328,15 +1336,27 @@ function showJudge(kind){
   if(!e) return;
   const L = JUDGE_LOOK[kind] || JUDGE_LOOK.OK;
   const board = (cv && cv.clientHeight) || 360;
-  const side = Math.random() < 0.5 ? -1 : 1;                 // 왼쪽·오른쪽 번갈아 아무렇게나
-  const spread = (0.55 + Math.random() * 0.45) * side;       // 같은 쪽이어도 거리는 매번 다르게
   e.textContent = kind;
   e.style.color = L.col;
-  e.style.setProperty('--jh', Math.round(board * L.h * (0.9 + Math.random() * 0.2)) + 'px');
+  e.classList.remove('go', 'flat'); void e.offsetWidth;
+  if(kind === 'MISS'){                                       // v0.1.71 미스는 안 튄다 — 그 자리에서 떴다 사라진다
+    e.style.setProperty('--jd', L.ms + 'ms');
+    e.classList.add('flat');
+    return;
+  }
+  /*
+   * 반대쪽으로 튄다 — 내가 누르거나 민 자리가 판 오른쪽이면 글자는 왼쪽으로, 왼쪽이면 오른쪽으로.
+   * 방향은 정해져 있어도 거리·높이·기울기는 매번 달라서 같은 판정도 똑같이 안 보인다.
+   */
+  const act = typeof S.actSide === 'number' ? S.actSide : 0;
+  let dir = act > 0.08 ? -1 : act < -0.08 ? 1 : (Math.random() < 0.5 ? -1 : 1);
+  const push = Math.min(1, 0.45 + Math.abs(act) * 0.8);      // 가장자리에서 눌렀으면 더 멀리
+  const spread = dir * push * (0.7 + Math.random() * 0.7);
+  e.style.setProperty('--jh', Math.round(board * L.h * (0.78 + Math.random() * 0.44)) + 'px');
   e.style.setProperty('--jx', Math.round(board * L.x * spread) + 'px');
-  e.style.setProperty('--jr', (L.rot * spread).toFixed(1) + 'deg');   // 튀는 쪽으로 기운다
-  e.style.setProperty('--jd', L.ms + 'ms');
-  e.classList.remove('go'); void e.offsetWidth; e.classList.add('go');
+  e.style.setProperty('--jr', (L.rot * spread * (0.7 + Math.random() * 0.6)).toFixed(1) + 'deg');
+  e.style.setProperty('--jd', Math.round(L.ms * (0.9 + Math.random() * 0.25)) + 'ms');
+  e.classList.add('go');
 }
 function judgeLabel(err, w){
   const a = Math.abs(err), P = w ? w.p : CONFIG.judge.perfect, G = w ? w.g : CONFIG.judge.good;
@@ -1807,6 +1827,7 @@ function trySelect(r, c, now, quiet){
     return false;
   }
   S.sel = { id:S.grid[r][c].id, bar:S.barIndex };
+  S.actSide = (c + 0.5) / CONFIG.cols * 2 - 1;     // v0.1.71 누른 자리(판 가운데 기준 -1~+1)
   applyJudge(j);
   // 누른 말이 짖거나 운다 — 품종마다 제 소리. 콤보·레벨이 오를수록 크고 높고 겹겹이
   const I = heat(), vt = Audio_.startAC+now, vk = 'voice' + PETS[S.grid[r][c].color].voice;
@@ -1853,6 +1874,7 @@ function tryResolveDrag(now){
   const t = S.grid[from[0]][from[1]];
   if(!t){ flush(); return; }
 
+  S.actSide = (to[1] + 0.5) / CONFIG.cols * 2 - 1;  // v0.1.71 밀어서 도착한 자리(판 가운데 기준 -1~+1)
   if(!trySwap(from, to, now)){ flush(); return; }   // 헛수 — 그제야 낙하 매치가 터진다
   deferred = false;                                 // 성립한 수는 trySwap 안의 popStep 이 낙하 매치까지 함께 터뜨렸다
   if(pinned){                                      // 붙잡았던 열의 낙하는 이 수에 흡수됐다
