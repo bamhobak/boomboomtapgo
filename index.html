@@ -468,7 +468,7 @@
    ========================================================================= */
 
 // 게임 버전 — 수정해서 배포할 때마다 끝 두 자리를 1씩 올린다(v0.1.01 → v0.1.02). 화면 오른쪽 아래에 보인다
-const GAME_VERSION = 'v0.1.58';
+const GAME_VERSION = 'v0.1.59';
 /*
  * 번쩍임 줄이기 (v0.1.22) — 광과민성 배려. 켜면 화면 전체 번쩍임·흔들림을 끄고, 발판 조명·테두리 박동을 약하게.
  * 폰의 '동작 줄이기'가 켜져 있으면 처음부터 켠다. 고른 값은 이 기기에 기억한다.
@@ -1425,7 +1425,7 @@ function dropStep(now, skipCol){
   const cols = new Set();
   for(let c=0;c<CONFIG.cols;c++) if(c !== skipCol) cols.add(c);
   applyDropPlan(S.dropPlan, now, cols);
-  if(skipCol === undefined || skipCol === null) S.dropPlan = null;   // 남겨둔 열이 있으면 계획도 남긴다
+  if(skipCol === undefined || skipCol === null){ S.dropPlan = null; S.willFall = null; }   // 남겨둔 열이 있으면 계획도 남긴다
   S.reshuffling = false;
   if(!sfx('drop', Audio_.startAC + now, 0.55))         // 무너지는 소리
     Audio_.hit(Audio_.startAC + now, 0.09, 0.16, 700);
@@ -1481,7 +1481,7 @@ function afterPin(now){
 function releasePin(now){
   if(!S.pin) return;
   if(S.dropPlan) applyDropPlan(S.dropPlan, now, new Set([S.pin.col]));
-  S.dropPlan = null;
+  S.dropPlan = null; S.willFall = null;
   afterPin(now);
 }
 
@@ -1495,7 +1495,7 @@ function finishPin(now){
     if(t && t.dropFrom !== r){ t.fromRow = t.dropFrom; t.fallAt = now; }
     S.grid[r][col] = t;
   }
-  S.dropPlan = null;
+  S.dropPlan = null; S.willFall = null;
   buzz(18);                                              // 붙잡았다는 손맛
   afterPin(now);
 }
@@ -2104,14 +2104,16 @@ function drawTile(t, r, c, now, dx, dy){
   }
   const hint = t.fromRow===null ? fallHint(t,r,c) : 0;
   const x = (c+0.5)*cell + dx + SWAY, y = (dr+0.5)*cell + dy + hint + BOB;
-  if(POPSET.has(t.id)) popMark(x, y, now, t.color, hint > 0 ? 0.5 : 1);   // 떨어지면 곧바로 터질 말 — 말 뒤에 모양 테두리
+  if(POPSET.has(t.id)) popMark(x, y, now, t.color, hint > 0 ? 0.72 : 1);   // 떨어지면 곧바로 터질 말 — 말 뒤에 모양 테두리
   if(S.sel && S.sel.id === t.id) selMark(x, y, now, t.color);   // 3박에 고른 말 — 캐릭터 색 모양 테두리
-  if(hint > 0) ctx.globalAlpha = 0.5;              // 곧 내려올 말은 연하게 (v0.1.50 0.72→0.5)
+  if(hint > 0) ctx.globalAlpha = 0.72;             // 곧 내려올 말 (v0.1.59 흐리기 되돌림 0.5→0.72)
   drawPet(x, y, cell*0.88, t.color, 1, POPSET.has(t.id) || (S.sel && S.sel.id === t.id));   // 곧 터질 말 · 3박에 고른 말은 '오!' 표정 (v0.1.24)
   // 다음 턴에 내려갈 말(안 터지는 말)은 아래로 간다는 표시.
   // 내가 3박에 고른 말·붙잡은 말은 내려가지 않으니 표시도 지운다 (v0.1.53)
-  const held = (S.sel && S.sel.id === t.id) || (S.pin && S.pin.col === c && r <= S.pin.row);
-  if(S.willFall && S.willFall.has(t.id) && !POPSET.has(t.id) && t.fromRow === null && !held) fallMark(x, y, now, t.color);
+  // hint > 0 이 곧 "이번 낙하에 내려간다"(fallHint 가 계획·붙잡은 열까지 본다) — v0.1.59 버그 수정:
+  // 예전엔 willFall 만 봐서, 낙하가 끝나 계획이 비워진 뒤에도 묵은 목록으로 화살표가 남았다
+  const held = S.sel && S.sel.id === t.id;
+  if(hint > 0 && !POPSET.has(t.id) && !held) fallMark(x, y, now, t.color);
   ctx.globalAlpha = 1;
 }
 
@@ -2332,8 +2334,8 @@ function draw(now){
         if(t && t.dropFrom === -1){ next = t; break; }   // 그 열에 맨 먼저 들어올 말
       }
       if(!next) continue;
-      if(POPSET.has(next.id)) popMark((c+0.5)*cell, -0.5*cell + cell*FALL_HINT, now, next.color, 0.5);
-      ctx.globalAlpha = 0.5;                       // 판 위에 걸친 다음 말 미리보기 (v0.1.50)
+      if(POPSET.has(next.id)) popMark((c+0.5)*cell, -0.5*cell + cell*FALL_HINT, now, next.color, 0.72);
+      ctx.globalAlpha = 0.72;                      // 판 위에 걸친 다음 말 미리보기 (v0.1.59 되돌림)
       drawPet((c+0.5)*cell, -0.5*cell + cell*FALL_HINT, cell*0.88, next.color, 1, POPSET.has(next.id));
       ctx.globalAlpha = 1;
     }
