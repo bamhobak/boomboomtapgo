@@ -163,7 +163,13 @@
   .thump .glow{position:absolute;left:4%;right:4%;top:-10px;height:72px;border-radius:50%;
                background:radial-gradient(ellipse at 50% 0%,rgba(var(--tc),calc(.5 * var(--tk))),transparent 72%);
                filter:blur(3px)}
-  @media (prefers-reduced-motion:reduce){ .thump .cone{transform:none} }
+  /* 3·4박 판정 글자 — 우퍼 위에 뜬다 (v0.1.60) */
+  .thump .judge{position:absolute;left:0;right:0;top:20px;text-align:center;font-size:26px;letter-spacing:.06em;
+                line-height:1;opacity:0;pointer-events:none;-webkit-text-stroke:5px rgba(10,7,24,.85);paint-order:stroke fill}
+  .thump .judge.go{animation:judgein 620ms cubic-bezier(.2,.8,.2,1)}
+  @keyframes judgein{0%{opacity:0;transform:translateY(8px) scale(.8)}18%{opacity:1;transform:translateY(0) scale(1.12)}
+                     40%{transform:scale(1)}75%{opacity:1}100%{opacity:0;transform:translateY(-10px)}}
+  @media (prefers-reduced-motion:reduce){ .thump .cone{transform:none} .thump .judge.go{animation:none;opacity:1} }
 
   .overlay{position:absolute;inset:0;z-index:10;display:flex;flex-direction:column;align-items:center;
            justify-content:center;gap:20px;padding:26px;background:rgba(10,10,18,.94);
@@ -379,7 +385,7 @@
   </div>
 
 
-  <div class="thump" id="thump" aria-hidden="true"><i class="glow"></i><i class="cone"></i></div>
+  <div class="thump" id="thump" aria-hidden="true"><i class="glow"></i><i class="cone"></i><b class="judge" id="judgeTxt"></b></div>
 
   <div class="overlay" id="start">
     <div>
@@ -468,7 +474,7 @@
    ========================================================================= */
 
 // 게임 버전 — 수정해서 배포할 때마다 끝 두 자리를 1씩 올린다(v0.1.01 → v0.1.02). 화면 오른쪽 아래에 보인다
-const GAME_VERSION = 'v0.1.59';
+const GAME_VERSION = 'v0.1.60';
 /*
  * 번쩍임 줄이기 (v0.1.22) — 광과민성 배려. 켜면 화면 전체 번쩍임·흔들림을 끄고, 발판 조명·테두리 박동을 약하게.
  * 폰의 '동작 줄이기'가 켜져 있으면 처음부터 켠다. 고른 값은 이 기기에 기억한다.
@@ -1225,9 +1231,29 @@ function judgeFor(t, type){
   return { rank:'miss', err, beat:b };
 }
 
+/*
+ * 3·4박 판정 글자 (v0.1.60) — 우퍼 위에 뜬다.
+ *   PERFECT ±0.05초 · NICE ±0.09초 · OK ±0.17초 · 그 밖이거나 놓치면 MISS.
+ * 점수·배율 규칙은 그대로(퍼펙트 0.09 · 굿 0.17) — 글자만 네 단계로 나눠 보여 준다.
+ */
+const JUDGE_LOOK = {
+  PERFECT: '#FDE047', NICE: '#4ADE80', OK: '#7FD8FF', MISS: '#FF5C7A',
+};
+function showJudge(kind){
+  const e = el('judgeTxt');
+  if(!e) return;
+  e.textContent = kind;
+  e.style.color = JUDGE_LOOK[kind] || '#E9E9F2';
+  e.classList.remove('go'); void e.offsetWidth; e.classList.add('go');
+}
+function judgeLabel(err){
+  const a = Math.abs(err);
+  return a <= 0.05 ? 'PERFECT' : a <= CONFIG.judge.perfect ? 'NICE' : a <= CONFIG.judge.good ? 'OK' : 'MISS';
+}
 function applyJudge(j){
   S.actedBeats[j.beat] = true;
   S.errors.push(j.err);
+  showJudge(j.rank === 'miss' ? 'MISS' : judgeLabel(j.err));
   if(j.rank==='perfect'){
     S.stats.perfect++; S.mult = Math.min(CONFIG.combo.max, S.mult + CONFIG.combo.perfect); buzz(14);
   } else if(j.rank==='good'){
@@ -2520,6 +2546,7 @@ function frame(){
       if((ps==='T' || ps==='D') && !S.actedBeats[prev] && !S.reshuffling && !prevLocked){
         S.stats.miss++;
         S.mult = Math.max(1, S.mult * CONFIG.combo.missFactor);
+        showJudge('MISS');                            // 아무것도 안 하고 박이 지나갔다
         if(ps==='T') S.sel = null;
       }
     }
