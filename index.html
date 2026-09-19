@@ -208,7 +208,7 @@
   .results div{background:var(--panel);padding:12px 15px;display:flex;flex-direction:column;gap:3px;text-align:left}
   .results dt{font-size:11px;letter-spacing:.12em;color:var(--cream-dim);margin:0}
   .results dd{margin:0;font-size:21px;font-variant-numeric:tabular-nums}
-  /* 랭킹판 — 금·은·동 줄은 크게, 나머지는 촘촘히. 늘 10칸을 그려 판 크기가 안 흔들린다 */
+  /* 랭킹판 — 금·은·동 줄은 크게, 나머지는 촘촘히. 늘 5칸을 그려 판 크기가 안 흔들린다 */
   .rank{width:min(360px,100%);display:flex;flex-direction:column;gap:8px}
   .rank h2 small{font-size:10px;letter-spacing:.05em;color:var(--cream-dim);margin-left:6px}
   .board{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:2px;
@@ -386,7 +386,7 @@
    ========================================================================= */
 
 // 게임 버전 — 수정해서 배포할 때마다 끝 두 자리를 1씩 올린다(v0.1.01 → v0.1.02). 화면 오른쪽 아래에 보인다
-const GAME_VERSION = 'v0.1.07';
+const GAME_VERSION = 'v0.1.08';
 
 const CONFIG = {
   bpm: 64,                   // 시작 템포 — 초심자가 편하게 시작하도록 72 → 64 로 낮췄다. 레벨마다 level.stepMul 배씩 빨라진다
@@ -2247,12 +2247,12 @@ function finish(){
  * 테이블은 sql/boomboomtapgo_leaderboard.sql 을 대시보드 SQL Editor 에서 한 번 실행해야 생긴다.
  * 그 전이거나 오프라인이면 판에 '준비 중'만 뜨고 게임은 그대로 돈다.
  * 매주 월요일 0시(한국시간)에 새로 시작 — 기록을 지우지 않고 이번 주 것만 조회한다.
- * 한 기기당 한 줄(기기별 최고), TOP 10. 이름은 textContent 로만 넣는다.
+ * 한 기기당 한 줄(기기별 최고), TOP 5. 이름은 textContent 로만 넣는다.
  */
 const Rank = (() => {
   const URL_ = 'https://osfbhhdpqdydbkgbgmat.supabase.co';
   const KEY  = 'sb_publishable_IOCUMux3jedTRKdTSGvDdg_1YCPmMw0';   // 공개용 키(읽기·등록만 허용된 정책)
-  const TABLE = 'boomboomtapgo_scores', TOP = 10;
+  const TABLE = 'boomboomtapgo_scores', TOP = 5;      // 5위까지만 보인다(v0.1.08). 이름 칸도 5위 안에 들 때만
   const H = extra => Object.assign({ apikey:KEY, Authorization:'Bearer '+KEY }, extra || {});
   const store = {
     get(k){ try{ return localStorage.getItem(k); }catch(e){ return null; } },
