@@ -389,7 +389,7 @@
    ========================================================================= */
 
 // 게임 버전 — 수정해서 배포할 때마다 끝 두 자리를 1씩 올린다(v0.1.01 → v0.1.02). 화면 오른쪽 아래에 보인다
-const GAME_VERSION = 'v0.1.20';
+const GAME_VERSION = 'v0.1.21';
 
 const CONFIG = {
   bpm: 64,                   // 시작 템포 — 초심자가 편하게 시작하도록 72 → 64 로 낮췄다. 레벨마다 level.stepMul 배씩 빨라진다
@@ -1413,15 +1413,39 @@ function juiceLevel(){
 }
 
 /* 도트 파편 모양 — 콤보가 오를수록 하나씩 풀린다. 강아지 게임이라 뼈다귀·발바닥·하트 */
-const PIX = {
-  plus:    ['.#.','###','.#.'],
-  diamond: ['..#..','.###.','#####','.###.','..#..'],
-  spark:   ['..#..','..#..','##.##','..#..','..#..'],
-  heart:   ['.#.#.','#####','#####','.###.','..#..'],
-  bone:    ['##...##','.#####.','##...##'],
-  paw:     ['#.#.#','.....','.###.','#####','.###.'],
-  ring:    ['.###.','#...#','#...#','#...#','.###.'],
-};
+/*
+ * 파편 — v0.1.20 부터 도트 대신 캐릭터와 같은 스티커 화풍(굵은 진갈색 외곽선 · 단색 면 · 작은 하이라이트).
+ * 모양은 -1~1 상자 안의 경로로 한 번만 만들어 두고, 파편마다 옮기고·돌리고·키워서 찍는다.
+ * 외곽선은 '굵게 긋고 → 위에 채우기' 순서라 겹친 조각(뼈다귀 양 끝, 발바닥 발가락) 안쪽 선이 안 보인다.
+ * 콤보가 오를수록 모양이 하나씩 풀린다: 방울 → 십자·마름모 → 반짝이 → 하트·뼈다귀 → 발바닥·고리.
+ */
+const BIT_PATH = (() => {
+  const P = {};
+  const circle = (x, y, r) => { const q = new Path2D(); q.arc(x, y, r, 0, Math.PI*2); return q; };
+  P.dot = circle(0, 0, 0.72);
+  const plus = new Path2D();
+  plus.roundRect ? (plus.roundRect(-0.28, -0.85, 0.56, 1.7, 0.26), plus.roundRect(-0.85, -0.28, 1.7, 0.56, 0.26))
+                 : (plus.rect(-0.28, -0.85, 0.56, 1.7), plus.rect(-0.85, -0.28, 1.7, 0.56));
+  P.plus = plus;
+  const dia = new Path2D(); dia.moveTo(0, -0.95); dia.lineTo(0.68, 0); dia.lineTo(0, 0.95); dia.lineTo(-0.68, 0); dia.closePath(); P.diamond = dia;
+  const sp = new Path2D();
+  for(let i=0;i<8;i++){ const a = i*Math.PI/4 - Math.PI/2, r = i % 2 ? 0.32 : 0.98; i ? sp.lineTo(Math.cos(a)*r, Math.sin(a)*r) : sp.moveTo(Math.cos(a)*r, Math.sin(a)*r); }
+  sp.closePath(); P.spark = sp;
+  const ht = new Path2D();
+  ht.moveTo(0, 0.85); ht.bezierCurveTo(-0.95, 0.2, -0.95, -0.75, -0.48, -0.8); ht.bezierCurveTo(-0.2, -0.83, -0.02, -0.62, 0, -0.42);
+  ht.bezierCurveTo(0.02, -0.62, 0.2, -0.83, 0.48, -0.8); ht.bezierCurveTo(0.95, -0.75, 0.95, 0.2, 0, 0.85); ht.closePath(); P.heart = ht;
+  const bone = new Path2D();
+  bone.addPath(circle(-0.68, -0.26, 0.3)); bone.addPath(circle(-0.68, 0.26, 0.3));
+  bone.addPath(circle(0.68, -0.26, 0.3));  bone.addPath(circle(0.68, 0.26, 0.3));
+  bone.rect(-0.7, -0.22, 1.4, 0.44); P.bone = bone;
+  const paw = new Path2D();
+  paw.ellipse(0, 0.32, 0.5, 0.42, 0, 0, Math.PI*2);
+  for(const [x, y] of [[-0.62, -0.22], [-0.24, -0.62], [0.24, -0.62], [0.62, -0.22]]) paw.addPath(circle(x, y, 0.2));
+  P.paw = paw;
+  const ring = new Path2D(); ring.arc(0, 0, 0.85, 0, Math.PI*2); ring.arc(0, 0, 0.45, 0, Math.PI*2, true); P.ring = ring;
+  return P;
+})();
+const BIT_EDGE = '#3B2314';
 function shapesFor(J){
   const sh = ['dot'];
   if(J >= 1) sh.push('plus', 'diamond');
@@ -1430,11 +1454,21 @@ function shapesFor(J){
   if(J >= 7) sh.push('paw', 'ring');
   return sh;
 }
-function drawPix(name, x, y, px, col){
-  const g = PIX[name], h = g.length, w = g[0].length, q = Math.max(1, Math.round(px));
-  const ox = Math.round(x - w*q/2), oy = Math.round(y - h*q/2);
-  ctx.fillStyle = col;
-  for(let r=0;r<h;r++) for(let c=0;c<w;c++) if(g[r][c] === '#') ctx.fillRect(ox + c*q, oy + r*q, q, q);
+/** 파편 하나 — 외곽선 → 채우기 → 하이라이트. size 는 반지름(px) */
+function drawBit(name, x, y, size, col, rot){
+  const path = BIT_PATH[name] || BIT_PATH.dot;
+  const k = Math.max(1.5, size);
+  ctx.save();
+  ctx.translate(x, y); ctx.rotate(rot || 0); ctx.scale(k, k);
+  ctx.lineJoin = 'round';
+  ctx.lineWidth = 0.42;                            // 스티커처럼 굵은 외곽선(크기에 비례)
+  ctx.strokeStyle = BIT_EDGE; ctx.stroke(path);
+  ctx.fillStyle = col; ctx.fill(path, name === 'ring' ? 'evenodd' : 'nonzero');
+  if(k > 3){                                       // 작은 하이라이트 하나
+    ctx.fillStyle = 'rgba(255,255,255,0.55)';
+    ctx.beginPath(); ctx.ellipse(-0.28, -0.32, 0.2, 0.13, -0.6, 0, Math.PI*2); ctx.fill();
+  }
+  ctx.restore();
 }
 
 const BITS_MAX = 520;                              // 폰이 버벅이지 않게 — 한 화면 파편 상한
@@ -1448,7 +1482,7 @@ function spawnBits(r,c,t,now,J,perCell){
     const shape = shapes[(Math.random()*shapes.length)|0];
     const tint = J >= 3 && Math.random() < 0.2 ? (Math.random() < 0.5 ? '#FFFFFF' : '#FDE047') : col;   // 반짝이
     S.bits.push({ x:(c+0.5)*cell, y:(r+0.5)*cell,
-      vx:Math.cos(a)*sp, vy:Math.sin(a)*sp - 90*spd, t0:now, col:tint,
+      vx:Math.cos(a)*sp, vy:Math.sin(a)*sp - 90*spd, t0:now, col:tint, rot0:Math.random()*6.28, spin:(Math.random()-0.5)*9,
       sz:(2 + Math.random()*3) * big, shape, life:0.7 + J*0.03, g:620 });
   }
   if(S.bits.length > BITS_MAX) S.bits.splice(0, S.bits.length - BITS_MAX);
@@ -1461,7 +1495,7 @@ function confetti(now, combo){
   for(let i=0;i<n;i++){
     const col = i % 4 === 0 ? '#FFFFFF' : PETS[randColor()].hex;
     S.bits.push({ x:Math.random()*cell*CONFIG.cols, y:-cell*0.2 + Math.random()*cell*0.6,
-      vx:(Math.random()-0.5)*160, vy:-40 - Math.random()*140, t0:now + Math.random()*0.15, col,
+      vx:(Math.random()-0.5)*160, vy:-40 - Math.random()*140, t0:now + Math.random()*0.15, col, rot0:Math.random()*6.28, spin:(Math.random()-0.5)*6,
       sz:3 + Math.random()*4, shape:shapes[(Math.random()*shapes.length)|0], life:1.5 + Math.random()*0.4, g:260 });
   }
   if(S.bits.length > BITS_MAX + 140) S.bits.splice(0, S.bits.length - BITS_MAX - 140);
@@ -1987,11 +2021,10 @@ function draw(now){
     ctx.globalAlpha = (1 - q) * 0.9;
     ctx.strokeStyle = g.col;
     ctx.lineWidth = Math.max(1, g.w * (1 - q));
-    if(g.dia){                                     // 마름모 고리
-      ctx.beginPath();
-      ctx.moveTo(g.x, g.y - rr); ctx.lineTo(g.x + rr, g.y); ctx.lineTo(g.x, g.y + rr); ctx.lineTo(g.x - rr, g.y);
-      ctx.closePath(); ctx.stroke();
-    } else ctx.strokeRect(Math.round(g.x - rr), Math.round(g.y - rr), Math.round(rr*2), Math.round(rr*2));   // 네모 고리 — 도트 판
+    // 충격파 — v0.1.21 부터 둥근 고리(스티커 화풍). 두 번째 고리(dia)는 점선으로 결을 다르게
+    ctx.beginPath(); ctx.arc(g.x, g.y, rr, 0, Math.PI*2);
+    if(g.dia) ctx.setLineDash([Math.max(3, rr*0.18), Math.max(3, rr*0.12)]);
+    ctx.stroke(); ctx.setLineDash([]);
     ctx.globalAlpha = 1;
     return true;
   });
@@ -2002,10 +2035,7 @@ function draw(now){
     if(e < 0) return true;                         // 폭죽은 조금씩 늦게 출발한다
     ctx.globalAlpha = 1 - e/life;
     const x = b.x + b.vx*e, y = b.y + b.vy*e + (b.g || 620)*e*e;
-    if(!b.shape || b.shape === 'dot'){
-      ctx.fillStyle = b.col;
-      ctx.beginPath(); ctx.arc(x, y, b.sz, 0, Math.PI*2); ctx.fill();
-    } else drawPix(b.shape, x, y, b.sz*0.55, b.col);
+    drawBit(b.shape || 'dot', x, y, b.sz*(b.shape && b.shape !== 'dot' ? 1.35 : 1.1), b.col, (b.rot0 || 0) + (b.spin || 0)*e);
     ctx.globalAlpha = 1;
     return true;
   });
