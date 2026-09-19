@@ -452,7 +452,7 @@
    ========================================================================= */
 
 // 게임 버전 — 수정해서 배포할 때마다 끝 두 자리를 1씩 올린다(v0.1.01 → v0.1.02). 화면 오른쪽 아래에 보인다
-const GAME_VERSION = 'v0.1.37';
+const GAME_VERSION = 'v0.1.38';
 /*
  * 번쩍임 줄이기 (v0.1.22) — 광과민성 배려. 켜면 화면 전체 번쩍임·흔들림을 끄고, 발판 조명·테두리 박동을 약하게.
  * 폰의 '동작 줄이기'가 켜져 있으면 처음부터 켠다. 고른 값은 이 기기에 기억한다.
@@ -1815,7 +1815,7 @@ function fallHint(t, r, c){
  * 번쩍이는 것만으로는 "쳤다"를 알려줄 뿐 언제 칠지는 못 알려준다. 리듬게임은 예비가 있어야 맞춰 친다.
  * 곡 시계 기준이라 판을 기다리며 멈출 때는 같이 멈춘다.
  */
-let BEATV = null, BOB = 0;
+let BEATV = null, BOB = 0, SWAY = 0;   // SWAY: v0.1.38 높은 레벨의 좌우 흔들기
 function beatVisual(now){
   if(!CONFIG.visualBeat || !S.live || !BARS.length) return null;
   const song = now - S.hold;
@@ -1838,16 +1838,92 @@ function drawBarRing(w, h){
   const prog = Math.min(1, (V.pos + V.ph) / (V.meter || 4));
   const cx = w/2, cy = h/2, r = Math.hypot(w, h)/2 * (1 - prog);
   const band = Math.max(8, cell*0.55);
-  const rgb = V.slot === 'T' ? '255,138,30' : V.slot === 'D' ? '76,141,255' : '150,105,255';
+  const rgb = V.slot === 'T' ? '255,138,30' : V.slot === 'D' ? '76,141,255' : '255,255,255';   // 1·2박은 흰색 (v0.1.38 요청)
   const A = CALM.on ? 0.22 : 0.4;
+  // 고정 과녁 — 빛 고리가 3박(누르기)·4박(드래그) 정박에 닿는 자리. 고리가 여기 겹칠 때 누르고 · 민다 (v0.1.38)
+  const Rmax = Math.hypot(w, h)/2, meter = V.meter || 4;
+  ctx.save();
+  roundRectPath(0, 0, w, h, boardR()); ctx.clip();
+  for(const [pos, zr] of [[2, '255,138,30'], [3, '76,141,255']]){
+    const R0 = Rmax * (1 - pos / meter), zb = Math.max(6, cell*0.42);
+    const on = V.pos === pos ? 1 : V.pos === pos - 1 ? 0.5 + 0.5*V.ph : 0.35;   // 다가올수록 조금 진하게
+    const zg = ctx.createRadialGradient(cx, cy, Math.max(0, R0 - zb), cx, cy, R0 + zb);
+    zg.addColorStop(0, `rgba(${zr},0)`); zg.addColorStop(0.5, `rgba(${zr},${(CALM.on ? 0.1 : 0.17) * on + 0.05})`); zg.addColorStop(1, `rgba(${zr},0)`);
+    ctx.fillStyle = zg; ctx.fillRect(0, 0, w, h);
+    ctx.setLineDash([Math.max(4, cell*0.18), Math.max(4, cell*0.14)]);
+    ctx.strokeStyle = `rgba(${zr},${0.25 + 0.35*on})`; ctx.lineWidth = Math.max(1.5, cell*0.04);
+    ctx.beginPath(); ctx.arc(cx, cy, R0, 0, Math.PI*2); ctx.stroke();
+    ctx.setLineDash([]);
+  }
+  ctx.restore();
   const g = ctx.createRadialGradient(cx, cy, Math.max(0, r - band), cx, cy, r + band);
   g.addColorStop(0, `rgba(${rgb},0)`); g.addColorStop(0.5, `rgba(${rgb},${A})`); g.addColorStop(1, `rgba(${rgb},0)`);
   ctx.save();
   roundRectPath(0, 0, w, h, boardR()); ctx.clip();
   ctx.fillStyle = g; ctx.fillRect(0, 0, w, h);
+  // 꼬리 — 고리 바깥쪽(지나온 쪽)으로 옅어지는 잔상. 레벨이 오를수록 길게(속도감 과장, v0.1.38)
+  const tail = cell * (0.4 + (S.level || 0) * 0.55), steps = 7;
+  for(let j=1;j<=steps;j++){
+    const rr = r + tail * j / steps;
+    ctx.strokeStyle = `rgba(${rgb},${(CALM.on ? 0.2 : 0.4) * (1 - j/(steps+1))})`;
+    ctx.lineWidth = Math.max(2, cell*0.08);
+    ctx.beginPath(); ctx.arc(cx, cy, rr, 0, Math.PI*2); ctx.stroke();
+  }
+  if(!V.slot || V.slot === '.'){                                      // 흰 선은 크림 판에 묻히니 밑에 옅은 남색 그림자
+    ctx.strokeStyle = 'rgba(26,18,56,0.35)'; ctx.lineWidth = Math.max(4, cell*0.1);
+    ctx.beginPath(); ctx.arc(cx, cy, Math.max(0.5, r), 0, Math.PI*2); ctx.stroke();
+  }
   ctx.strokeStyle = `rgba(${rgb},${CALM.on ? 0.45 : 0.8})`;          // 띠 한가운데 가는 선 — 지금 위치가 또렷하게
   ctx.lineWidth = Math.max(2, cell*0.05);
   ctx.beginPath(); ctx.arc(cx, cy, Math.max(0.5, r), 0, Math.PI*2); ctx.stroke();
+  ctx.restore();
+}
+
+/*
+ * 레벨 전환 연출 (v0.1.38) — 손이 쉬는 1·2박 안에서 끝낸다.
+ * 오를 때: 새로 켜진 줄에서 빛이 위로 한 번 훑고, 말이 모두 폴짝(LVHOP), 가운데 '▲ 97' 이 크게 떴다가 2박 끝에 사라진다.
+ * 내릴 때: 켜져 있던 줄이 위에서부터 꺼져 내려가고(rowLit), 말이 축 처지고, '▼ 64' 가 조용히.
+ */
+function levelFxQ(now){
+  const F = S.lvFx;
+  if(!F) return null;
+  const q = (now - F.t0) / (F.bl * 2);
+  return q >= 0 && q < 1 ? q : null;
+}
+function lvHop(now){
+  const F = S.lvFx, q = levelFxQ(now);
+  if(q === null) return 0;
+  const u = q * 2;                                    // 박 단위(0~2)
+  if(F.up) return u < 0.6 ? -Math.sin(Math.PI * u / 0.6) * cell * 0.32 : 0;              // 폴짝
+  return u < 1.2 ? Math.sin(Math.PI * Math.min(1, u / 1.2)) * cell * 0.14 : 0;          // 축
+}
+function drawLevelFx(w, h, now){
+  const F = S.lvFx, q = levelFxQ(now);
+  if(q === null) return;
+  const bw = w - PAD*2, bh = h - PAD*2, rows = CONFIG.rows;
+  ctx.save();
+  roundRectPath(0, 0, w, h, boardR()); ctx.clip();
+  if(F.up && !CALM.on){
+    // 새로 켜진 줄에서 위로 훑는 빛
+    const u = Math.min(1, q * 2 / 1.1);
+    const startY = PAD + (rows - F.to) * cell + cell, endY = PAD - cell * 1.2;
+    const yy = startY + (endY - startY) * u, band = cell * 1.3;
+    const g = ctx.createLinearGradient(0, yy - band, 0, yy + band);
+    g.addColorStop(0, 'rgba(255,255,255,0)'); g.addColorStop(0.5, `rgba(255,255,255,${0.55 * (1 - u*0.5)})`); g.addColorStop(1, 'rgba(255,255,255,0)');
+    ctx.fillStyle = g; ctx.fillRect(PAD, yy - band, bw, band * 2);
+  }
+  // 가운데 BPM 숫자 — 오르면 크게, 내리면 조용히. 2박 끝에 사라진다
+  const fadeIn = Math.min(1, q / 0.08), fadeOut = q > 0.7 ? Math.max(0, 1 - (q - 0.7) / 0.3) : 1;
+  const A = fadeIn * fadeOut * (F.up ? 1 : 0.75);
+  const size = Math.round(cell * (F.up ? 1.9 : 1.3) * (F.up ? 1 + 0.25 * Math.max(0, 1 - q * 5) : 1));
+  ctx.globalAlpha = A;
+  ctx.font = `700 ${size}px Fredoka, Jua, sans-serif`;
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  const txt = (F.up ? '▲ ' : '▼ ') + F.bpm;
+  ctx.lineJoin = 'round'; ctx.lineWidth = Math.max(4, size * 0.14); ctx.strokeStyle = '#1A1238';
+  ctx.strokeText(txt, w/2, h/2);
+  ctx.fillStyle = F.up ? '#FDE047' : '#C9C3E6';
+  ctx.fillText(txt, w/2, h/2);
   ctx.restore();
 }
 
@@ -1967,7 +2043,7 @@ function drawTile(t, r, c, now, dx, dy){
     else dr = t.fromRow + (r - t.fromRow)*easeOut(Math.max(0,raw));
   }
   const hint = t.fromRow===null ? fallHint(t,r,c) : 0;
-  const x = (c+0.5)*cell + dx, y = (dr+0.5)*cell + dy + hint + BOB;
+  const x = (c+0.5)*cell + dx + SWAY, y = (dr+0.5)*cell + dy + hint + BOB;
   if(POPSET.has(t.id)) popMark(x, y, now, t.color, hint > 0 ? 0.72 : 1);   // 떨어지면 곧바로 터질 말 — 말 뒤에 모양 테두리
   if(S.sel && S.sel.id === t.id) selMark(x, y, now, t.color);   // 3박에 고른 말 — 캐릭터 색 모양 테두리
   if(hint > 0) ctx.globalAlpha = 0.72;             // 곧 내려올 말은 연하게
@@ -1991,27 +2067,70 @@ const FLOOR_LIGHTS = [
   ['#FF9F43', '#FF5C9A', '#45BFFF', '#6BFF5C', '#A67BFF', '#FFE03D', '#FF6B6B'], // 7
   ['#FF8C2E', '#FF4F90', '#33B5FF', '#5CFF4F', '#9A6BFF', '#FFDA2E', '#FF5C5C', '#2EFFE0'], // 8
 ];
+/*
+ * 레벨 음량 표시기 (v0.1.38) — 판 바닥이 아래에서부터 차오른다. 레벨 1 은 불 없음, 한 단계마다 맨 아랫줄부터
+ * 한 줄씩 켜져 레벨 9 면 8줄 전부. 줄마다 색이 달라(아래 주황 → 가운데 분홍 → 위 보라·파랑) 곁눈으로도 읽힌다.
+ * 다음 줄은 콤보만큼 왼쪽부터 미리 차오르고(콤보 3 이면 5분의 3), 기준을 넘겨 다음 마디에 오를 참이면 깜빡인다.
+ * 최소 레벨 줄은 테두리를 두껍게 — "여기 아래로는 안 떨어진다". 불빛은 말 아래에 옅게.
+ */
+const METER_COLS = ['#FF8A1E', '#FFA23A', '#FF7A6B', '#FF6FA8', '#EE5FCB', '#B06BFF', '#7C7CFF', '#4C8DFF'];
+function rowLit(i, now){
+  // 아래에서 i번째 줄(0부터)이 켜져 있나 — 0~1. 내려갈 때는 위에서부터 차례로 꺼진다
+  const F = S.lvFx;
+  if(F && !F.up && i >= F.to && i < F.from){
+    const span = Math.max(1, F.from - F.to), off = F.t0 + (F.from - 1 - i + 1) / span * F.bl * 1.6;
+    return Math.max(0, Math.min(1, (off - now) / (F.bl * 0.25)));
+  }
+  return i < S.level ? 1 : 0;
+}
 function drawFloor(now){
-  const V = BEATV, L = S.live ? S.level : 0, n = CONFIG.cols;
+  const V = BEATV, n = CONFIG.cols, rows = CONFIG.rows;
   const ib = V ? V.ib : 0, k = (V ? V.k : 0) * (CALM.on ? 0.35 : 1);   // 번쩍임 줄이기면 조명 깜빡임을 약하게
   const gap = Math.max(1, Math.round(cell*0.05)), rr = Math.max(3, cell*0.2);
-  for(let r=0;r<CONFIG.rows;r++) for(let c=0;c<n;c++){
-    const x = c*cell + gap, y = r*cell + gap, sz = cell - gap*2;
-    // 바탕 패널 — 파스텔 스티커 칸 (v0.1.31). 자리마다 다섯 색이 흩어져 깔린다
-    ctx.fillStyle = TILE_PASTEL[(r*7 + c*3) % TILE_PASTEL.length];
-    roundRectPath(x, y, sz, sz, rr); ctx.fill();
-    ctx.fillStyle = 'rgba(59,35,20,0.10)';                                   // 아래쪽 살짝 그늘 — 스티커 두께
-    roundRectPath(x, y + sz*0.84, sz, sz*0.16, rr*0.5); ctx.fill();
-    // 조명 — 박마다 체크무늬 절반이 하얗게 반짝, 레벨이 오를수록 레벨 색이 은은하게 물든다
-    let col;
-    if(L >= 8) col = `hsl(${((r + c)*28 + ib*36) % 360},95%,62%)`;          // 9 — 무지개가 흐른다
-    else { const P = FLOOR_LIGHTS[L]; col = P[(r + c + ib) % P.length]; }
-    const lit = ((r + c + ib) & 1) === 0;
-    const tint = Math.min(0.16, 0.02 + L*0.016);
-    if(tint > 0.01){ ctx.globalAlpha = tint; ctx.fillStyle = col; roundRectPath(x, y, sz, sz, rr); ctx.fill(); }
-    const a = k*(lit ? 0.38 : 0.1)*(V && V.pos === 0 ? 1.25 : 1);
-    if(a > 0.01){ ctx.globalAlpha = Math.min(0.5, a); ctx.fillStyle = '#FFFFFF'; roundRectPath(x, y, sz, sz, rr); ctx.fill(); }
-    ctx.globalAlpha = 1;
+  const live = S.live;
+  // 다음 줄 예고 — 콤보가 다음 레벨까지 얼마나 찼나
+  const nextRow = S.level, per = CONFIG.level.comboPer;
+  const pending = live && levelOfCombo(S.combo) > S.level;                // 기준을 넘었다 — 다음 마디부터 빨라진다
+  const frac = !live ? 0 : pending ? 1 : Math.max(0, Math.min(1, (S.combo - S.level*per) / per));
+  const floorTop = live ? floorLevel(Math.max(0, now - S.hold)) : 0;     // 최소 레벨 — 이 줄 수만큼은 안 꺼진다
+  for(let r=0;r<rows;r++){
+    const i = rows - 1 - r;                                               // 아래에서 몇 번째 줄
+    const colr = METER_COLS[i] || METER_COLS[METER_COLS.length-1];
+    const litA = live ? rowLit(i, now) : 0;
+    for(let c=0;c<n;c++){
+      const x = c*cell + gap, y = r*cell + gap, sz = cell - gap*2;
+      // 바탕 패널 — 파스텔 스티커 칸 (v0.1.31)
+      ctx.fillStyle = TILE_PASTEL[(r*7 + c*3) % TILE_PASTEL.length];
+      roundRectPath(x, y, sz, sz, rr); ctx.fill();
+      ctx.fillStyle = 'rgba(59,35,20,0.10)';                                 // 아래쪽 살짝 그늘 — 스티커 두께
+      roundRectPath(x, y + sz*0.84, sz, sz*0.16, rr*0.5); ctx.fill();
+      // 켜진 줄 — 그 줄 색으로 옅게(말을 가리지 않게), 박마다 살짝 밝아진다
+      if(litA > 0){
+        ctx.globalAlpha = litA * (0.34 + 0.16*k);
+        ctx.fillStyle = colr; roundRectPath(x, y, sz, sz, rr); ctx.fill();
+      }
+      // 다음 줄 — 콤보만큼 왼쪽부터 차오른다. 다 차서 오를 참이면 깜빡
+      if(live && i === nextRow && nextRow < rows && frac > 0){
+        const part = Math.max(0, Math.min(1, frac*n - c));
+        if(part > 0){
+          const blink = pending ? 0.5 + 0.5*Math.sin(now*18) : 1;
+          ctx.save(); roundRectPath(x, y, sz, sz, rr); ctx.clip();
+          ctx.globalAlpha = (pending ? 0.5 : 0.28) * blink;
+          ctx.fillStyle = colr; ctx.fillRect(x, y, sz*part, sz);
+          ctx.restore();
+        }
+      }
+      // 박 반짝 — 체크무늬 절반이 하얗게
+      const lit = ((r + c + ib) & 1) === 0;
+      const a = k*(lit ? 0.3 : 0.08)*(V && V.pos === 0 ? 1.25 : 1);
+      if(a > 0.01){ ctx.globalAlpha = Math.min(0.45, a); ctx.fillStyle = '#FFFFFF'; roundRectPath(x, y, sz, sz, rr); ctx.fill(); }
+      ctx.globalAlpha = 1;
+      // 최소 레벨 줄 — 두꺼운 테두리
+      if(live && floorTop > 0 && i === floorTop - 1){
+        ctx.strokeStyle = colr; ctx.globalAlpha = 0.9; ctx.lineWidth = Math.max(2, cell*0.08);
+        roundRectPath(x + 1, y + 1, sz - 2, sz - 2, rr); ctx.stroke(); ctx.globalAlpha = 1;
+      }
+    }
   }
 }
 /* 파스텔 스티커 칸 다섯 색 — 살구 · 분홍 · 하늘 · 연두 · 연보라 */
@@ -2026,7 +2145,9 @@ function draw(now){
   POPSET = willPopIds();
   BEATV = beatVisual(now);
   vibBeat();                                          // 박이 바뀌는 순간 폰 진동
-  BOB = BEATV ? cell * 0.045 * BEATV.k * (BEATV.pos === 0 ? 1.5 : 1) : 0;
+  const lvAmp = 0.45 + (S.live ? S.level : 0) * 0.42;                  // v0.1.38 레벨 1 졸린 끄덕 0.45배 → 레벨 9 3.8배
+  BOB = (BEATV ? cell * 0.045 * BEATV.k * (BEATV.pos === 0 ? 1.5 : 1) * lvAmp : 0) + lvHop(now);
+  SWAY = BEATV && S.level >= 4 ? (BEATV.ib % 2 ? 1 : -1) * cell * 0.012 * (S.level - 3) * BEATV.k : 0;   // 높은 레벨은 머리를 좌우로도 흔든다
   const w = cell*CONFIG.cols + PAD*2, h = cell*CONFIG.rows + PAD*2;
   ctx.clearRect(0,0,w,h);
 
@@ -2200,6 +2321,7 @@ function draw(now){
     ctx.globalAlpha = 1;
   }
   drawBarRing(w, h);                                // 바깥에서 가운데로 들어오는 마디 빛 고리
+  drawLevelFx(w, h, now);                           // 레벨이 바뀐 마디의 1·2박 연출
   drawBeatFrame(w, h);
 }
 
@@ -2337,6 +2459,7 @@ function locked(){
 function changeLevel(now, bar, song){
   if(bar.level === S.level) return;
   const up = bar.level > S.level;
+  S.lvFx = { up, from: S.level, to: bar.level, t0: now, bl: bar.beatLen, bpm: bar.bpm };   // 1·2박 연출 (v0.1.38)
   S.level = bar.level;
   S.stats.maxLevel = Math.max(S.stats.maxLevel, bar.level + 1);
   if(up) levelUp(now, bar);
@@ -2368,7 +2491,7 @@ function settleCombo(now){
 
 /** 레벨업 — 문구·상승음·진동. 곡은 이 마디부터 빨라진다 */
 function levelUp(now, bar){
-  announce('레벨 ' + (bar.level + 1));
+  // 문구는 판 위 캔버스에 '▲ BPM' 으로(drawLevelFx) — 2박 끝에 사라진다
   const t = Audio_.startAC + now;
   if(!sfx('lvup', t, 0.7)){                        // 하프·첼레스타 상승(없으면 합성음)
     Audio_.tone(t,        Audio_.penta(5),  0.12, 'square',   0.12);
@@ -2382,7 +2505,7 @@ function levelUp(now, bar){
 
 /** 콤보가 끊겨 레벨 1 로 — 내려가는 소리, 조용하게 */
 function levelDown(now, bar){
-  announce('레벨 ' + (bar.level + 1));
+  // 문구는 판 위 캔버스에 '▼ BPM' 으로 조용히(drawLevelFx)
   const t = Audio_.startAC + now;
   if(!sfx('lvdown', t, 0.5)){
     Audio_.tone(t,        Audio_.penta(7), 0.12, 'triangle', 0.10);
