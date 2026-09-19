@@ -12,7 +12,7 @@
 <link rel="icon" type="image/png" href="icon-192.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Jua&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;600;700;800&family=Jua&family=Gaegu:wght@700&display=swap">
 <title>둠칫딱숑 · Boom Boom Tap Go</title>
 
 <style>
@@ -28,7 +28,7 @@
     --tap:#FF8A1E;          /* 3박 누르기 = 로고의 '딱' 주황 (v0.1.22) */
     --drag:#4C8DFF;         /* 4박 드래그 = 로고의 '숑' 파랑 */
     --room:#05050A;
-    --font:'Fredoka','Jua','Malgun Gothic','Apple SD Gothic Neo','Noto Sans KR',sans-serif;   /* v0.1.22 로고처럼 둥글고 두껍게 — 숫자·영문 Fredoka, 한글 주아 */
+    --font:'Baloo 2','Jua','Malgun Gothic','Apple SD Gothic Neo','Noto Sans KR',sans-serif;   /* v0.1.68 더 둥글고 귀엽게 — 숫자·영문 Baloo 2, 한글 주아 */
   }
   *{box-sizing:border-box}
   html,body{height:100%}
@@ -188,6 +188,61 @@
       0%{opacity:0}  10%{opacity:.8}  72%{opacity:.8}  100%{opacity:0}
   }
   @media (prefers-reduced-motion:reduce){ .thump .cone{transform:none} .thump .judge.go{animation:none;opacity:1} }
+
+  /*
+   * 시작 화면 — 스티커 포스터 (v0.1.68, 디자인 캔버스 B안).
+   * 보랏빛 점무늬 바탕에 크림색 카드, 카드마다 진갈색 굵은 테두리와 두꺼운 그림자.
+   * 새 게임판(크림 쟁반 + 파스텔 칸)과 같은 화풍이다.
+   */
+  #start{background:#2A2160;
+         background-image:radial-gradient(circle at 20% 25%,rgba(255,255,255,.06) 0 5px,transparent 6px),
+                          radial-gradient(circle at 70% 75%,rgba(255,255,255,.05) 0 4px,transparent 5px);
+         background-size:44px 44px,44px 44px;gap:12px;padding:20px 14px 8px}
+  #start .en{color:#FFD9A8;letter-spacing:.24em;margin:2px 0 4px}
+  /* 네 박 안내 — 파스텔 스티커 칸 */
+  #start .turn{gap:7px;width:min(360px,100%)}
+  #start .slot{border-radius:14px;border:3px solid #3B2314;box-shadow:0 4px 0 #3B2314;background:#FFE3C8;color:#3B2314;padding:8px 0 9px}
+  #start .slot:nth-child(2){background:#FFF0B8}
+  #start .slot.t{background:#FFC489;box-shadow:0 4px 0 #3B2314}
+  #start .slot.d{background:#BFD8FF;box-shadow:0 4px 0 #3B2314}
+  #start .slot b{font-family:Jua;font-size:19px;color:#3B2314}
+  #start .slot span{font-size:10px;color:#8B5A2B}
+  /* 설명·랭킹 — 크림 카드 */
+  #start .tag,#start .rank{width:min(360px,100%);box-sizing:border-box;background:#FFF4E6;border:4px solid #3B2314;
+                           border-radius:20px;box-shadow:0 6px 0 #3B2314;color:#6B4A2A}
+  #start .tag{padding:12px 14px;font-size:13px;line-height:1.7;max-width:none;text-align:center}
+  #start .tag b{color:#3B2314}
+  #start .rank{padding:12px 14px 14px}
+  #start .rank h2{color:#3B2314;font-family:Jua;letter-spacing:0;font-size:15px}
+  #start .rank small{color:#8B5A2B}
+  #start .board{background:transparent;box-shadow:none;gap:4px}
+  #start .board li{color:#3B2314;border-radius:11px;background:#FFE9CF !important;box-shadow:inset 0 0 0 2px rgba(59,35,20,.18)}
+  #start .board li.mine{background:#FFD98A !important;box-shadow:inset 0 0 0 2px #3B2314}
+  #start .board li .rk{color:#8B5A2B}
+  #start .board li .nm small{color:#8B5A2B}
+  #start .board li .sc{color:#B45309}
+  #start .board li b{color:#3B2314}
+  #start .board li em{color:#8B5A2B}
+  /* 버튼 — 스티커 */
+  #start button.ghost{background:#FFF4E6;color:#3B2314;border:3px solid #3B2314;border-radius:14px;box-shadow:0 4px 0 #3B2314;font-size:13px;padding:10px 18px}
+  #start button.ghost:active{transform:translate(0,3px);box-shadow:0 1px 0 #3B2314}
+  #start button.ghost.off{opacity:.55}
+  #start #go{background:#FFC02E;color:#3B2314;border:4px solid #3B2314;border-radius:20px;box-shadow:0 7px 0 #3B2314;
+             font-family:Jua;font-size:26px;padding:14px 64px}
+  #start #go:active{transform:translate(0,4px);box-shadow:0 3px 0 #3B2314}
+  #start .knobs.setrow{width:min(360px,100%)}
+  #start .knob{background:#FFF4E6;border:3px solid #3B2314;border-radius:14px;box-shadow:0 4px 0 #3B2314;padding:8px 12px 10px}
+  #start .knob label{color:#8B5A2B}
+  #start .knob .row b{color:#3B2314}
+  #start input[type=range]::-webkit-slider-runnable-track{background:rgba(59,35,20,.25)}
+  #start input[type=range]::-webkit-slider-thumb{background:#FF8A1E;border-radius:6px}
+  #start input[type=range]::-moz-range-track{background:rgba(59,35,20,.25)}
+  #start input[type=range]::-moz-range-thumb{background:#FF8A1E;border-radius:6px}
+  /* 아래에서 고개를 내미는 강아지들 */
+  #start .pack{display:flex;justify-content:center;gap:2px;margin:2px 0 -18px;pointer-events:none}
+  #start .pack img{width:62px;height:62px;display:block}
+  #start .pack img:nth-child(odd){transform:rotate(-7deg)}
+  #start .pack img:nth-child(even){transform:rotate(6deg) translateY(4px)}
 
   .overlay{position:absolute;inset:0;z-index:10;display:flex;flex-direction:column;align-items:center;
            justify-content:center;gap:20px;padding:26px;background:rgba(10,10,18,.94);
@@ -436,6 +491,7 @@
     <div class="toggles"><button class="ghost" id="calm" type="button">번쩍임 줄이기 꺼짐</button><button class="ghost" id="vib" type="button">진동 켜짐</button></div>
 
     <button id="go">시작</button>
+    <div class="pack" id="pack" aria-hidden="true"></div>
 
   </div>
 
@@ -492,7 +548,7 @@
    ========================================================================= */
 
 // 게임 버전 — 수정해서 배포할 때마다 끝 두 자리를 1씩 올린다(v0.1.01 → v0.1.02). 화면 오른쪽 아래에 보인다
-const GAME_VERSION = 'v0.1.67';
+const GAME_VERSION = 'v0.1.68';
 /*
  * 번쩍임 줄이기 (v0.1.22) — 광과민성 배려. 켜면 화면 전체 번쩍임·흔들림을 끄고, 발판 조명·테두리 박동을 약하게.
  * 폰의 '동작 줄이기'가 켜져 있으면 처음부터 켠다. 고른 값은 이 기기에 기억한다.
@@ -3078,6 +3134,16 @@ el('go').addEventListener('click', start);
 el('helpBtn').addEventListener('click', () => { el('help').hidden = false; el('helpClose').focus(); });
 el('helpClose').addEventListener('click', () => { el('help').hidden = true; el('helpBtn').focus(); });
 addEventListener('keydown', e => { if(e.key === 'Escape' && !el('help').hidden){ el('help').hidden = true; el('helpBtn').focus(); } });
+// 시작 화면 아래 강아지 줄 — 판에 쓰는 얼굴 그대로 (v0.1.68)
+(() => {
+  const box = el('pack');
+  if(!box) return;
+  for(const i of CONFIG.roster){
+    const im = document.createElement('img');
+    im.src = FACE_SRC[i]; im.alt = '';
+    box.appendChild(im);
+  }
+})();
 const calmLabel = () => { el('calm').textContent = CALM.on ? '번쩍임 줄이기 켜짐' : '번쩍임 줄이기 꺼짐'; el('calm').classList.toggle('off', !CALM.on); };
 calmLabel();
 const vibLabel = () => { el('vib').textContent = VIB.on ? '진동 켜짐' : '진동 꺼짐'; el('vib').classList.toggle('off', !VIB.on); };
