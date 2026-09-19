@@ -283,8 +283,12 @@
    * 위: 점수·레벨·배율·시간을 오락기 간판 패널 하나에. 시간은 LED 칸(20칸, 칸 사이를 마스크로 끊는다 — 채우기 계산은 예전 그대로).
    * 구호: 둠·칫·딱·숑 네 발판 버튼. 아래: 스피커 달린 조작판 — 안내창(LCD) + 박자 버튼 네 개.
    */
-  #stage{background-color:#0B0820;
-         background-image:repeating-linear-gradient(135deg,rgba(255,255,255,.025) 0 14px,transparent 14px 28px)}
+  #stage{background-color:#0A0718;   /* v0.1.28 네온 댄스 발판 — 아래에서 주황빛, 작은 점 무늬 */
+         background-image:radial-gradient(ellipse 140% 55% at 50% 108%,rgba(255,138,30,.22),transparent 60%),
+                          radial-gradient(circle,rgba(120,110,255,.16) 1px,transparent 1.5px);
+         background-size:100% 100%,14px 14px}
+  #cv{box-shadow:0 0 26px rgba(255,138,30,.3),0 0 42px rgba(76,141,255,.22)}
+  #announce,#combo{-webkit-text-stroke:7px #1A1238;paint-order:stroke fill}   /* 흰 발판 위에서도 글자가 또렷하게 — 진한 남색 테두리 */
   .marquee{flex:0 0 auto;margin:10px 12px 4px;border-radius:20px;border:3px solid var(--edge);background:var(--panel);
            box-shadow:0 0 0 1px var(--room),0 0 22px rgba(255,138,30,.18),inset 0 0 18px rgba(76,141,255,.12)}
   .marquee .hud{padding:10px 12px 4px}
@@ -450,7 +454,7 @@
    ========================================================================= */
 
 // 게임 버전 — 수정해서 배포할 때마다 끝 두 자리를 1씩 올린다(v0.1.01 → v0.1.02). 화면 오른쪽 아래에 보인다
-const GAME_VERSION = 'v0.1.27';
+const GAME_VERSION = 'v0.1.28';
 /*
  * 번쩍임 줄이기 (v0.1.22) — 광과민성 배려. 켜면 화면 전체 번쩍임·흔들림을 끄고, 발판 조명·테두리 박동을 약하게.
  * 폰의 '동작 줄이기'가 켜져 있으면 처음부터 켠다. 고른 값은 이 기기에 기억한다.
@@ -1921,20 +1925,22 @@ function drawFloor(now){
   const gap = Math.max(1, Math.round(cell*0.06)), rr = Math.max(2, cell*0.14);
   for(let r=0;r<CONFIG.rows;r++) for(let c=0;c<n;c++){
     const x = c*cell + gap, y = r*cell + gap, sz = cell - gap*2;
-    // 바탕 패널 — 늘 보이는 어두운 발판
-    ctx.fillStyle = 'rgba(255,255,255,0.035)';
+    // 바탕 패널 — 흰 톤 발판 (v0.1.28, 비숑의 흰색과 섞이지 않게 살짝 라벤더 끼)
+    ctx.fillStyle = '#E4DFF2';
     roundRectPath(x, y, sz, sz, rr); ctx.fill();
+    ctx.fillStyle = 'rgba(40,30,90,0.10)';                                   // 아래쪽 살짝 그늘 — 발판 두께
+    roundRectPath(x, y + sz*0.82, sz, sz*0.18, rr*0.6); ctx.fill();
     // 조명 — 박마다 체크무늬 절반이 번갈아 켜지고, 1박은 전부 조금 더 밝다
     let col;
     if(L >= 8) col = `hsl(${((r + c)*28 + ib*36) % 360},95%,62%)`;          // 9 — 무지개가 흐른다
     else { const P = FLOOR_LIGHTS[L]; col = P[(r + c + ib) % P.length]; }
     const lit = ((r + c + ib) & 1) === 0;
     const base = 0.05 + L*0.012;                                             // 레벨이 오를수록 은은한 밑불도 조금씩
-    const a = Math.min(0.3, base + k*(lit ? 0.2 : 0.06)*(V && V.pos === 0 ? 1.25 : 1));
+    const a = Math.min(0.42, base + k*(lit ? 0.28 : 0.08)*(V && V.pos === 0 ? 1.25 : 1));   // 흰 발판 위라 조금 더 진하게 물들인다
     ctx.globalAlpha = a;
     ctx.fillStyle = col;
     roundRectPath(x, y, sz, sz, rr); ctx.fill();
-    ctx.globalAlpha = Math.min(0.45, a*1.6);                                 // 발판 테두리 — 네온 선
+    ctx.globalAlpha = Math.min(0.8, 0.25 + a*1.6);                           // 발판 테두리 — 네온 선
     ctx.strokeStyle = col; ctx.lineWidth = Math.max(1, cell*0.03);
     roundRectPath(x + 0.5, y + 0.5, sz - 1, sz - 1, rr); ctx.stroke();
     ctx.globalAlpha = 1;
@@ -1958,7 +1964,7 @@ function draw(now){
   if(S.shake > 0.4){ sx=(Math.random()-0.5)*S.shake; sy=(Math.random()-0.5)*S.shake; S.shake *= 0.86; }
   ctx.save(); ctx.translate(sx,sy);
 
-  ctx.fillStyle='#12121F'; ctx.fillRect(0,0,w,h);
+  ctx.fillStyle='#06050F'; ctx.fillRect(0,0,w,h);
 
   // 차례가 아닐 때 조작하면 판 테두리가 튕겨낸다
   const bf = (now - S.blockFlash)/0.28;
@@ -1967,7 +1973,8 @@ function draw(now){
     ctx.lineWidth = Math.max(3, cell*0.10);
     ctx.strokeRect(3,3,w-6,h-6);
   }
-  ctx.strokeStyle='#2A2A45'; ctx.lineWidth=3; ctx.strokeRect(1.5,1.5,w-3,h-3);
+  ctx.strokeStyle='#FF8A1E'; ctx.lineWidth=2; ctx.strokeRect(1,1,w-2,h-2);       // v0.1.28 이중 네온관 — 바깥 딱 주황
+  ctx.strokeStyle='#4C8DFF'; ctx.lineWidth=2; ctx.strokeRect(4,4,w-8,h-8);       //                 안쪽 숑 파랑
 
   ctx.save(); ctx.beginPath(); ctx.rect(PAD,PAD,w-PAD*2,h-PAD*2); ctx.clip();
   ctx.translate(PAD, PAD);
