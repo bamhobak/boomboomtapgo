@@ -454,7 +454,7 @@
    ========================================================================= */
 
 // 게임 버전 — 수정해서 배포할 때마다 끝 두 자리를 1씩 올린다(v0.1.01 → v0.1.02). 화면 오른쪽 아래에 보인다
-const GAME_VERSION = 'v0.1.30';
+const GAME_VERSION = 'v0.1.31';
 /*
  * 번쩍임 줄이기 (v0.1.22) — 광과민성 배려. 켜면 화면 전체 번쩍임·흔들림을 끄고, 발판 조명·테두리 박동을 약하게.
  * 폰의 '동작 줄이기'가 켜져 있으면 처음부터 켠다. 고른 값은 이 기기에 기억한다.
@@ -1919,35 +1919,31 @@ const FLOOR_LIGHTS = [
   ['#FF9F43', '#FF5C9A', '#45BFFF', '#6BFF5C', '#A67BFF', '#FFE03D', '#FF6B6B'], // 7
   ['#FF8C2E', '#FF4F90', '#33B5FF', '#5CFF4F', '#9A6BFF', '#FFDA2E', '#FF5C5C', '#2EFFE0'], // 8
 ];
-/* 칸 테두리 = 그 칸 캐릭터의 색 (v0.1.30). 어두운 칸 위에서 보이게 푸들·프렌치불독은 밝힌 색 */
-const PET_EDGE = [null, '#D9955A', '#FFFFFF', '#FACC15', '#A5A5CC', '#FB923C'];
 function drawFloor(now){
   const V = BEATV, L = S.live ? S.level : 0, n = CONFIG.cols;
   const ib = V ? V.ib : 0, k = (V ? V.k : 0) * (CALM.on ? 0.35 : 1);   // 번쩍임 줄이기면 조명 깜빡임을 약하게
-  const gap = Math.max(1, Math.round(cell*0.06)), rr = Math.max(2, cell*0.14);
+  const gap = Math.max(1, Math.round(cell*0.05)), rr = Math.max(3, cell*0.2);
   for(let r=0;r<CONFIG.rows;r++) for(let c=0;c<n;c++){
     const x = c*cell + gap, y = r*cell + gap, sz = cell - gap*2;
-    // 바탕 패널 — 어두운 발판 (v0.1.29: 판 바탕이 흰 톤이 되어, 칸은 불투명한 어두운 색으로 세운다)
-    ctx.fillStyle = '#1B1A2B';
+    // 바탕 패널 — 파스텔 스티커 칸 (v0.1.31). 자리마다 다섯 색이 흩어져 깔린다
+    ctx.fillStyle = TILE_PASTEL[(r*7 + c*3) % TILE_PASTEL.length];
     roundRectPath(x, y, sz, sz, rr); ctx.fill();
-    // 조명 — 박마다 체크무늬 절반이 번갈아 켜지고, 1박은 전부 조금 더 밝다
+    ctx.fillStyle = 'rgba(59,35,20,0.10)';                                   // 아래쪽 살짝 그늘 — 스티커 두께
+    roundRectPath(x, y + sz*0.84, sz, sz*0.16, rr*0.5); ctx.fill();
+    // 조명 — 박마다 체크무늬 절반이 하얗게 반짝, 레벨이 오를수록 레벨 색이 은은하게 물든다
     let col;
     if(L >= 8) col = `hsl(${((r + c)*28 + ib*36) % 360},95%,62%)`;          // 9 — 무지개가 흐른다
     else { const P = FLOOR_LIGHTS[L]; col = P[(r + c + ib) % P.length]; }
     const lit = ((r + c + ib) & 1) === 0;
-    const base = 0.05 + L*0.012;                                             // 레벨이 오를수록 은은한 밑불도 조금씩
-    const a = Math.min(0.3, base + k*(lit ? 0.2 : 0.06)*(V && V.pos === 0 ? 1.25 : 1));
-    ctx.globalAlpha = a;
-    ctx.fillStyle = col;
-    roundRectPath(x, y, sz, sz, rr); ctx.fill();
-    const tt = S.grid && S.grid[r] ? S.grid[r][c] : null;                   // 발판 테두리 — 그 칸 캐릭터 색 네온 선
-    const ec = tt ? PET_EDGE[tt.color] || col : col;
-    ctx.globalAlpha = tt ? Math.min(0.95, 0.6 + a) : Math.min(0.45, a*1.6);
-    ctx.strokeStyle = ec; ctx.lineWidth = Math.max(1.5, cell*0.045);
-    roundRectPath(x + 0.5, y + 0.5, sz - 1, sz - 1, rr); ctx.stroke();
+    const tint = Math.min(0.16, 0.02 + L*0.016);
+    if(tint > 0.01){ ctx.globalAlpha = tint; ctx.fillStyle = col; roundRectPath(x, y, sz, sz, rr); ctx.fill(); }
+    const a = k*(lit ? 0.38 : 0.1)*(V && V.pos === 0 ? 1.25 : 1);
+    if(a > 0.01){ ctx.globalAlpha = Math.min(0.5, a); ctx.fillStyle = '#FFFFFF'; roundRectPath(x, y, sz, sz, rr); ctx.fill(); }
     ctx.globalAlpha = 1;
   }
 }
+/* 파스텔 스티커 칸 다섯 색 — 살구 · 분홍 · 하늘 · 연두 · 연보라 */
+const TILE_PASTEL = ['#FFE3C8', '#FFD6E8', '#D4ECFF', '#DDF5D2', '#E6DCFF'];
 function roundRectPath(x, y, w, h, r){
   ctx.beginPath();
   if(ctx.roundRect) ctx.roundRect(x, y, w, h, r);
@@ -1966,7 +1962,7 @@ function draw(now){
   if(S.shake > 0.4){ sx=(Math.random()-0.5)*S.shake; sy=(Math.random()-0.5)*S.shake; S.shake *= 0.86; }
   ctx.save(); ctx.translate(sx,sy);
 
-  ctx.fillStyle='#E4DFF2'; ctx.fillRect(0,0,w,h);   // v0.1.29 판 바탕(칸 사이·둘레)은 흰 톤 — 어두운 칸이 또렷이 떠 보이게
+  ctx.fillStyle='#FFF4E6'; ctx.fillRect(0,0,w,h);   // v0.1.31 판 바탕은 크림색 쟁반
 
   // 차례가 아닐 때 조작하면 판 테두리가 튕겨낸다
   const bf = (now - S.blockFlash)/0.28;
