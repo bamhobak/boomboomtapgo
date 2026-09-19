@@ -389,7 +389,7 @@
    ========================================================================= */
 
 // 게임 버전 — 수정해서 배포할 때마다 끝 두 자리를 1씩 올린다(v0.1.01 → v0.1.02). 화면 오른쪽 아래에 보인다
-const GAME_VERSION = 'v0.1.10';
+const GAME_VERSION = 'v0.1.11';
 
 const CONFIG = {
   bpm: 64,                   // 시작 템포 — 초심자가 편하게 시작하도록 72 → 64 로 낮췄다. 레벨마다 level.stepMul 배씩 빨라진다
@@ -503,7 +503,7 @@ const AUDIO_BLOB = {
   'level-2': '8a7d0608720a75043f6dd535eef7292b',
   'level-3': '2337ee55093982cdb1a1806eb44ad26e',
   'level-4': 'e80413f0626f31c7703b2cbec1b76077',
-  'level-5': 'a2515dffb7a34a63a14043c15e31f927',
+  'level-5': '0ca7c2d1a2298a9cda0389e9575bfa7b',
   'level-6': '8c2a470933e226c5cedb813e04174e0d',
   'level-7': '5647a5265c603352b226b583b4fdece3',
   'level-8': 'ffe1d883b5a4a6ebac3f8b3e1cc37068',
@@ -600,11 +600,11 @@ const LEVEL_TRACKS = [
   { key:'lv2', file:'level-2', bpm: 72.80, offset:0.041, gain:0.94, mood:'밝고 통통 (Suno)' },
   { key:'lv3', file:'level-3', bpm: 83.98, offset:0.573, gain:1.22, mood:'신나게 (Suno)' },
   { key:'lv4', file:'level-4', bpm: 97.70, offset:0.506, gain:1.12, mood:'들뜨는 (Suno)' },
-  { key:'lv5', file:'level-5', bpm:111.00, offset:0, gain:1.41,     mood:'피버 (Ludo)' },
+  { key:'lv5', file:'level-5', bpm:110.98, offset:0, gain:0.89, mood:'피버 (Ludo v2 — 첫 곡이 너무 잔잔해서 다시 뽑음)' },
   { key:'lv6', file:'level-6', bpm:127.00, offset:0, gain:0.98,     mood:'터보 (Ludo)' },
   { key:'lv7', file:'level-7', bpm:145.98, offset:0, gain:1.70,     mood:'스피드 (Ludo)' },
-  { key:'lv8', file:'level-8', bpm:167.00, offset:0, gain:0.97,     mood:'마스터 (Ludo)' },
-  { key:'lv9', file:'level-9', bpm:192.00, offset:0, gain:1.93,     mood:'최종 (Ludo)' },
+  { key:'lv8', file:'level-8', bpm:167.00, offset:0, gain:0.97,     bars:8, mood:'마스터 (Ludo) — 9·18번째 마디가 거의 무음이라 앞 8마디만 돈다' },
+  { key:'lv9', file:'level-9', bpm:192.00, offset:0, gain:1.62,     from:16, mood:'최종 (Ludo) — 앞 16마디가 3dB 잔잔해서 17번째 마디부터 돈다' },
 ];
 
 /**
@@ -618,11 +618,19 @@ function trackForLevel(L){
   return best;
 }
 
-/** 루프 길이 — 파일 처음부터 온전한 마디까지 */
-function bgmLoopLen(b, tr){
+/**
+ * 루프 구간 — 기본은 파일 처음부터 온전한 마디까지.
+ *   from — 잔잔한 앞부분을 건너뛰고 이 마디부터 돈다(첫 박 기준 마디 번호, 0부터)
+ *   bars — 루프를 이 마디 수까지만(중간에 뚝 끊기는 무음 마디가 있는 곡)
+ */
+function bgmLoop(b, tr){
   const barSec = 240 / tr.bpm;
-  return Math.max(1, Math.floor(b.duration / barSec + 0.02)) * barSec;
+  const start = tr.from ? (tr.offset || 0) + tr.from * barSec : 0;
+  let bars = Math.max(1, Math.floor((b.duration - start) / barSec + 0.02));
+  if(tr.bars) bars = Math.min(bars, tr.bars);
+  return { start, len: bars * barSec, first: start + (tr.from ? 0 : (tr.offset || 0)) };
 }
+const bgmWrap = (L, x) => L.start + (((x - L.start) % L.len) + L.len) % L.len;
 
 const Bgm = { src:null, gain:null, level:-1, run:null, resume:{} };
 // run    — 지금 곡이 한 레벨 동안 이어 도는 구간 { key, first(시작 마디), base(그때 곡 위치), rate, len }
@@ -657,17 +665,17 @@ function bgmStart(songPos){
   let first = bi;
   while(first > 0 && BARS[first-1].level === bar.level) first--;
   const rate = bar.bpm / tr.bpm;                       // 곡의 **실제** 템포 기준 — 1.00배 안팎
-  const len = bgmLoopLen(b, tr);
-  // 새 구간이면 — 전에 이 곡을 틀다 떠났으면 그 자리에서, 처음이면 첫 박에서 시작한다
+  const L = bgmLoop(b, tr);
+  // 새 구간이면 — 전에 이 곡을 틀다 떠났으면 그 자리에서, 처음이면 첫 박(from 이 있으면 그 마디)에서 시작한다
   if(!Bgm.run || Bgm.run.first !== first || Bgm.run.key !== tr.key){
     const saved = Bgm.resume[tr.key];
-    Bgm.run = { key:tr.key, first, base: saved !== undefined ? saved : (tr.offset || 0), rate, len };
+    Bgm.run = { key:tr.key, first, base: saved !== undefined ? saved : L.first, rate, L };
   }
-  const pos = (Bgm.run.base + (songPos - BARS[first].startTime) * rate) % len;
+  const pos = bgmWrap(L, Bgm.run.base + (songPos - BARS[first].startTime) * rate);
   bgmStop(0.04);
   const src = Audio_.ac.createBufferSource();
   src.buffer = b; src.loop = true; src.playbackRate.value = rate;
-  src.loopStart = 0; src.loopEnd = Math.min(b.duration, len);   // 파일 처음부터 온전한 마디까지
+  src.loopStart = L.start; src.loopEnd = Math.min(b.duration, L.start + L.len);   // 온전한 마디만 돈다
   const g = Audio_.ac.createGain(), t = Audio_.ac.currentTime;
   g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(BGM_VOL * (tr.gain || 1), t + 0.02);
   src.connect(g); g.connect(Audio_.master);
@@ -2086,7 +2094,7 @@ function changeLevel(now, bar, song){
 function bgmRemember(atSong){
   const r = Bgm.run;
   if(!r) return;
-  Bgm.resume[r.key] = (r.base + (atSong - BARS[r.first].startTime) * r.rate) % r.len;
+  Bgm.resume[r.key] = bgmWrap(r.L, r.base + (atSong - BARS[r.first].startTime) * r.rate);
   Bgm.run = null;
 }
 
