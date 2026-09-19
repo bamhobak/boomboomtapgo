@@ -452,7 +452,7 @@
    ========================================================================= */
 
 // 게임 버전 — 수정해서 배포할 때마다 끝 두 자리를 1씩 올린다(v0.1.01 → v0.1.02). 화면 오른쪽 아래에 보인다
-const GAME_VERSION = 'v0.1.41';
+const GAME_VERSION = 'v0.1.42';
 /*
  * 번쩍임 줄이기 (v0.1.22) — 광과민성 배려. 켜면 화면 전체 번쩍임·흔들림을 끄고, 발판 조명·테두리 박동을 약하게.
  * 폰의 '동작 줄이기'가 켜져 있으면 처음부터 켠다. 고른 값은 이 기기에 기억한다.
@@ -572,7 +572,7 @@ const Audio_ = {
  *   /_blob/<id>  아티팩트 에셋 (mp3 는 에셋으로 못 올려 base64 json 으로 묶었다)
  */
 const AUDIO_BLOB = {
-  'sfx':     '3a9865ee7595328537541a9891f7802e',   // v0.1.17 효과음 전부 어쿠스틱(마림바·첼레스타·하프·오르골)
+  'sfx':     'fe89be98a01cc6fb6c22d8a2d35c3af7',   // v0.1.42 '둠칫딱숑' 카운트인 추가   // v0.1.17 효과음 전부 어쿠스틱(마림바·첼레스타·하프·오르골)
   'voice':   '36ca2d966fbbd0a39213eb94a28b5c0c',   // v0.1.26 비숑·래브라도·프렌치불독 짖는 소리
   'menu':    '26629809f2d3943fe028a515b38b75cb',
   'level-1': '9842b48729158b56fcb87445b3869de8',
@@ -2073,7 +2073,6 @@ const FLOOR_LIGHTS = [
  * 다음 줄은 콤보만큼 왼쪽부터 미리 차오르고(콤보 3 이면 5분의 3), 기준을 넘겨 다음 마디에 오를 참이면 깜빡인다.
  * 최소 레벨 줄은 테두리를 두껍게 — "여기 아래로는 안 떨어진다". 불빛은 말 아래에 옅게.
  */
-const METER_COLS = ['#FF8A1E', '#FFA23A', '#FF7A6B', '#FF6FA8', '#EE5FCB', '#B06BFF', '#7C7CFF', '#4C8DFF'];
 function rowLit(i, now){
   // 아래에서 i번째 줄(0부터)이 켜져 있나 — 0~1. 내려갈 때는 위에서부터 차례로 꺼진다
   const F = S.lvFx;
@@ -2083,39 +2082,68 @@ function rowLit(i, now){
   }
   return i < S.level ? 1 : 0;
 }
-/* 레벨 불빛 — 칸이 아니라 칸 사이·둘레의 흰 판 바탕을 줄마다 판 전체 폭으로 채운다 (v0.1.40). 판 좌표(여백 포함)에서 그린다 */
-function drawMeterBands(w, h, now){
+/*
+ * 레벨 물결 (v0.1.42) — 판 바탕이 아래에서부터 차오르는데, 딱딱한 줄이 아니라 파도처럼 일렁인다.
+ * 수면 높이 = (레벨 + 다음 레벨까지의 콤보)×한 칸. 그래서 콤보가 쌓이면 물이 스르르 올라온다.
+ * 색은 아래 주황 → 가운데 분홍 → 위 보라·파랑 그라데이션. 물결은 박에 맞춰 출렁이고, 레벨이 오를수록 빨라진다.
+ * 최소 레벨은 딱딱한 선 대신 은은하게 빛나는 물자국.
+ */
+function waveY(x, base, now, amp, speed, k){
+  return base
+       - Math.sin(x * 0.014 + now * speed) * amp
+       - Math.sin(x * 0.031 - now * speed * 1.6) * amp * 0.45
+       - k * amp * 0.5;                                   // 박마다 수면 전체가 한 번 부푼다
+}
+function drawMeterWave(w, h, now){
   if(!S.live) return;
-  const V = BEATV, n = CONFIG.cols, rows = CONFIG.rows, k = (V ? V.k : 0) * (CALM.on ? 0.35 : 1);
-  const nextRow = S.level, per = CONFIG.level.comboPer;
+  const V = BEATV, rows = CONFIG.rows, per = CONFIG.level.comboPer;
+  const k = (V ? V.k : 0) * (CALM.on ? 0.35 : 1);
   const pending = levelOfCombo(S.combo) > S.level;
   const frac = pending ? 1 : Math.max(0, Math.min(1, (S.combo - S.level*per) / per));
+  const lvl = S.level + frac;                                     // 수면 높이(칸 단위) — 콤보만큼 더 차오른다
+  if(lvl <= 0.001) return;
+  const bottom = h, base = h - PAD - lvl * cell;
+  const amp = Math.max(3, cell * (0.12 + 0.05 * S.level)) * (CALM.on ? 0.5 : 1);
+  const speed = 1.1 + S.level * 0.5;
   ctx.save();
   roundRectPath(0, 0, w, h, boardR()); ctx.clip();
-  for(let r=0;r<rows;r++){
-    const i = rows - 1 - r;
-    const colr = METER_COLS[i] || METER_COLS[METER_COLS.length-1];
-    const y0 = r === 0 ? 0 : PAD + r*cell, y1 = r === rows - 1 ? h : PAD + (r + 1)*cell;   // 맨 윗줄·아랫줄은 판 끝까지
-    const litA = rowLit(i, now);
-    if(litA > 0){ ctx.globalAlpha = litA * (0.78 + 0.22*k); ctx.fillStyle = colr; ctx.fillRect(0, y0, w, y1 - y0); }
-    if(i === nextRow && nextRow < rows && frac > 0){                        // 다음 줄 — 콤보만큼 왼쪽부터, 오를 참이면 깜빡
-      const blink = pending ? 0.5 + 0.5*Math.sin(now*18) : 1;
-      ctx.globalAlpha = (pending ? 0.8 : 0.55) * blink; ctx.fillStyle = colr;
-      ctx.fillRect(0, y0, w * frac, y1 - y0);
-    }
-    ctx.globalAlpha = 1;
+  // 물 — 아래에서 위로 색이 바뀌는 그라데이션
+  const g = ctx.createLinearGradient(0, bottom, 0, Math.max(0, h - PAD - rows * cell));
+  g.addColorStop(0,    '#FF8A1E');
+  g.addColorStop(0.28, '#FF7A6B');
+  g.addColorStop(0.5,  '#FF6FA8');
+  g.addColorStop(0.72, '#B06BFF');
+  g.addColorStop(1,    '#4C8DFF');
+  ctx.globalAlpha = (0.72 + 0.16 * k) * (pending ? 0.85 + 0.15 * Math.sin(now * 18) : 1);
+  ctx.fillStyle = g;
+  ctx.beginPath();
+  ctx.moveTo(0, bottom);
+  for(let x = 0; x <= w; x += 6) ctx.lineTo(x, waveY(x, base, now, amp, speed, k));
+  ctx.lineTo(w, bottom); ctx.closePath(); ctx.fill();
+  // 수면 위 물마루 — 한 줄 더 밝게
+  ctx.globalAlpha = 0.5 + 0.3 * k;
+  ctx.strokeStyle = 'rgba(255,255,255,0.75)'; ctx.lineWidth = Math.max(2, cell * 0.05);
+  ctx.beginPath();
+  for(let x = 0; x <= w; x += 6){ const y = waveY(x, base, now, amp, speed, k); x ? ctx.lineTo(x, y) : ctx.moveTo(x, y); }
+  ctx.stroke();
+  // 최소 레벨 — 은은한 물자국(딱딱한 선 대신)
+  const floorTop = floorLevel(Math.max(0, now - S.hold));
+  if(floorTop > 0){
+    const fy = h - PAD - floorTop * cell;
+    ctx.globalAlpha = 0.5;
+    ctx.setLineDash([Math.max(6, cell*0.5), Math.max(5, cell*0.4)]);
+    ctx.strokeStyle = 'rgba(255,255,255,0.8)'; ctx.lineWidth = Math.max(1.5, cell*0.035);
+    ctx.beginPath(); ctx.moveTo(0, fy); ctx.lineTo(w, fy); ctx.stroke();
+    ctx.setLineDash([]);
   }
+  ctx.globalAlpha = 1;
   ctx.restore();
 }
 function drawFloor(now){
   const V = BEATV, n = CONFIG.cols, rows = CONFIG.rows;
   const ib = V ? V.ib : 0, k = (V ? V.k : 0) * (CALM.on ? 0.35 : 1);   // 번쩍임 줄이기면 조명 깜빡임을 약하게
   const gap = Math.max(2, Math.round(cell*0.08)), rr = Math.max(3, cell*0.2);   // v0.1.40 칸 간격을 넓혀 판 바탕(레벨 불빛)이 보이게
-  const live = S.live;
-  const floorTop = live ? floorLevel(Math.max(0, now - S.hold)) : 0;     // 최소 레벨 — 이 줄 수만큼은 안 꺼진다
   for(let r=0;r<rows;r++){
-    const i = rows - 1 - r;                                               // 아래에서 몇 번째 줄
-    const colr = METER_COLS[i] || METER_COLS[METER_COLS.length-1];
     for(let c=0;c<n;c++){
       const x = c*cell + gap, y = r*cell + gap, sz = cell - gap*2;
       // 바탕 패널 — 파스텔 스티커 칸 (v0.1.31)
@@ -2130,15 +2158,8 @@ function drawFloor(now){
       ctx.globalAlpha = 1;
     }
   }
-  // 최소 레벨 — 그 줄 위쪽 경계에 두꺼운 선 "여기 아래로는 안 떨어진다"
-  if(live && floorTop > 0){
-    const yy = (rows - floorTop) * cell;
-    ctx.strokeStyle = '#3B2314'; ctx.lineWidth = Math.max(3, cell*0.09);
-    ctx.beginPath(); ctx.moveTo(-PAD, yy); ctx.lineTo(n*cell + PAD, yy); ctx.stroke();
-    ctx.strokeStyle = METER_COLS[floorTop - 1]; ctx.lineWidth = Math.max(2, cell*0.05);
-    ctx.beginPath(); ctx.moveTo(-PAD, yy); ctx.lineTo(n*cell + PAD, yy); ctx.stroke();
-  }
 }
+
 /* 파스텔 스티커 칸 다섯 색 — 살구 · 분홍 · 하늘 · 연두 · 연보라 */
 const TILE_PASTEL = ['#FFE3C8', '#FFD6E8', '#D4ECFF', '#DDF5D2', '#E6DCFF'];
 function roundRectPath(x, y, w, h, r){
@@ -2164,7 +2185,7 @@ function draw(now){
 
   const R = boardR();
   ctx.fillStyle='#FFF4E6'; roundRectPath(0,0,w,h,R); ctx.fill();   // v0.1.31 판 바탕은 크림색 쟁반 · v0.1.34 모서리 둥글게
-  drawMeterBands(w, h, now);                                        // v0.1.40 레벨 불빛이 판 바탕을 아래에서부터 채운다
+  drawMeterWave(w, h, now);                                         // v0.1.42 레벨만큼 차오르는 물결 그라데이션
 
   // 차례가 아닐 때 조작하면 판 테두리가 튕겨낸다
   const bf = (now - S.blockFlash)/0.28;
@@ -2362,8 +2383,15 @@ function frame(){
   } else S.holding = false;
   const song = now - S.hold;
 
-  // 시작 카운트다운 — 3 · 2 · 1 · GO!
-  if(song < BARS[0].beatLen * 0.9){
+  // 시작 카운트다운 — 둠 · 칫 · 딱 · 숑 (음원이 없으면 3 · 2 · 1 · GO!)
+  if(song < 0 && S.countLead === COUNT_LEAD){
+    let i = -1;
+    for(let q=0;q<COUNT_ON.length;q++) if(song >= COUNT_ON[q] - COUNT_LEAD) i = q;
+    if(i >= 0){
+      const label = '둠칫딱숑'[i];
+      if(label !== S.countShown){ S.countShown = label; announce(label, i === 3 ? 'go' : true); }
+    }
+  } else if(song < BARS[0].beatLen * 0.9 && S.countLead !== COUNT_LEAD){
     const c = Math.ceil(-song / BARS[0].beatLen);
     const label = c >= 3 ? '3' : c === 2 ? '2' : c === 1 ? '1' : 'GO!';
     if(label !== S.countShown){ S.countShown = label; announce(label, label === 'GO!' ? 'go' : true); }
@@ -2601,7 +2629,13 @@ function flashBeat(pos, pattern){
 
 /* --------------------------------------------------------- 시작 / 종료 */
 
-const COUNT_IN = 3;                                      // 시작 전에 세는 박 수
+/*
+ * 시작 카운트다운 (v0.1.42) — 3·2·1·GO 대신 사용자의 '둠! 칫! 딱! 숑!' 음원(src/countdown.mp3 → sfx 'countin').
+ * 실측: 네 글자가 0.03 · 0.469 · 0.958 · 1.257초(자른 파일 기준, 간격이 고르지 않아 박에 맞추지 않고 잰 그대로 띄운다).
+ * 마지막 '숑' 뒤 0.45초에 게임 1박이 시작된다. 음원이 없으면 예전 3·2·1·GO 소리로 돌아간다.
+ */
+const COUNT_ON = [0.03, 0.469, 0.958, 1.257], COUNT_LEAD = 1.71;
+const COUNT_IN = 3;                                      // 음원이 없을 때 세는 박 수
 const bpmBeat = L => 60 / bpmOfLevel(L);
 
 /*
@@ -2680,15 +2714,20 @@ function start(){
   el('start').hidden = true; el('end').hidden = true;
   layout();
 
-  // 바로 시작하지 않는다 — 한 박씩 3 · 2 · 1 을 세고 첫 박에 GO! (시간은 GO! 부터 흐른다)
-  const lead = COUNT_IN * bpmBeat(0);
+  // 바로 시작하지 않는다 — '둠! 칫! 딱! 숑!' 을 듣고 그 다음 박에 시작한다 (시간은 그때부터 흐른다)
+  const hasChant = Bank.buf && Bank.buf.countin;
+  const lead = hasChant ? COUNT_LEAD : COUNT_IN * bpmBeat(0);
+  S.countLead = lead;
   Audio_.startAC = Audio_.ac.currentTime + 0.35 + lead;
-  // 3·2·1 은 나무 템플블록, GO! 는 종소리(v0.1.17, 없으면 예전 삑)
-  for(let i=COUNT_IN;i>=1;i--){
-    const ct = Audio_.startAC - i*bpmBeat(0);
-    if(!sfx('tick', ct, 0.6)) Audio_.tone(ct, 880, 0.12, 'square', 0.14);
+  if(hasChant){
+    sfx('countin', Audio_.startAC - lead, 0.95);
+  } else {                                               // 음원이 없으면 예전 3·2·1·GO
+    for(let i=COUNT_IN;i>=1;i--){
+      const ct = Audio_.startAC - i*bpmBeat(0);
+      if(!sfx('tick', ct, 0.6)) Audio_.tone(ct, 880, 0.12, 'square', 0.14);
+    }
+    if(!sfx('go', Audio_.startAC, 0.7)) Audio_.tone(Audio_.startAC, 1760, 0.22, 'square', 0.16);
   }
-  if(!sfx('go', Audio_.startAC, 0.7)) Audio_.tone(Audio_.startAC, 1760, 0.22, 'square', 0.16);
   nextBeatToSchedule = 0;
   clearInterval(schedTimer);
   schedTimer = setInterval(pump, 25);
