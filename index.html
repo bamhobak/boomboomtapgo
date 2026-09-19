@@ -389,7 +389,7 @@
    ========================================================================= */
 
 // 게임 버전 — 수정해서 배포할 때마다 끝 두 자리를 1씩 올린다(v0.1.01 → v0.1.02). 화면 오른쪽 아래에 보인다
-const GAME_VERSION = 'v0.1.16';
+const GAME_VERSION = 'v0.1.17';
 
 const CONFIG = {
   bpm: 64,                   // 시작 템포 — 초심자가 편하게 시작하도록 72 → 64 로 낮췄다. 레벨마다 level.stepMul 배씩 빨라진다
@@ -498,7 +498,7 @@ const Audio_ = {
  *   /_blob/<id>  아티팩트 에셋 (mp3 는 에셋으로 못 올려 base64 json 으로 묶었다)
  */
 const AUDIO_BLOB = {
-  'sfx':     '8aaff069b6ee6bf8055adfdca24508c4',   // v0.1.14 터지는 소리 4종을 반짝·차임 소리로 교체
+  'sfx':     '3a9865ee7595328537541a9891f7802e',   // v0.1.17 효과음 전부 어쿠스틱(마림바·첼레스타·하프·오르골)
   'voice':   'e95c9c2a08dc9ec25ba1b4ceff3c1317',
   'menu':    '26629809f2d3943fe028a515b38b75cb',
   'level-1': '9842b48729158b56fcb87445b3869de8',
@@ -739,9 +739,10 @@ function heat(){
   return Math.max(0, Math.min(1, juiceLevel()/12*0.6 + S.level/(CONFIG.level.max-1)*0.4));
 }
 function hitLayers(t, I, drag){
-  if(I > 0.25) Audio_.tone(t, drag ? 140 : 110, 0.14, 'sine', 0.35*I, 45);         // 쿵
-  if(drag && I > 0.5) Audio_.tone(t, 320, 0.10 + 0.04*I, 'square', 0.08*I, 1100);  // 휘익 — 위로 쓸어 올린다
-  if(I > 0.75) Audio_.hit(t, 0.07 + 0.05*I, 0.16*I, 2600);                          // 치익
+  // v0.1.17 — 전자음(사각파 휘익·노이즈 치익) 대신 초반 곡과 어울리는 어쿠스틱 표본을 겹친다
+  if(I > 0.25) sfx('drop', t, 0.35*I, 1.1);                                         // 톡 — 나무 마림바 몸통
+  if(drag && I > 0.5) sfx('beatT', t + 0.02, 0.3*I, 1.25);                          // 또로롱 — 높은 마림바
+  if(I > 0.75) sfx('pop', t + 0.04, 0.22*I, 1.3);                                   // 반짝 — 첼레스타
   if(I > 0.5) buzz(Math.round(8 + 14*I));
 }
 
@@ -1476,7 +1477,7 @@ function trySwap(a, b, now){
   if(!swapMakesMatch(S.grid, a, b)){
     S.swapAnim = { a, b, t0:now, revert:true };           // 갔다 돌아온다
     S.shake = REDUCED?0:3;
-    Audio_.hit(Audio_.startAC+now, 0.06, 0.06, 3000);
+    if(!sfx('deny', Audio_.startAC+now, 0.35)) Audio_.hit(Audio_.startAC+now, 0.06, 0.06, 3000);
     return false;
   }
   ta.fromRow = null; tb.fromRow = null;                   // 낙하 잔상과 교환 애니가 겹치지 않게
@@ -1547,7 +1548,7 @@ function trySelect(r, c, now, quiet){
   // 말은 **지금 있는 자리**에서 잡는다. 빈 칸은 잡을 것이 없다.
   if(!S.grid[r][c]){
     S.shake = REDUCED?0:3;
-    Audio_.hit(Audio_.startAC+now, 0.05, 0.05, 3000);
+    if(!sfx('deny', Audio_.startAC+now, 0.3)) Audio_.hit(Audio_.startAC+now, 0.05, 0.05, 3000);
     return false;
   }
   S.sel = { id:S.grid[r][c].id, bar:S.barIndex };
@@ -1651,8 +1652,9 @@ function scheduleBeat(i){
   }
 
   // 차례가 오는 박은 귀로도 구분돼야 한다 — 누르기는 높은 벨, 드래그는 낮은 우드블록
-  if(slot === 'T') Audio_.tone(t, 1318.5, 0.16, 'triangle', 0.20);
-  if(slot === 'D') Audio_.tone(t, 392.0, 0.14, 'square', 0.14, 330);
+  // 차례 신호 — 누르기는 높은 마림바, 드래그는 낮은 나무 블록(v0.1.17, 없으면 예전 합성음)
+  if(slot === 'T' && !sfx('beatT', t, 0.45)) Audio_.tone(t, 1318.5, 0.16, 'triangle', 0.20);
+  if(slot === 'D' && !sfx('beatD', t, 0.5))  Audio_.tone(t, 392.0, 0.14, 'square', 0.14, 330);
 
   const roots = [0,7,5,3];
   if(pos === 0 && !Bgm.src)
@@ -2142,9 +2144,11 @@ function settleCombo(now){
 function levelUp(now, bar){
   announce('레벨 ' + (bar.level + 1));
   const t = Audio_.startAC + now;
-  Audio_.tone(t,        Audio_.penta(5),  0.12, 'square',   0.12);
-  Audio_.tone(t + 0.08, Audio_.penta(7),  0.12, 'square',   0.12);
-  Audio_.tone(t + 0.16, Audio_.penta(10), 0.24, 'triangle', 0.14);
+  if(!sfx('lvup', t, 0.7)){                        // 하프·첼레스타 상승(없으면 합성음)
+    Audio_.tone(t,        Audio_.penta(5),  0.12, 'square',   0.12);
+    Audio_.tone(t + 0.08, Audio_.penta(7),  0.12, 'square',   0.12);
+    Audio_.tone(t + 0.16, Audio_.penta(10), 0.24, 'triangle', 0.14);
+  }
   buzz([20, 40, 30]);
   const v = el('lvl');
   v.classList.remove('up'); void v.offsetWidth; v.classList.add('up');
@@ -2154,8 +2158,10 @@ function levelUp(now, bar){
 function levelDown(now, bar){
   announce('레벨 ' + (bar.level + 1));
   const t = Audio_.startAC + now;
-  Audio_.tone(t,        Audio_.penta(7), 0.12, 'triangle', 0.10);
-  Audio_.tone(t + 0.10, Audio_.penta(3), 0.20, 'triangle', 0.10);
+  if(!sfx('lvdown', t, 0.5)){
+    Audio_.tone(t,        Audio_.penta(7), 0.12, 'triangle', 0.10);
+    Audio_.tone(t + 0.10, Audio_.penta(3), 0.20, 'triangle', 0.10);
+  }
   const v = el('lvl');
   v.classList.remove('up'); void v.offsetWidth; v.classList.add('up');
 }
@@ -2181,7 +2187,8 @@ function bumpCombo(now, prev){
   if(Math.floor(prev / 5) < Math.floor(S.combo / 5)){   // 5콤보를 넘을 때마다 폭죽 + 팡파레 (한 번에 2~3씩 올라도 안 건너뛴다)
     confetti(now, S.combo);
     const ft = Audio_.startAC + now;
-    [0, 4, 7, 12].forEach((st, i) => Audio_.tone(ft + 0.06 + i*0.07, Audio_.penta(8 + i*2), 0.18, 'square', 0.11));
+    if(!sfx('fanfare', ft + 0.04, 0.7))            // 오르골·하프 팡파레(없으면 합성음)
+      [0, 4, 7, 12].forEach((st, i) => Audio_.tone(ft + 0.06 + i*0.07, Audio_.penta(8 + i*2), 0.18, 'square', 0.11));
   }
   const t = Audio_.startAC + now;
   // 콤보가 쌓일수록 반음씩 올라간다 — 표본도 재생속도로 같이 올린다
@@ -2259,6 +2266,7 @@ function menuStart(){
   Audio_.init();
   if(Audio_.ac.state === 'suspended') Audio_.ac.resume();
   Menu.on = true;
+  loadBank();                                      // 효과음도 미리 — 첫 판 카운트다운부터 표본으로
   menuLoad().then(() => { if(Menu.on && !Menu.nodes.length) menuLap(Audio_.ac.currentTime + 0.05); });
 }
 function menuLap(t){
@@ -2319,9 +2327,12 @@ function start(){
   // 바로 시작하지 않는다 — 한 박씩 3 · 2 · 1 을 세고 첫 박에 GO! (시간은 GO! 부터 흐른다)
   const lead = COUNT_IN * bpmBeat(0);
   Audio_.startAC = Audio_.ac.currentTime + 0.35 + lead;
-  for(let i=COUNT_IN;i>=1;i--)
-    Audio_.tone(Audio_.startAC - i*bpmBeat(0), 880, 0.12, 'square', 0.14);
-  Audio_.tone(Audio_.startAC, 1760, 0.22, 'square', 0.16);
+  // 3·2·1 은 나무 템플블록, GO! 는 종소리(v0.1.17, 없으면 예전 삑)
+  for(let i=COUNT_IN;i>=1;i--){
+    const ct = Audio_.startAC - i*bpmBeat(0);
+    if(!sfx('tick', ct, 0.6)) Audio_.tone(ct, 880, 0.12, 'square', 0.14);
+  }
+  if(!sfx('go', Audio_.startAC, 0.7)) Audio_.tone(Audio_.startAC, 1760, 0.22, 'square', 0.16);
   nextBeatToSchedule = 0;
   clearInterval(schedTimer);
   schedTimer = setInterval(pump, 25);
