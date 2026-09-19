@@ -34,7 +34,10 @@
     margin:0;position:fixed;inset:0;overflow:hidden;
     background:var(--room);color:var(--cream);font-family:var(--font);
     -webkit-tap-highlight-color:transparent;overscroll-behavior:none;
+    /* 아이폰: 길게 누르면 뜨는 미리보기(캡처처럼 보임)·글자 선택을 끈다 — 누르고 끄는 게임이라 계속 걸렸다 */
+    -webkit-touch-callout:none;-webkit-user-select:none;user-select:none;
   }
+  input{-webkit-user-select:text;user-select:text}          /* 랭킹 이름 칸만 글자 선택 허용 */
 
   /* 놀이판 바깥 — 노치·홈바·비율 여백을 하늘빛으로 채운다 */
   #app{
@@ -118,7 +121,7 @@
   @keyframes callhit{0%{transform:scale(1.75)}100%{transform:scale(1.35)}}
   .callout.waiting{opacity:.35}
   @media (prefers-reduced-motion:reduce){ .callout span.hit{animation:none} }
-  canvas{display:block;touch-action:none}
+  canvas{display:block;touch-action:none;-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
 
   .rail{flex:0 0 auto;display:flex;flex-direction:column;align-items:center;gap:10px;
         padding:12px 18px 18px}
@@ -386,7 +389,7 @@
    ========================================================================= */
 
 // 게임 버전 — 수정해서 배포할 때마다 끝 두 자리를 1씩 올린다(v0.1.01 → v0.1.02). 화면 오른쪽 아래에 보인다
-const GAME_VERSION = 'v0.1.08';
+const GAME_VERSION = 'v0.1.09';
 
 const CONFIG = {
   bpm: 64,                   // 시작 템포 — 초심자가 편하게 시작하도록 72 → 64 로 낮췄다. 레벨마다 level.stepMul 배씩 빨라진다
@@ -1068,6 +1071,13 @@ const S = {
 
 const el = id => document.getElementById(id);
 const cv = el('cv'), ctx = cv.getContext('2d');
+// 아이폰 사파리: 판을 길게 누르면 그림 미리보기가 뜨고(화면이 캡처되듯 번쩍), 손가락이 판 밖으로 나가면 글자가 선택된다.
+// 판에서는 기본 터치 동작을 막고(포인터 이벤트는 그대로 온다), 이름 칸 말고는 글자 선택·길게 누르기 메뉴를 막는다.
+cv.addEventListener('touchstart', e => e.preventDefault(), { passive:false });
+cv.addEventListener('touchmove',  e => e.preventDefault(), { passive:false });
+addEventListener('contextmenu', e => { if(e.target.tagName !== 'INPUT') e.preventDefault(); });
+addEventListener('selectstart', e => { if(e.target.tagName !== 'INPUT') e.preventDefault(); });
+addEventListener('gesturestart', e => e.preventDefault());   // 두 손가락 확대
 const REDUCED = matchMedia('(prefers-reduced-motion: reduce)').matches;
 let cell = 40;
 const PAD = 6;                    // 판 안쪽 여백 — 여기서 아케이드 테두리가 보인다
