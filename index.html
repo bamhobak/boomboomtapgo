@@ -386,7 +386,7 @@
    ========================================================================= */
 
 // 게임 버전 — 수정해서 배포할 때마다 끝 두 자리를 1씩 올린다(v0.1.01 → v0.1.02). 화면 오른쪽 아래에 보인다
-const GAME_VERSION = 'v0.1.06';
+const GAME_VERSION = 'v0.1.07';
 
 const CONFIG = {
   bpm: 64,                   // 시작 템포 — 초심자가 편하게 시작하도록 72 → 64 로 낮췄다. 레벨마다 level.stepMul 배씩 빨라진다
@@ -592,15 +592,16 @@ function sfx(name, when, vol, rate){
 const LEVEL_TRACKS = [
   // 1~4 Suno(사용자가 만든 곡, audio/suno/), 5~9 Ludo(audio/ludo/). v0.1.05
   // 9 는 킥이 두 박에 한 번(하프타임 느낌)이라 측정기가 96 으로 읽었다 — 길이가 192 기준 정확히 30마디라 192 로 쓴다
-  { key:'lv1', file:'level-1', bpm: 65.34, offset:0.494, mood:'잔잔·몽글 (Suno)' },
-  { key:'lv2', file:'level-2', bpm: 72.80, offset:0.041, mood:'밝고 통통 (Suno)' },
-  { key:'lv3', file:'level-3', bpm: 83.98, offset:0.573, mood:'신나게 (Suno)' },
-  { key:'lv4', file:'level-4', bpm: 97.70, offset:0.506, mood:'들뜨는 (Suno)' },
-  { key:'lv5', file:'level-5', bpm:111.00, offset:0,     mood:'피버 (Ludo)' },
-  { key:'lv6', file:'level-6', bpm:127.00, offset:0,     mood:'터보 (Ludo)' },
-  { key:'lv7', file:'level-7', bpm:145.98, offset:0,     mood:'스피드 (Ludo)' },
-  { key:'lv8', file:'level-8', bpm:167.00, offset:0,     mood:'마스터 (Ludo)' },
-  { key:'lv9', file:'level-9', bpm:192.00, offset:0,     mood:'최종 (Ludo)' },
+  // gain — 곡마다 마스터링 음량이 달라(-15.5 ~ -21.7dB, tools/loudness.html) 모두 -16dB 로 맞추는 보정 배수
+  { key:'lv1', file:'level-1', bpm: 65.34, offset:0.494, gain:1.10, mood:'잔잔·몽글 (Suno)' },
+  { key:'lv2', file:'level-2', bpm: 72.80, offset:0.041, gain:0.94, mood:'밝고 통통 (Suno)' },
+  { key:'lv3', file:'level-3', bpm: 83.98, offset:0.573, gain:1.22, mood:'신나게 (Suno)' },
+  { key:'lv4', file:'level-4', bpm: 97.70, offset:0.506, gain:1.12, mood:'들뜨는 (Suno)' },
+  { key:'lv5', file:'level-5', bpm:111.00, offset:0, gain:1.41,     mood:'피버 (Ludo)' },
+  { key:'lv6', file:'level-6', bpm:127.00, offset:0, gain:0.98,     mood:'터보 (Ludo)' },
+  { key:'lv7', file:'level-7', bpm:145.98, offset:0, gain:1.70,     mood:'스피드 (Ludo)' },
+  { key:'lv8', file:'level-8', bpm:167.00, offset:0, gain:0.97,     mood:'마스터 (Ludo)' },
+  { key:'lv9', file:'level-9', bpm:192.00, offset:0, gain:1.93,     mood:'최종 (Ludo)' },
 ];
 
 /**
@@ -621,6 +622,8 @@ function bgmLoopLen(b, tr){
 }
 
 const Bgm = { src:null, gain:null, level:-1 };
+// BGM 크기 — 효과음보다 7~10dB 작게 들려 0.34 → 0.55 로 올렸다(v0.1.07). 곡별 차이는 LEVEL_TRACKS.gain 이 맞춘다
+const BGM_VOL = 0.55;
 
 /** 곡 끄기 — 뚝 끊기는 소리가 안 나게 아주 짧게 줄이며 끈다 */
 function bgmStop(fade){
@@ -656,7 +659,7 @@ function bgmStart(songPos){
   src.buffer = b; src.loop = true; src.playbackRate.value = rate;
   src.loopStart = 0; src.loopEnd = Math.min(b.duration, len);   // 파일 처음부터 온전한 마디까지
   const g = Audio_.ac.createGain(), t = Audio_.ac.currentTime;
-  g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(0.34, t + 0.02);
+  g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(BGM_VOL * (tr.gain || 1), t + 0.02);
   src.connect(g); g.connect(Audio_.master);
   src.start(t, pos);
   Bgm.src = src; Bgm.gain = g; Bgm.level = bar.level;
