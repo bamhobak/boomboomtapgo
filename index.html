@@ -454,7 +454,7 @@
    ========================================================================= */
 
 // 게임 버전 — 수정해서 배포할 때마다 끝 두 자리를 1씩 올린다(v0.1.01 → v0.1.02). 화면 오른쪽 아래에 보인다
-const GAME_VERSION = 'v0.1.29';
+const GAME_VERSION = 'v0.1.30';
 /*
  * 번쩍임 줄이기 (v0.1.22) — 광과민성 배려. 켜면 화면 전체 번쩍임·흔들림을 끄고, 발판 조명·테두리 박동을 약하게.
  * 폰의 '동작 줄이기'가 켜져 있으면 처음부터 켠다. 고른 값은 이 기기에 기억한다.
@@ -1919,6 +1919,8 @@ const FLOOR_LIGHTS = [
   ['#FF9F43', '#FF5C9A', '#45BFFF', '#6BFF5C', '#A67BFF', '#FFE03D', '#FF6B6B'], // 7
   ['#FF8C2E', '#FF4F90', '#33B5FF', '#5CFF4F', '#9A6BFF', '#FFDA2E', '#FF5C5C', '#2EFFE0'], // 8
 ];
+/* 칸 테두리 = 그 칸 캐릭터의 색 (v0.1.30). 어두운 칸 위에서 보이게 푸들·프렌치불독은 밝힌 색 */
+const PET_EDGE = [null, '#D9955A', '#FFFFFF', '#FACC15', '#A5A5CC', '#FB923C'];
 function drawFloor(now){
   const V = BEATV, L = S.live ? S.level : 0, n = CONFIG.cols;
   const ib = V ? V.ib : 0, k = (V ? V.k : 0) * (CALM.on ? 0.35 : 1);   // 번쩍임 줄이기면 조명 깜빡임을 약하게
@@ -1938,8 +1940,10 @@ function drawFloor(now){
     ctx.globalAlpha = a;
     ctx.fillStyle = col;
     roundRectPath(x, y, sz, sz, rr); ctx.fill();
-    ctx.globalAlpha = Math.min(0.45, a*1.6);                                 // 발판 테두리 — 네온 선
-    ctx.strokeStyle = col; ctx.lineWidth = Math.max(1, cell*0.03);
+    const tt = S.grid && S.grid[r] ? S.grid[r][c] : null;                   // 발판 테두리 — 그 칸 캐릭터 색 네온 선
+    const ec = tt ? PET_EDGE[tt.color] || col : col;
+    ctx.globalAlpha = tt ? Math.min(0.95, 0.6 + a) : Math.min(0.45, a*1.6);
+    ctx.strokeStyle = ec; ctx.lineWidth = Math.max(1.5, cell*0.045);
     roundRectPath(x + 0.5, y + 0.5, sz - 1, sz - 1, rr); ctx.stroke();
     ctx.globalAlpha = 1;
   }
