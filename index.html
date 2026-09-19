@@ -208,18 +208,18 @@
          background-size:44px 44px,44px 44px;gap:12px;padding:20px 14px 8px}
   #start .en{color:#FFD9A8;letter-spacing:.24em;margin:2px 0 4px}
   /* 네 박 안내 — 파스텔 스티커 칸 */
-  #start .turn{gap:7px;width:min(360px,100%)}
-  #start .slot{border-radius:14px;border:3px solid #3B2314;box-shadow:0 4px 0 #3B2314;background:#FFE3C8;color:#3B2314;padding:8px 0 9px}
-  #start .slot:nth-child(2){background:#FFF0B8}
-  #start .slot.t{background:#FFC489;box-shadow:0 4px 0 #3B2314}
-  #start .slot.d{background:#BFD8FF;box-shadow:0 4px 0 #3B2314}
-  #start .slot b{font-family:Jua;font-size:19px;color:#3B2314}
-  #start .slot span{font-size:10px;color:#8B5A2B}
+  #start .turn,#help .turn{gap:7px;width:min(360px,100%)}
+  #start .slot,#help .slot{border-radius:14px;border:3px solid #3B2314;box-shadow:0 4px 0 #3B2314;background:#FFE3C8;color:#3B2314;padding:8px 0 9px}
+  #start .slot:nth-child(2),#help .slot:nth-child(2){background:#FFF0B8}
+  #start .slot.t,#help .slot.t{background:#FFC489;box-shadow:0 4px 0 #3B2314}
+  #start .slot.d,#help .slot.d{background:#BFD8FF;box-shadow:0 4px 0 #3B2314}
+  #start .slot b,#help .slot b{font-family:Jua;font-size:19px;color:#3B2314}
+  #start .slot span,#help .slot span{font-size:10px;color:#8B5A2B}
   /* 설명·랭킹 — 크림 카드 */
-  #start .tag,#start .rank{width:min(360px,100%);box-sizing:border-box;background:#FFF4E6;border:4px solid #3B2314;
+  #start .tag,#start .rank,#help .tag{width:min(360px,100%);box-sizing:border-box;background:#FFF4E6;border:4px solid #3B2314;
                            border-radius:20px;box-shadow:0 6px 0 #3B2314;color:#6B4A2A}
-  #start .tag{padding:12px 14px;font-size:13px;line-height:1.7;max-width:none;text-align:center}
-  #start .tag b{color:#3B2314}
+  #help .tag,#start .tag{padding:12px 14px;font-size:13px;line-height:1.7;max-width:none;text-align:center}
+  #start .tag b,#help .tag b{color:#3B2314}
   #start .rank{padding:12px 14px 14px}
   #start .rank h2{color:#3B2314;font-family:Jua;letter-spacing:0;font-size:15px}
   #start .rank small{color:#8B5A2B}
@@ -238,6 +238,12 @@
   #start #go{background:#FFC02E;color:#3B2314;border:4px solid #3B2314;border-radius:20px;box-shadow:0 7px 0 #3B2314;
              font-family:Jua;font-size:26px;padding:14px 64px}
   #start #go:active{transform:translate(0,4px);box-shadow:0 3px 0 #3B2314}
+  #start .menurow{display:flex;gap:8px;width:min(360px,100%)}
+  #start .menurow button{flex:1}
+  #set{z-index:11}
+  #set .knobs.setrow,#set .toggles{width:min(360px,100%)}
+  #set .knob{background:var(--panel);border:2px solid var(--edge);border-radius:14px;padding:10px 14px 12px}
+  #set h2{font-size:22px;letter-spacing:0;color:var(--cream)}
   #start .knobs.setrow{width:min(360px,100%)}
   #start .knob{background:#FFF4E6;border:3px solid #3B2314;border-radius:14px;box-shadow:0 4px 0 #3B2314;padding:8px 12px 10px}
   #start .knob label{color:#8B5A2B}
@@ -474,29 +480,17 @@
       <p class="en">Boom Boom Tap Go</p>
     </div>
 
-    <div class="turn">
-      <div class="slot wait"><b>1박</b><span>대기</span></div>
-      <div class="slot wait"><b>2박</b><span>대기</span></div>
-      <div class="slot t"><b>3박</b><span>누르기</span></div>
-      <div class="slot d"><b>4박</b><span>낙하·드래그</span></div>
-    </div>
-    <p class="tag" style="margin-top:-6px">한 마디가 <b>한 턴</b>입니다. 두 박 동안 판을 읽고, 3박에 옮길 말을 누르고, 4박에 그 말을 밀 방향으로 드래그합니다. <b>차례가 아닌 박에는 판이 움직이지 않습니다.</b></p>
 
     <section class="rank" aria-label="이번 주 랭킹">
       <h2>이번 주 랭킹 <small id="rankReset"></small></h2>
       <ol class="board" id="boardStart"></ol>
     </section>
 
-    <button class="ghost" id="helpBtn" type="button">게임 설명</button>
-
-    <div class="knobs setrow">
-      <div class="knob">
-        <div class="row"><label for="off">입력 오프셋</label><b><span id="offv">0</span> ms</b></div>
-        <input type="range" id="off" min="-150" max="150" step="5" value="0">
-      </div>
-      <button class="ghost" id="snd" type="button">소리 켜짐</button>
+    <div class="menurow">
+      <button class="ghost" id="helpBtn" type="button">게임 설명</button>
+      <button class="ghost" id="setBtn" type="button">설정</button>
     </div>
-    <div class="toggles"><button class="ghost" id="calm" type="button">번쩍임 줄이기 꺼짐</button><button class="ghost" id="vib" type="button">진동 켜짐</button></div>
+
 
     <button id="go">시작</button>
     <div class="pack" id="pack" aria-hidden="true"></div>
@@ -505,6 +499,13 @@
 
   <div class="overlay" id="help" hidden role="dialog" aria-modal="true" aria-labelledby="helpTitle">
     <h2 id="helpTitle">게임 설명</h2>
+    <div class="turn">
+      <div class="slot wait"><b>1박</b><span>대기</span></div>
+      <div class="slot wait"><b>2박</b><span>대기</span></div>
+      <div class="slot t"><b>3박</b><span>누르기</span></div>
+      <div class="slot d"><b>4박</b><span>낙하·드래그</span></div>
+    </div>
+    <p class="tag">한 마디가 <b>한 턴</b>입니다. 두 박 동안 판을 읽고, 3박에 옮길 말을 누르고, 4박에 그 말을 밀 방향으로 드래그합니다. <b>차례가 아닌 박에는 판이 움직이지 않습니다.</b></p>
     <div class="legend">
       <b>같은 동물 3마리</b><span>한 줄로 모이면 터진다</span>
       <b>줄의 방향</b><span>가로 · 세로 두 가지</span>
@@ -522,6 +523,20 @@
       <b>레벨</b><span>콤보 <b>5</b>마다 한 단계 오르고 템포가 <b>약 15%</b>씩 빨라진다(64 → 192 BPM, 9단계). <b>콤보가 끊기면 레벨 1</b></span>
     </div>
     <button id="helpClose" type="button">닫기</button>
+  </div>
+
+  <!-- 설정 (v0.1.75) — 오프셋·소리·번쩍임·진동을 메뉴에서 빼 여기 모았다 -->
+  <div class="overlay" id="set" hidden role="dialog" aria-modal="true" aria-labelledby="setTitle">
+    <h2 id="setTitle">설정</h2>
+    <div class="knobs setrow">
+      <div class="knob">
+        <div class="row"><label for="off">입력 오프셋</label><b><span id="offv">0</span> ms</b></div>
+        <input type="range" id="off" min="-150" max="150" step="5" value="0">
+      </div>
+      <button class="ghost" id="snd" type="button">소리 켜짐</button>
+    </div>
+    <div class="toggles"><button class="ghost" id="calm" type="button">번쩍임 줄이기 꺼짐</button><button class="ghost" id="vib" type="button">진동 켜짐</button></div>
+    <button id="setClose" type="button">닫기</button>
   </div>
 
   <div class="overlay" id="end" hidden>
@@ -558,7 +573,7 @@
    ========================================================================= */
 
 // 게임 버전 — 수정해서 배포할 때마다 끝 두 자리를 1씩 올린다(v0.1.01 → v0.1.02). 화면 오른쪽 아래에 보인다
-const GAME_VERSION = 'v0.1.74';
+const GAME_VERSION = 'v0.1.75';
 /*
  * 번쩍임 줄이기 (v0.1.22) — 광과민성 배려. 켜면 화면 전체 번쩍임·흔들림을 끄고, 발판 조명·테두리 박동을 약하게.
  * 폰의 '동작 줄이기'가 켜져 있으면 처음부터 켠다. 고른 값은 이 기기에 기억한다.
@@ -1405,6 +1420,11 @@ function applyJudge(j){
   if(j.rank==='perfect'){ S.stats.perfect++; buzz(14); }
   else if(j.rank==='good'){ S.stats.good++; buzz(8); }
   else S.stats.miss++;
+  // v0.1.75 4박을 민 그 순간 배율을 매긴다 — 다음 마디 1박까지 기다리지 않는다
+  if(slotAt(j.beat) === 'D'){
+    settleMult(S.comboMade || !!(S.dropPlan && S.popGroups && S.popGroups.length));
+    S.multBar = barAtBeat(j.beat);
+  }
 }
 /** 마디 끝 — 이 턴의 두 판정을 합쳐 배율을 한 번 움직인다 */
 function settleMult(turnPops){
@@ -2640,6 +2660,33 @@ function draw(now){
 
 let raf = null;
 
+/*
+ * 화면을 내렸다 돌아오기 (v0.1.75) — 폰에서 홈으로 나가면 그리기는 멈추는데 소리 시계는 계속 흘러서,
+ * 돌아왔을 때 시간이 0인데 끝나지도 않고 음악만 도는 상태가 됐다.
+ * 나가는 순간 곡을 멈추고 예약을 끊었다가, 돌아오면 **비운 만큼 곡 시계를 뒤로 밀어** 그 자리에서 이어 간다.
+ */
+let awayAt = null;
+addEventListener('visibilitychange', () => {
+  if(document.hidden){
+    if(S.live){
+      awayAt = clock();
+      clearInterval(schedTimer); schedTimer = null;
+      bgmStop(0.12);
+    }
+    menuStop(0.12);
+    return;
+  }
+  if(Audio_.ac && Audio_.ac.state === 'suspended') Audio_.ac.resume();
+  if(S.live && awayAt !== null){
+    S.hold += Math.max(0, clock() - awayAt);        // 나가 있던 시간만큼 곡을 멈춰 둔 셈으로
+    awayAt = null;
+    S.drag = null; S.sel = null; S.pin = null;      // 손을 떼고 나간 것으로 본다
+    nextBeatToSchedule = Math.max(nextBeatToSchedule, Math.ceil(beatAt(songTime())));
+    if(!schedTimer) schedTimer = setInterval(pump, 25);
+    pump();
+  } else if(!S.live) menuStart();
+});
+
 function frame(){
   raf = requestAnimationFrame(frame);
   if(!S.live) return;
@@ -2716,7 +2763,8 @@ function frame(){
         showJudge('MISS');
       }
       if(ps==='T' && !S.actedBeats[prev]) S.sel = null;
-      if(ps === 'D' && !S.reshuffling && !prevLocked) settleMult(turnPops);   // 마디 끝 — 배율은 여기서 한 번
+      // 4박에 밀었으면 그때 이미 매겼다(applyJudge). 손을 안 댄 턴만 여기서 정산한다
+      if(ps === 'D' && !S.reshuffling && !prevLocked && S.multBar !== barAtBeat(prev)) settleMult(turnPops);
     }
     S.beatIndex = ib;
 
@@ -3007,7 +3055,7 @@ async function start(){
     fx:[], bits:[], rings:[], flashAt:-9, flashA:0, swapAnim:null,
     stats:{perfect:0,good:0,miss:0,turns:0,blocked:0,blasts:0,maxCombo:0,maxLevel:1,overBars:0},
     actedBeats:{}, blockFlash:-9,
-    errors:[], shake:0, hold:0, holding:false, releasedBar:0, dropPlan:null, popGroups:null, planBar:0, pin:null, droppedBar:-1, reshuffling:false, reshuffleAt:null, turnJ:{}, lastSwap:null, combo:0, comboMade:false, announceAt:-9, countShown:'', level:0, timeUp:false, bonusTime:0, lastPlayBar:Infinity, overAt:0,
+    errors:[], shake:0, hold:0, holding:false, releasedBar:0, dropPlan:null, popGroups:null, planBar:0, pin:null, droppedBar:-1, reshuffling:false, reshuffleAt:null, turnJ:{}, multBar:-1, lastSwap:null, combo:0, comboMade:false, announceAt:-9, countShown:'', level:0, timeUp:false, bonusTime:0, lastPlayBar:Infinity, overAt:0,
       barIndex:-1, beatIndex:-1, drag:null, sel:null,
   });
   el('start').hidden = true; el('end').hidden = true;
@@ -3209,7 +3257,13 @@ el('go').addEventListener('click', start);
 // 게임 설명 — 시작 화면 위에 창으로 띄운다
 el('helpBtn').addEventListener('click', () => { el('help').hidden = false; el('helpClose').focus(); });
 el('helpClose').addEventListener('click', () => { el('help').hidden = true; el('helpBtn').focus(); });
-addEventListener('keydown', e => { if(e.key === 'Escape' && !el('help').hidden){ el('help').hidden = true; el('helpBtn').focus(); } });
+el('setBtn').addEventListener('click', () => { el('set').hidden = false; el('setClose').focus(); });
+el('setClose').addEventListener('click', () => { el('set').hidden = true; el('setBtn').focus(); });
+addEventListener('keydown', e => {
+  if(e.key !== 'Escape') return;
+  if(!el('help').hidden){ el('help').hidden = true; el('helpBtn').focus(); }
+  else if(!el('set').hidden){ el('set').hidden = true; el('setBtn').focus(); }
+});
 // 시작 화면 아래 강아지 줄 — 판에 쓰는 얼굴 그대로 (v0.1.68)
 (() => {
   const box = el('pack');
