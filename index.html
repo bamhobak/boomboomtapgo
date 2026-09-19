@@ -386,7 +386,7 @@
    ========================================================================= */
 
 // 게임 버전 — 수정해서 배포할 때마다 끝 두 자리를 1씩 올린다(v0.1.01 → v0.1.02). 화면 오른쪽 아래에 보인다
-const GAME_VERSION = 'v0.1.04';
+const GAME_VERSION = 'v0.1.05';
 
 const CONFIG = {
   bpm: 64,                   // 시작 템포 — 초심자가 편하게 시작하도록 72 → 64 로 낮췄다. 레벨마다 level.stepMul 배씩 빨라진다
@@ -496,14 +496,15 @@ const Audio_ = {
 const AUDIO_BLOB = {
   'sfx':     '631dbb98c5552255260861e40f4859a3',
   'voice':   'e95c9c2a08dc9ec25ba1b4ceff3c1317',
-  'level-1': 'd9ea3de6bf33522bd49e002cfd1f5359',
-  'level-2': '45fb980fa468072ac4db6238528fcdec',
-  'level-3': '7ba614621086053a16be4706b7ecd14a',
-  'level-4': '4c8d34ed4eb20713886b13bd59c1cecc',
-  'level-5': '813d622d7adfcd953739f9f2bf1091a4',
-  'level-6': '1a99ecfe815576d38ac8e1b53804ed6a',
-  'level-7': 'b8452321ec78ca8be8a40ae4e5de25cc',
-  'level-8': '53bc47e615384bdb3084c718c335fedc',
+  'level-1': '0e7783e9e97d8ab09a6df23ec0583ef0',
+  'level-2': '8a7d0608720a75043f6dd535eef7292b',
+  'level-3': '2337ee55093982cdb1a1806eb44ad26e',
+  'level-4': 'e80413f0626f31c7703b2cbec1b76077',
+  'level-5': 'a2515dffb7a34a63a14043c15e31f927',
+  'level-6': '8c2a470933e226c5cedb813e04174e0d',
+  'level-7': '5647a5265c603352b226b583b4fdece3',
+  'level-8': 'ffe1d883b5a4a6ebac3f8b3e1cc37068',
+  'level-9': 'c1fed79bbbbdb1abf18da59e08016210',
 };
 const Bank = { buf:{}, ready:false, why:'아직' };
 
@@ -589,14 +590,17 @@ function sfx(name, when, vol, rate){
  * 루프는 파일 길이에서 온전한 마디까지만 돈다.
  */
 const LEVEL_TRACKS = [
-  { key:'lv1', file:'level-1', bpm: 72.00, offset:0, mood:'잔잔·몽글' },
-  { key:'lv2', file:'level-2', bpm: 77.04, offset:0, mood:'따뜻한 그루브' },
-  { key:'lv3', file:'level-3', bpm: 82.00, offset:0, mood:'밝고 통통' },
-  { key:'lv4', file:'level-4', bpm: 88.02, offset:0, mood:'신나는 멜로디' },
-  { key:'lv5', file:'level-5', bpm: 94.00, offset:0, mood:'힘차게' },
-  { key:'lv6', file:'level-6', bpm:101.00, offset:0, mood:'들뜨는' },
-  { key:'lv7', file:'level-7', bpm:108.00, offset:0.024, mood:'고조' },
-  { key:'lv8', file:'level-8', bpm:115.98, offset:0, mood:'최고조' },
+  // 1~4 Suno(사용자가 만든 곡, audio/suno/), 5~9 Ludo(audio/ludo/). v0.1.05
+  // 9 는 킥이 두 박에 한 번(하프타임 느낌)이라 측정기가 96 으로 읽었다 — 길이가 192 기준 정확히 30마디라 192 로 쓴다
+  { key:'lv1', file:'level-1', bpm: 65.34, offset:0.494, mood:'잔잔·몽글 (Suno)' },
+  { key:'lv2', file:'level-2', bpm: 72.80, offset:0.041, mood:'밝고 통통 (Suno)' },
+  { key:'lv3', file:'level-3', bpm: 83.98, offset:0.573, mood:'신나게 (Suno)' },
+  { key:'lv4', file:'level-4', bpm: 97.70, offset:0.506, mood:'들뜨는 (Suno)' },
+  { key:'lv5', file:'level-5', bpm:111.00, offset:0,     mood:'피버 (Ludo)' },
+  { key:'lv6', file:'level-6', bpm:127.00, offset:0,     mood:'터보 (Ludo)' },
+  { key:'lv7', file:'level-7', bpm:145.98, offset:0,     mood:'스피드 (Ludo)' },
+  { key:'lv8', file:'level-8', bpm:167.00, offset:0,     mood:'마스터 (Ludo)' },
+  { key:'lv9', file:'level-9', bpm:192.00, offset:0,     mood:'최종 (Ludo)' },
 ];
 
 /**
