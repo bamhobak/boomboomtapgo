@@ -123,6 +123,12 @@
   @keyframes callhit{0%{transform:scale(1.75)}100%{transform:scale(1.35)}}
   .callout.waiting{opacity:.35}
   @media (prefers-reduced-motion:reduce){ .callout span.hit{animation:none} }
+  /* 끝맺음 — 판이 천천히 가라앉고, 결과 화면이 떠오른다 (v0.1.49) */
+  #cv{transition:opacity 900ms ease,filter 900ms ease}
+  #cv.done{opacity:.4;filter:saturate(.45)}
+  .overlay.fadein{animation:ovin 620ms cubic-bezier(.2,.8,.2,1)}
+  @keyframes ovin{0%{opacity:0;transform:translateY(10px)}100%{opacity:1;transform:none}}
+  @media (prefers-reduced-motion:reduce){ #cv{transition:none} .overlay.fadein{animation:none} }
   canvas{display:block;touch-action:none;-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
 
   .rail{flex:0 0 auto;display:flex;flex-direction:column;align-items:center;gap:10px;
@@ -452,7 +458,7 @@
    ========================================================================= */
 
 // 게임 버전 — 수정해서 배포할 때마다 끝 두 자리를 1씩 올린다(v0.1.01 → v0.1.02). 화면 오른쪽 아래에 보인다
-const GAME_VERSION = 'v0.1.48';
+const GAME_VERSION = 'v0.1.49';
 /*
  * 번쩍임 줄이기 (v0.1.22) — 광과민성 배려. 켜면 화면 전체 번쩍임·흔들림을 끄고, 발판 조명·테두리 박동을 약하게.
  * 폰의 '동작 줄이기'가 켜져 있으면 처음부터 켠다. 고른 값은 이 기기에 기억한다.
@@ -2742,6 +2748,7 @@ async function start(){
       barIndex:-1, beatIndex:-1, drag:null, sel:null,
   });
   el('start').hidden = true; el('end').hidden = true;
+  cv.classList.remove('done');                     // 새 판 — 가라앉았던 판을 되살린다
   layout();
 
   // 바로 시작하지 않는다 — '둠! 칫! 딱! 숑!' 을 듣고 그 다음 박에 시작한다 (시간은 그때부터 흐른다)
@@ -2765,12 +2772,24 @@ async function start(){
   if(!raf) frame();
 }
 
+/*
+ * 끝맺음 (v0.1.49) — 뚝 끊기지 않게 한 박자 쉬어 간다.
+ *   ① 곡을 1.4초에 걸쳐 서서히 줄인다   ② 마무리 소리 한 번
+ *   ③ 판이 천천히 가라앉는다(흐려짐)   ④ 0.9초 뒤 결과 화면이 떠오른다   ⑤ 그때 메뉴 음악이 다시 돈다
+ */
 function finish(){
   if(!S.live) return;
   S.live = false;
-  bgmStop();
+  bgmStop(1.4);                                    // 곡은 서서히 사라진다
   clearInterval(schedTimer);
-  setTimeout(menuStart, 600);                      // 결과 화면에서 메뉴 음악이 다시 돈다
+  const ft = Audio_.startAC + clock();
+  if(!sfx('fanfare', ft, 0.65)){                   // 마무리 소리(없으면 내려가는 3음)
+    Audio_.tone(ft,        Audio_.penta(7), 0.18, 'triangle', 0.10);
+    Audio_.tone(ft + 0.14, Audio_.penta(5), 0.18, 'triangle', 0.10);
+    Audio_.tone(ft + 0.28, Audio_.penta(2), 0.40, 'triangle', 0.10);
+  }
+  cv.classList.add('done');                        // 판이 천천히 가라앉는다
+  setTimeout(menuStart, 1300);                     // 결과 화면이 뜬 뒤에 메뉴 음악
 
   const total = S.stats.perfect + S.stats.good + S.stats.miss;
   const avg = S.errors.length ? S.errors.reduce((a,b)=>a+b,0)/S.errors.length*1000 : 0;
@@ -2796,7 +2815,11 @@ function finish(){
   el('off').value = Math.max(-150, Math.min(150, suggest));
   el('offv').textContent = el('off').value;
   CONFIG.offset = +el('off').value/1000;
-  el('end').hidden = false;
+  setTimeout(() => {                               // 판이 가라앉는 걸 잠깐 보여 주고 결과가 떠오른다
+    const e = el('end');
+    e.hidden = false;
+    e.classList.remove('fadein'); void e.offsetWidth; e.classList.add('fadein');
+  }, 900);
   Rank.afterGame(S.score, S.stats.maxLevel, S.stats.maxCombo);
 }
 
