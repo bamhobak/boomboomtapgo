@@ -626,7 +626,7 @@
    ========================================================================= */
 
 // 게임 버전 — 수정해서 배포할 때마다 끝 두 자리를 1씩 올린다(v0.1.01 → v0.1.02). 화면 오른쪽 아래에 보인다
-const GAME_VERSION = 'v0.1.95';
+const GAME_VERSION = 'v0.1.96';
 /*
  * 번쩍임 줄이기 (v0.1.22) — 광과민성 배려. 켜면 화면 전체 번쩍임·흔들림을 끄고, 발판 조명·테두리 박동을 약하게.
  * 폰의 '동작 줄이기'가 켜져 있으면 처음부터 켠다. 고른 값은 이 기기에 기억한다.
@@ -1928,6 +1928,7 @@ cv.addEventListener('pointerdown', e => {
   if(!S.live || locked() || songTime() < 0) return;       // 카운트다운 중엔 조용히 무시
   const p = cellFromEvent(e);
   if(!p) return;
+  if(!Tut.allow(p[0], p[1])) return;                     // v0.1.96 튜토리얼 — 표시된 칸만
   cv.setPointerCapture(e.pointerId);
   S.drag = { r:p[0], c:p[1], x0:e.clientX, y0:e.clientY, dx:0, dy:0, done:false, selected:false };
   S.drag.selected = trySelect(p[0], p[1], clock(), true);
@@ -2020,13 +2021,20 @@ function trySelect(r, c, now, quiet){
  * 그래서 3박에 누른 채 방향을 잡아두면 4박이 오는 순간 알아서 나간다.
  */
 /** 자유 연습 — 터진 뒤 무너짐·연쇄를 스스로 이어서 정리한다 (v0.1.89) */
+let freeTimer = null;
 function freeSettle(){
+  freeTimer = null;
   if(!S.live || !S.free) return;
   const now = clock();
   if(S.dropPlan){ S.droppedBar = -1; dropStep(now); }
   const popped = popStep(now, 1);
-  if(popped || S.dropPlan) setTimeout(freeSettle, 280);
+  if(popped || S.dropPlan) freeSoon();
   else reshuffleIfStuck(now);
+}
+/** 정리 고리는 하나만 돈다 — 여러 곳에서 불러 겹치면 프레임을 갉아먹었다 (v0.1.96) */
+function freeSoon(){
+  if(freeTimer) return;
+  freeTimer = setTimeout(freeSettle, 280);
 }
 
 function tryResolveDrag(now){
@@ -2045,7 +2053,7 @@ function tryResolveDrag(now){
     S.actSide = (to0[1] + 0.5) / CONFIG.cols * 2 - 1;
     if(trySwap(from0, to0, now)){
       S.stats.turns++;
-      setTimeout(freeSettle, 280);
+      freeSoon();
       if(Tut.on) Tut.hit('move');
     }
     return;
@@ -2094,6 +2102,7 @@ cv.addEventListener('pointermove', e => {
   if(!S.drag || S.drag.done || !S.live || locked()) return;
   S.drag.dx = e.clientX - S.drag.x0;
   S.drag.dy = e.clientY - S.drag.y0;
+  if(!Tut.allowDir(S.drag.dx, S.drag.dy)) return;        // v0.1.96 튜토리얼 — 화살표 쪽으로만
   tryResolveDrag(clock());
 });
 
@@ -2333,19 +2342,25 @@ function drawTutMark(w, h, now){
   ctx.save();
   roundRectPath(0, 0, w, h, boardR()); ctx.clip();
   // 판 전체를 어둡게 덮고 그 칸만 환하게 뚫는다 — 어디를 눌러야 하는지 한눈에
-  ctx.fillStyle = 'rgba(12,8,30,0.38)';
-  ctx.fillRect(0, 0, w, h);
-  ctx.globalCompositeOperation = 'destination-out';
+  // v0.1.96 막은 따로 그려서 얹는다(본판에 바로 뚫으면 강아지까지 같이 지워져 가운데가 새까맣게 됐다)
   const hole = cell*(0.62 + 0.04*p);
-  const g = ctx.createRadialGradient(x, y, hole*0.55, x, y, hole);
+  const vw = Math.max(1, Math.round(w)), vh = Math.max(1, Math.round(h));
+  if(VEIL.width !== vw || VEIL.height !== vh){ VEIL.width = vw; VEIL.height = vh; }
+  const vg = VEIL.getContext('2d');
+  vg.globalCompositeOperation = 'source-over';
+  vg.clearRect(0, 0, vw, vh);
+  vg.fillStyle = 'rgba(12,8,30,0.38)';
+  vg.fillRect(0, 0, vw, vh);
+  vg.globalCompositeOperation = 'destination-out';
+  const g = vg.createRadialGradient(x, y, hole*0.55, x, y, hole);
   g.addColorStop(0, 'rgba(0,0,0,1)'); g.addColorStop(1, 'rgba(0,0,0,0)');
-  ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, hole, 0, Math.PI*2); ctx.fill();
+  vg.fillStyle = g; vg.beginPath(); vg.arc(x, y, hole, 0, Math.PI*2); vg.fill();
   if(Tut.want.arrow !== false){                       // 미는 쪽 칸도 살짝 밝게
-    const g2 = ctx.createRadialGradient(x2, y2, cell*0.28, x2, y2, cell*0.6);
+    const g2 = vg.createRadialGradient(x2, y2, cell*0.28, x2, y2, cell*0.6);
     g2.addColorStop(0, 'rgba(0,0,0,0.75)'); g2.addColorStop(1, 'rgba(0,0,0,0)');
-    ctx.fillStyle = g2; ctx.beginPath(); ctx.arc(x2, y2, cell*0.6, 0, Math.PI*2); ctx.fill();
+    vg.fillStyle = g2; vg.beginPath(); vg.arc(x2, y2, cell*0.6, 0, Math.PI*2); vg.fill();
   }
-  ctx.globalCompositeOperation = 'source-over';
+  ctx.drawImage(VEIL, 0, 0);
   // 누를 칸 — 굵은 이중 고리
   ctx.strokeStyle = 'rgba(59,35,20,0.9)'; ctx.lineWidth = Math.max(7, cell*0.19);
   ctx.beginPath(); ctx.arc(x, y, cell*(0.46 + 0.05*p), 0, Math.PI*2); ctx.stroke();
@@ -2397,23 +2412,15 @@ function vibBeat(){
 function drawBeatFrame(w, h){
   const V = BEATV;
   if(!V) return;
-  const rgb = sl => sl === 'T' ? '255,138,30' : sl === 'D' ? '76,141,255' : '233,233,242';   // 로고의 딱 주황 · 숑 파랑
-  // 박동
+  // v0.1.96 테두리 색은 지금 박 하나로만 — 주황·파랑 두 겹으로 겹쳐 보이던 것을 없앴다
+  const bp = BEAT_POP[V.pos % 4];
   const turn = V.slot === 'T' || V.slot === 'D';
-  const a = (turn ? 0.95 : (V.pos === 0 ? 0.45 : 0.25)) * V.k * (CALM.on ? 0.45 : 1);
+  const a = (turn ? 0.85 : (V.pos === 0 ? 0.5 : 0.35)) * V.k * (CALM.on ? 0.45 : 1);
   if(a > 0.02){
-    const lw = Math.max(5, Math.round(cell * (turn ? 0.2 : 0.13)));   // v0.1.34 두껍게
-    ctx.strokeStyle = `rgba(${rgb(V.slot)},${a})`;
+    const lw = Math.max(4, Math.round(cell * (turn ? 0.16 : 0.1)));
+    ctx.strokeStyle = `rgba(${bp.rgb},${a})`;
     ctx.lineWidth = lw;
     roundRectPath(lw/2, lw/2, w - lw, h - lw, Math.max(4, boardR() - lw/2)); ctx.stroke();
-  }
-  // 예비 — 다음 박이 내 차례면 한 박 동안 안쪽에서 테두리로 모여든다
-  if((V.next === 'T' || V.next === 'D') && !S.holding){
-    const lw = Math.max(2, Math.round(cell * 0.06));                   // v0.1.39 다시 가늘게(0.12→0.06)
-    const inset = lw/2 + (1 - V.ph) * cell * 0.6;
-    ctx.strokeStyle = `rgba(${rgb(V.next)},${0.12 + 0.6 * V.ph})`;
-    ctx.lineWidth = lw;
-    roundRectPath(inset, inset, w - inset * 2, h - inset * 2, Math.max(4, boardR() - inset)); ctx.stroke();
   }
 }
 
@@ -2485,6 +2492,7 @@ function popMark(x, y, now, color, alpha){
   }
 }
 const RING = document.createElement('canvas');   // 고리 그리는 작업판(하나를 돌려 쓴다)
+const VEIL = document.createElement('canvas');   // 튜토리얼 어둠막 작업판 (v0.1.96)
 const POP_MARK = '#FF2E93';   // 곧 터질 말 테두리 색
 
 /*
@@ -3514,12 +3522,35 @@ const Tut = {
     el('tutNext').textContent = step.last ? '시작하기' : '다음';
     el('tutNext').disabled = !this.done;
     [...el('tutDots').children].forEach((d, k) => d.classList.toggle('on', k === this.i));
-    if(step.demo) this.pickTarget();
+    if(step.demo) this.pickTarget(true);
   },
-  pickTarget(){                                     // 시범·연습에 쓸 수 한 개를 고른다
+  pickTarget(force){                                // 시범·연습에 쓸 수 한 개를 고른다
+    // v0.1.96 findMove 는 판 전체를 훑는다 — 터지고 무너지는 동안 프레임마다 부르면 렉이 난다.
+    // 판이 가라앉은 뒤에만, 그것도 0.25초에 한 번만 다시 고른다.
+    const now = clock();
+    if(!force){
+      if(S.dropPlan) return;                        // 무너지는 중 — 판이 가라앉은 뒤에
+      if(now - (this.pickAt || 0) < 0.25) return;
+    }
+    this.pickAt = now;
     const mv = findMove(S.grid);
     if(!mv){ this.want = null; return; }
     this.want = { from: mv[0], to: mv[1], arrow: TUT[this.i].demo === 'move' };
+  },
+  /** 튜토리얼이 지금 이 칸을 만지게 해 주는가 — 하라는 것만 되게 (v0.1.96) */
+  allow(r, c){
+    if(!this.on) return true;
+    if(this.phase !== 'try' || !this.want) return false;
+    return r === this.want.from[0] && c === this.want.from[1];
+  },
+  /** 미는 방향도 화살표 쪽만 */
+  allowDir(dx, dy){
+    if(!this.on) return true;
+    if(this.phase !== 'try' || !this.want) return false;
+    if(TUT[this.i].demo !== 'move') return false;
+    const dr = Math.abs(dx) > Math.abs(dy) ? 0 : (dy > 0 ? 1 : -1);
+    const dc = Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 1 : -1) : 0;
+    return this.want.from[0] + dr === this.want.to[0] && this.want.from[1] + dc === this.want.to[1];
   },
   say(html){ el('tutText').innerHTML = html; },
   tick(now){
@@ -3574,7 +3605,7 @@ const Tut = {
       this.handT = 1;
       const from = this.want.from, to = this.want.to;
       S.sel = null;
-      if(trySwap(from, to, now)){ setTimeout(freeSettle, 280); this.say('이렇게 밀면 세 마리가 모여 <b>터져요</b>.'); }
+      if(trySwap(from, to, now)){ freeSoon(); this.say('이렇게 밀면 세 마리가 모여 <b>터져요</b>.'); }
       this.demoDone = true;
       setTimeout(() => this.toTry(), 1100);
     }
@@ -3583,7 +3614,7 @@ const Tut = {
     if(!this.on || this.phase !== 'say') return;
     this.phase = 'try'; this.handT = null; this.done = false;
     el('tutNext').disabled = true;
-    this.pickTarget();
+    this.pickTarget(true);
     this.say(TUT[this.i].try);
   },
   hit(kind){                                        // 사용자가 해냈다 — press · move
