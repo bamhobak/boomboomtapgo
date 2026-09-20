@@ -176,11 +176,11 @@
    * 높이는 판정이 정하고(퍼펙트 제일 높이), 좌우 방향·기울기는 튈 때마다 다르다.
    * --jx 좌우 거리 · --jh 높이 · --jr 기울기 — 자바스크립트가 넣는다.
    */
-  .thump .judge{position:absolute;left:0;right:0;top:44px;z-index:7;text-align:center;font-size:28px;letter-spacing:.06em;
+  .judge{position:absolute;left:0;right:0;top:0;z-index:7;text-align:center;font-size:28px;letter-spacing:.06em;
                 line-height:1;opacity:0;pointer-events:none;-webkit-text-stroke:5px rgba(10,7,24,.85);paint-order:stroke fill;
                 will-change:transform,opacity;--jx:0px;--jh:120px;--jr:0deg}
   /* v0.1.65 반투명(0.8)에, 올라갈 땐 천천히 · 정점에서 멈췄다가 떨어지는 포물선으로 부드럽게 */
-  .thump .judge.go{animation:judgeup calc(var(--jd,820ms) * .45) cubic-bezier(.12,.62,.3,1) forwards,
+  .judge.go{animation:judgeup calc(var(--jd,820ms) * .45) cubic-bezier(.12,.62,.3,1) forwards,
                              judgedown calc(var(--jd,820ms) * .55) cubic-bezier(.55,.06,.72,.55) calc(var(--jd,820ms) * .45) forwards,
                              judgefade var(--jd,820ms) linear forwards}
   @keyframes judgeup{
@@ -195,14 +195,14 @@
       0%{opacity:0}  10%{opacity:.8}  72%{opacity:.8}  100%{opacity:0}
   }
   /* 미스 — 튀지 않고 그 자리에서 떴다 사라진다 (v0.1.71) */
-  .thump .judge.flat{animation:judgeflat var(--jd,620ms) ease forwards}
+  .judge.flat{animation:judgeflat var(--jd,620ms) ease forwards}
   @keyframes judgeflat{
       0%{opacity:0;transform:translate(0,6px) scale(.9)}
      16%{opacity:.8;transform:translate(0,0) scale(1)}
      70%{opacity:.75;transform:translate(0,0) scale(1)}
     100%{opacity:0;transform:translate(0,-6px) scale(.96)}
   }
-  @media (prefers-reduced-motion:reduce){ .thump .cone{transform:none} .thump .judge.go,.thump .judge.flat{animation:none;opacity:1} }
+  @media (prefers-reduced-motion:reduce){ .thump .cone{transform:none} .judge.go,.judge.flat{animation:none;opacity:1} }
 
   /*
    * 시작 화면 — 스티커 포스터 (v0.1.68, 디자인 캔버스 B안).
@@ -358,11 +358,18 @@
   .slot.d{box-shadow:inset 0 0 0 3px var(--drag)}
   .slot.d span{color:var(--drag)}
 
-  .results{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:3px;background:var(--edge);
+  /*
+   * 결과판 (v0.2.18 압축) — 점수는 한 줄로 크게, 나머지는 세 칸씩 작게.
+   * 예전에는 아홉 칸이 두 줄 폭으로 늘어서서 화면을 다 먹고 랭킹이 아래로 밀렸다.
+   */
+  .results{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:2px;background:var(--edge);
            box-shadow:0 0 0 3px var(--edge);width:min(360px,100%)}
-  .results div{background:var(--panel);padding:12px 15px;display:flex;flex-direction:column;gap:3px;text-align:left}
-  .results dt{font-size:11px;letter-spacing:.12em;color:var(--cream-dim);margin:0}
-  .results dd{margin:0;font-size:21px;font-variant-numeric:tabular-nums}
+  .results div{background:var(--panel);padding:6px 8px;display:flex;flex-direction:column;gap:1px;text-align:center}
+  .results dt{font-size:10px;letter-spacing:.06em;color:var(--cream-dim);margin:0;white-space:nowrap}
+  .results dd{margin:0;font-size:16px;font-variant-numeric:tabular-nums;line-height:1.25}
+  .results .wide{grid-column:1/-1;flex-direction:row;align-items:baseline;justify-content:center;gap:10px;padding:8px 10px}
+  .results .wide dd{font-size:28px;color:var(--gold)}
+  .results .foot{grid-column:1/-1;font-size:11px;color:var(--cream-dim);padding:5px 8px}
   /* 랭킹판 — 금·은·동 줄은 크게, 나머지는 촘촘히. 늘 5칸을 그려 판 크기가 안 흔들린다 */
   .rank{width:min(360px,100%);display:flex;flex-direction:column;gap:8px}
   .rank h2 small{font-size:10px;letter-spacing:.05em;color:var(--cream-dim);margin-left:6px}
@@ -522,7 +529,9 @@
     <canvas id="cv"></canvas>
     <div id="announce"></div>
     <div id="combo"><span id="combov">4</span><em>combo</em></div>
-  <div class="thump" id="thump" aria-hidden="true"><i class="glow"></i><i class="cone"></i><b class="judge" id="judgeTxt"></b></div>
+  <div class="thump" id="thump" aria-hidden="true"><i class="glow"></i><i class="cone"></i></div>
+    <!-- v0.2.18 판정 글자는 우퍼(z-index 0) 안에 있으면 판 캔버스(z-index 1) 뒤로 깔려 안 보인다 — 밖으로 꺼냈다 -->
+    <b class="judge" id="judgeTxt" aria-hidden="true"></b>
   </div>
 
 
@@ -640,7 +649,7 @@
    ========================================================================= */
 
 // 게임 버전 — 수정해서 배포할 때마다 끝 두 자리를 1씩 올린다(v0.1.01 → v0.1.02). 화면 오른쪽 아래에 보인다
-const GAME_VERSION = 'v0.2.17';   // 버전 표기 — 패치 자리는 두 자리 (v0.2.01, v0.2.02 …)
+const GAME_VERSION = 'v0.2.18';   // 버전 표기 — 패치 자리는 두 자리 (v0.2.01, v0.2.02 …)
 /*
  * 번쩍임 줄이기 (v0.1.22) — 광과민성 배려. 켜면 화면 전체 번쩍임·흔들림을 끄고, 발판 조명·테두리 박동을 약하게.
  * 폰의 '동작 줄이기'가 켜져 있으면 처음부터 켠다. 고른 값은 이 기기에 기억한다.
@@ -1525,6 +1534,8 @@ function layout(){
   cv.style.width = cw+'px'; cv.style.height = ch+'px';
   cv.width = Math.round(cw*dpr); cv.height = Math.round(ch*dpr);
   ctx.setTransform(dpr,0,0,dpr,0,0);
+  const jt = el('judgeTxt');                       // v0.2.18 판정 글자는 판 바로 아래에서 튀어오른다
+  if(jt) jt.style.top = (cv.offsetTop + ch + 12) + 'px';
   const gl = el('cvGlow');                         // v0.2.17 번짐 판을 캔버스와 똑같은 자리·크기로
   if(gl){
     gl.style.width = cw+'px'; gl.style.height = ch+'px';
@@ -3561,15 +3572,14 @@ function finish(){
   const acc = total ? Math.round((S.stats.perfect + S.stats.good*0.5)/total*100) : 0;
 
   el('rows').innerHTML = `
-    <div><dt>점수</dt><dd>${S.score.toLocaleString()}</dd></div>
+    <div class="wide"><dt>점수</dt><dd>${S.score.toLocaleString()}</dd></div>
     <div><dt>최고 배율</dt><dd>×${S.maxMult.toFixed(1)}</dd></div>
-    <div><dt>정확도</dt><dd>${acc}%</dd></div>
-    <div><dt>퍼펙트 / 굿 / 미스</dt><dd style="font-size:17px">${S.stats.perfect} / ${S.stats.good} / ${S.stats.miss}</dd></div>
-    <div><dt>도달 레벨</dt><dd>${S.stats.maxLevel} <span style="font-size:13px;color:var(--cream-dim)">${bpmOfLevel(S.stats.maxLevel-1)} BPM</span></dd></div>
     <div><dt>최고 콤보</dt><dd>${S.stats.maxCombo}</dd></div>
-    <div><dt>시간 끝난 뒤 연쇄</dt><dd>${S.stats.overBars} <span style="font-size:13px;color:var(--cream-dim)">턴</span></dd></div>
+    <div><dt>도달 레벨</dt><dd>${S.stats.maxLevel}</dd></div>
+    <div><dt>정확도</dt><dd>${acc}%</dd></div>
+    <div><dt>퍼펙트/굿/미스</dt><dd style="font-size:14px">${S.stats.perfect}/${S.stats.good}/${S.stats.miss}</dd></div>
     <div><dt>모양 폭발</dt><dd>${S.stats.blasts}</dd></div>
-    <div><dt>둔 수 / 차례 아님</dt><dd>${S.stats.turns} <span style="font-size:13px;color:var(--cream-dim)">/ ${S.stats.blocked}</span></dd></div>`;
+    <div class="foot">${bpmOfLevel(S.stats.maxLevel-1)} BPM · 둔 수 ${S.stats.turns} · 차례 아님 ${S.stats.blocked} · 시간 뒤 연쇄 ${S.stats.overBars}턴</div>`;
 
   const suggest = Math.round(CONFIG.offset*1000 + avg);
   el('advice').innerHTML = total < 6
