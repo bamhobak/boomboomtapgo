@@ -65,7 +65,7 @@
     box-shadow:0 20px 60px rgba(0,0,0,.6);
   }
   /* 주사선과 브라운관 가장자리 — 판 위에 얹되 입력은 통과시킨다 */
-  #stage::before,#stage::after{content:"";position:absolute;inset:0;pointer-events:none;z-index:6}
+  #stage::before,#stage::after{content:"";position:absolute;inset:0;pointer-events:none;z-index:6;will-change:opacity}   /* v0.2.17 따로 층으로 — 판이 다시 칠해질 때마다 같이 섞이지 않게 */
   #stage::before{background:repeating-linear-gradient(0deg,rgba(255,255,255,.045) 0 1px,transparent 1px 3px)}
   #stage::after{background:radial-gradient(120% 70% at 50% 50%,transparent 52%,rgba(0,0,0,.62) 100%)}
   @media (min-width:900px) and (min-height:700px){ #stage{border-radius:14px} }
@@ -386,6 +386,10 @@
                  background:var(--panel);color:var(--cream);box-shadow:inset 0 0 0 3px var(--edge)}
   .namerow input:focus{outline:none;box-shadow:inset 0 0 0 3px var(--gold)}
   .namerow button{font-size:15px;padding:10px 18px;box-shadow:4px 4px 0 #8A6D00}
+  /* v0.2.17 메인 화면 닉네임 칸 */
+  .menuname{width:min(320px,86%);margin:0 auto}
+  .menuname input{text-align:center;border-radius:14px;box-shadow:inset 0 0 0 3px var(--edge)}
+  .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 
   .note{font-size:13px;line-height:1.65;color:var(--cream-dim);max-width:38ch;margin:0;text-wrap:balance}
   .note b{color:var(--gold);font-weight:900}
@@ -437,7 +441,15 @@
          background-image:radial-gradient(ellipse 140% 55% at 50% 108%,rgba(255,138,30,.22),transparent 60%),
                           radial-gradient(circle,rgba(120,110,255,.16) 1px,transparent 1.5px);
          background-size:100% 100%,14px 14px}
-  #cv{transition:box-shadow 60ms linear}   /* 테두리 번짐은 박 색을 따라 자바스크립트가 넣는다 (v0.1.93) */
+  /*
+   * v0.2.17 판 둘레 번짐은 캔버스 자신이 아니라 **뒤에 깔린 판**이 낸다.
+   * 캔버스에 둥근 모서리와 큰 그림자가 붙어 있으면, 캔버스가 다시 칠해질 때마다
+   * 브라우저가 둥근 마스크와 번짐까지 같이 합성해야 한다. 크게 터져 파편이 판 전체에 퍼지면
+   * 다시 칠할 넓이가 판 전체가 되면서 그 비용이 그대로 끊김이 됐다(설치본은 GPU 합성이라 티가 안 났다).
+   * 캔버스는 이제 모서리도 그림자도 없는 평범한 네모 — 둥근 모서리는 캔버스 안에서 이미 잘라 그린다.
+   */
+  .cvglow{position:absolute;z-index:0;pointer-events:none;transition:box-shadow 60ms linear}
+  #cv{will-change:transform}
   #announce,#combo{-webkit-text-stroke:7px #1A1238;paint-order:stroke fill}   /* 흰 발판 위에서도 글자가 또렷하게 — 진한 남색 테두리 */
   .marquee{flex:0 0 auto;margin:8px 8px 0;border-radius:20px;border:3px solid var(--edge);background:var(--panel);
            box-shadow:0 0 0 1px var(--room),0 0 22px rgba(255,138,30,.18),inset 0 0 18px rgba(76,141,255,.12)}
@@ -506,6 +518,7 @@
   <div class="boardwrap">
     <div class="thump top" id="thumpTop" aria-hidden="true"><i class="glow"></i><i class="cone"></i></div>
     <div class="callout" id="callout" aria-hidden="true"></div>
+    <i class="cvglow" id="cvGlow" aria-hidden="true"></i>
     <canvas id="cv"></canvas>
     <div id="announce"></div>
     <div id="combo"><span id="combov">4</span><em>combo</em></div>
@@ -537,6 +550,12 @@
       <h2>이번 주 랭킹 <small id="rankReset"></small></h2>
       <ol class="board" id="boardStart"></ol>
     </section>
+
+    <!-- v0.2.17 닉네임은 시작 전에 정한다 — 게임이 끝나면 이 이름으로 자동 기록된다 -->
+    <div class="namerow menuname">
+      <label for="menuName" class="sr">닉네임</label>
+      <input id="menuName" maxlength="12" placeholder="닉네임 (12자까지)" autocomplete="nickname" enterkeyhint="done">
+    </div>
 
     <div class="menurow">
       <button class="ghost" id="tutBtn" type="button">튜토리얼</button>
@@ -596,13 +615,8 @@
     <h2>게임 끝</h2>
     <div class="results" id="rows"></div>
     <section class="rank" aria-label="이번 주 랭킹">
-      <form class="nameform" id="nameForm" hidden>
-        <p id="nameTag">🎉 순위 진입! 이름을 남기세요</p>
-        <div class="namerow">
-          <input id="nameInput" maxlength="12" placeholder="이름 (12자까지)" autocomplete="nickname" enterkeyhint="done">
-          <button id="btnSave" type="submit">등록</button>
-        </div>
-      </form>
+      <!-- v0.2.17 이름은 시작 전에 정한다 — 여기는 기록 결과만 알린다 -->
+      <div class="nameform" id="nameForm" hidden><p id="nameTag"></p></div>
       <h2>이번 주 랭킹 <small id="rankReset2"></small></h2>
       <ol class="board" id="boardOver"></ol>
     </section>
@@ -626,7 +640,7 @@
    ========================================================================= */
 
 // 게임 버전 — 수정해서 배포할 때마다 끝 두 자리를 1씩 올린다(v0.1.01 → v0.1.02). 화면 오른쪽 아래에 보인다
-const GAME_VERSION = 'v0.2.16';   // 버전 표기 — 패치 자리는 두 자리 (v0.2.01, v0.2.02 …)
+const GAME_VERSION = 'v0.2.17';   // 버전 표기 — 패치 자리는 두 자리 (v0.2.01, v0.2.02 …)
 /*
  * 번쩍임 줄이기 (v0.1.22) — 광과민성 배려. 켜면 화면 전체 번쩍임·흔들림을 끄고, 발판 조명·테두리 박동을 약하게.
  * 폰의 '동작 줄이기'가 켜져 있으면 처음부터 켠다. 고른 값은 이 기기에 기억한다.
@@ -1509,9 +1523,14 @@ function layout(){
   const cw = cell*CONFIG.cols + PAD*2, ch = cell*CONFIG.rows + PAD*2;
   const dpr = Math.min(devicePixelRatio||1, 2);   // 2를 넘겨도 화질 차이는 거의 없고 발열만 커진다
   cv.style.width = cw+'px'; cv.style.height = ch+'px';
-  cv.style.borderRadius = boardR()+'px';           // 네온 번짐(box-shadow)도 둥근 판을 따라가게
   cv.width = Math.round(cw*dpr); cv.height = Math.round(ch*dpr);
   ctx.setTransform(dpr,0,0,dpr,0,0);
+  const gl = el('cvGlow');                         // v0.2.17 번짐 판을 캔버스와 똑같은 자리·크기로
+  if(gl){
+    gl.style.width = cw+'px'; gl.style.height = ch+'px';
+    gl.style.left = cv.offsetLeft+'px'; gl.style.top = cv.offsetTop+'px';
+    gl.style.borderRadius = boardR()+'px';
+  }
 }
 addEventListener('resize', layout);
 
@@ -1660,7 +1679,8 @@ function clearCells(cells, now, depth, label, noScore){
 
   const J = noScore ? 0 : juiceLevel();
   // 칸당 파편 수 — 흥이 오를수록 많게, 한 번에 터지는 칸이 많으면 칸당 줄여 총량을 묶는다
-  const perCell = Math.max(2, Math.min(4 + J, Math.ceil(90 / set.size)));    // v0.2.15 한 번에 뿌리는 총량 130→90
+  const budget = Math.min(90, Math.max(18, bitsCap() * 0.45));               // v0.2.17 화면이 버거우면 알아서 줄어든다
+  const perCell = Math.max(1, Math.min(4 + J, Math.ceil(budget / set.size)));
   let sx = 0, sy = 0;
   for(const [,[r,c]] of set){
     const t = S.grid[r][c];
@@ -2017,20 +2037,20 @@ function spawnBits(r,c,t,now,J,perCell){
       vx:Math.cos(a)*sp, vy:Math.sin(a)*sp - 90*spd, t0:now, col:tint, rot0:Math.random()*6.28, spin:(Math.random()-0.5)*9,
       sz:(2 + Math.random()*3) * big, shape, life:0.7 + J*0.03, g:620 });
   }
-  if(S.bits.length > BITS_MAX) S.bits.splice(0, S.bits.length - BITS_MAX);
+  if(S.bits.length > bitsCap()) S.bits.splice(0, S.bits.length - bitsCap());
 }
 
 /** 5콤보마다 — 판 위에서 폭죽이 쏟아진다 */
 function confetti(now, combo){
   if(REDUCED) return;
-  const n = Math.min(90, 40 + combo*3), shapes = shapesFor(12);   // v0.2.15 폭죽도 줄인다
+  const n = Math.min(Math.max(20, bitsCap()*0.45), 40 + combo*3), shapes = shapesFor(12);   // v0.2.15 폭죽도 줄인다
   for(let i=0;i<n;i++){
     const col = i % 4 === 0 ? '#FFFFFF' : PETS[randColor()].hex;
     S.bits.push({ x:Math.random()*cell*CONFIG.cols, y:-cell*0.2 + Math.random()*cell*0.6,
       vx:(Math.random()-0.5)*160, vy:-40 - Math.random()*140, t0:now + Math.random()*0.15, col, rot0:Math.random()*6.28, spin:(Math.random()-0.5)*6,
       sz:3 + Math.random()*4, shape:shapes[(Math.random()*shapes.length)|0], life:1.5 + Math.random()*0.4, g:260 });
   }
-  if(S.bits.length > BITS_MAX + 90) S.bits.splice(0, S.bits.length - BITS_MAX - 90);
+  if(S.bits.length > bitsCap() + 90) S.bits.splice(0, S.bits.length - bitsCap() - 90);
   S.rings.push({ x:cell*CONFIG.cols/2, y:cell*CONFIG.rows/2, t0:now, R:cell*CONFIG.cols*0.7, col:'#FDE047', life:0.55, w:6, dia:false });
   S.flashAt = now; S.flashA = 0.3;
 }
@@ -3068,8 +3088,27 @@ addEventListener('visibilitychange', () => {
   } else if(!S.live) menuStart();
 });
 
+/*
+ * 화면이 버거우면 파편을 스스로 줄인다 (v0.2.17).
+ * 기기·브라우저마다 그릴 수 있는 양이 달라서, 프레임 간격을 재서 밀리면 상한을 내리고
+ * 다시 여유가 생기면 올린다. 크게 터질 때만 버거운 기기에서 그때만 조용히 가벼워진다.
+ */
+const PERF = { ema: 16.7, last: 0, cap: BITS_MAX };
+function bitsCap(){ return PERF.cap; }
+function perfTick(){
+  const t = performance.now();
+  if(PERF.last){
+    const dt = Math.min(200, t - PERF.last);
+    PERF.ema = PERF.ema * 0.9 + dt * 0.1;
+    if(PERF.ema > 24 && PERF.cap > 60) PERF.cap = 60;              // 밀린다 — 파편을 확 줄인다
+    else if(PERF.ema < 19 && PERF.cap < BITS_MAX) PERF.cap = BITS_MAX;
+  }
+  PERF.last = t;
+}
+
 function frame(){
   raf = requestAnimationFrame(frame);
+  perfTick();
   if(!S.live) return;
   const now = clock();
   if(Tut.on) Tut.tick(now);
@@ -3211,7 +3250,8 @@ function frame(){
         th.style.setProperty('--tc', bp.rgb);
         th.style.setProperty('--tk', ks);
       }
-      cv.style.boxShadow = `0 0 ${Math.round(16 + 30*q)}px rgba(${bp.rgb},${(0.2 + 0.45*q).toFixed(3)})`;   // 판 둘레 번짐도 박 색
+      const gl = el('cvGlow');                    // v0.2.17 캔버스가 아니라 뒤에 깔린 판이 번진다
+      if(gl) gl.style.boxShadow = `0 0 ${Math.round(16 + 30*q)}px rgba(${bp.rgb},${(0.2 + 0.45*q).toFixed(3)})`;
     }
   }
   el('callout').classList.toggle('waiting', S.holding);
@@ -3625,49 +3665,62 @@ const Rank = (() => {
     catch(e){ render(elId, '랭킹 준비 중입니다 (연결 안 됨)'); }
   }
 
-  const qualifies = sc => sc > 0 && (list.length < TOP || sc > Number(list[TOP-1].score));
+  /** 이 기기의 닉네임 — 메인 화면에서 정한다 (v0.2.17) */
+  function name(){ return (store.get('boomboomtapgo_name') || '').trim().slice(0, 12); }
+  function setName(v){
+    const n = String(v || '').trim().slice(0, 12);
+    if(n) store.set('boomboomtapgo_name', n);
+    return n;
+  }
+  /** 닉네임이 비어 있으면 하나 지어 준다 — 시작을 막지 않으려고 */
+  function ensureName(){
+    return name() || setName('강아지' + String(1000 + Math.floor(Math.random()*9000)));
+  }
 
+  /*
+   * 게임이 끝나면 **자동으로** 기록한다 (v0.2.17).
+   * 예전에는 5위 안에 들 때만 이름 칸이 떴고, 거기서 이름을 적고 '등록'을 눌러야 남았다.
+   * 이제 이름은 시작 전에 정하므로 끝나는 순간 그대로 올린다.
+   */
   async function afterGame(score, level, combo){
     const f = el('nameForm');
-    f.hidden = true;
+    if(f) f.hidden = true;
     notes();
-    try{ await fetchTop(); }
-    catch(e){ render('boardOver', '랭킹 준비 중입니다 (연결 안 됨)'); return; }
-    render('boardOver');
-    if(!qualifies(score)) return;
-    const pos = list.findIndex(r => score > Number(r.score));
-    el('nameTag').textContent = '🎉 이번 주 ' + ((pos < 0 ? list.length : pos) + 1) + '위 진입! 이름을 남기세요';
-    el('nameInput').value = store.get('boomboomtapgo_name') || '';
-    el('btnSave').disabled = false;
-    f.hidden = false;
-    f.onsubmit = async ev => {
-      ev.preventDefault();
-      const name = el('nameInput').value.trim().slice(0, 12);
-      if(!name){ el('nameInput').focus(); return; }
-      el('btnSave').disabled = true;
-      store.set('boomboomtapgo_name', name);
+    const tag = el('nameTag');
+    const nm = ensureName();
+    if(score > 0){
       try{
         const res = await fetch(URL_ + '/rest/v1/' + TABLE, {
           method:'POST', headers:H({'Content-Type':'application/json', Prefer:'return=minimal'}),
-          body: JSON.stringify({ name, score:Math.min(1e9, Math.round(score)), level, combo, device }),
+          body: JSON.stringify({ name:nm, score:Math.min(1e9, Math.round(score)), level, combo, device }),
         });
         if(!res.ok) throw new Error('HTTP ' + res.status);
-        mine = { name, score:Math.round(score) };
-        f.hidden = true;
-        await refresh('boardOver');
+        mine = { name:nm, score:Math.round(score) };
       }catch(e){
-        el('nameTag').textContent = '등록 실패 — 다시 눌러 보세요';
-        el('btnSave').disabled = false;
+        if(tag){ tag.textContent = '기록을 못 올렸어요 (연결 안 됨)'; if(f) f.hidden = false; }
       }
-    };
+    }
+    try{ await fetchTop(); }
+    catch(e){ render('boardOver', '랭킹 준비 중입니다 (연결 안 됨)'); return; }
+    render('boardOver');
+    if(mine && tag && f){
+      const pos = list.findIndex(r => r.name === mine.name && Number(r.score) === mine.score);
+      tag.textContent = pos >= 0 ? '🎉 ' + nm + ' — 이번 주 ' + (pos + 1) + '위!' : nm + ' 기록을 남겼어요';
+      f.hidden = false;
+    }
   }
-  return { refresh, afterGame };
+  return { refresh, afterGame, name, setName, ensureName };
 })();
 
 /* ------------------------------------------------------------ UI 바인딩 */
 
 el('off').addEventListener('input', e => { CONFIG.offset=+e.target.value/1000; el('offv').textContent=e.target.value; });
-el('go').addEventListener('click', () => start());
+el('go').addEventListener('click', () => {
+  const nin = el('menuName');                      // v0.2.17 비워 뒀으면 이름을 하나 지어 준다 — 시작을 막지 않는다
+  const nm = Rank.setName(nin ? nin.value : '') || Rank.ensureName();
+  if(nin) nin.value = nm;
+  start();
+});
 // 게임 설명 — 시작 화면 위에 창으로 띄운다
 /*
  * 튜토리얼 (v0.1.79) — 실제 판에서 배운다. 시간이 줄지 않고, 놓쳐도 미스가 아니고, 게임도 안 끝난다.
@@ -3847,6 +3900,15 @@ const Tut = {
     setTimeout(menuStart, 300);
   },
 };
+{                                                   // v0.2.17 닉네임 — 시작 전에 정하고 기기에 기억한다
+  const nin = el('menuName');
+  if(nin){
+    nin.value = Rank.name();
+    nin.addEventListener('change', () => { nin.value = Rank.setName(nin.value) || nin.value.trim().slice(0, 12); });
+    nin.addEventListener('blur',   () => { nin.value = Rank.setName(nin.value) || nin.value.trim().slice(0, 12); });
+    nin.addEventListener('keydown', e => { if(e.key === 'Enter'){ e.preventDefault(); nin.blur(); } });
+  }
+}
 el('tutBtn').addEventListener('click', () => Tut.start());
 el('tutNext').addEventListener('click', () => Tut.next());
 el('tutSkip').addEventListener('click', () => Tut.quit());
