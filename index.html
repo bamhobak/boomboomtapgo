@@ -665,7 +665,7 @@
    ========================================================================= */
 
 // 게임 버전 — 수정해서 배포할 때마다 끝 두 자리를 1씩 올린다(v0.1.01 → v0.1.02). 화면 오른쪽 아래에 보인다
-const GAME_VERSION = 'v0.2.53';   // 버전 표기 — 패치 자리는 두 자리 (v0.2.01, v0.2.02 …)
+const GAME_VERSION = 'v0.2.54';   // 버전 표기 — 패치 자리는 두 자리 (v0.2.01, v0.2.02 …)
 /*
  * 번쩍임 줄이기 (v0.1.22) — 광과민성 배려. 켜면 화면 전체 번쩍임·흔들림을 끄고, 발판 조명·테두리 박동을 약하게.
  * 폰의 '동작 줄이기'가 켜져 있으면 처음부터 켠다. 고른 값은 이 기기에 기억한다.
@@ -2723,32 +2723,34 @@ function drawHint(w, h, now){
    * 그 박에만 말 둘레로 **무지개 오오라**를 둘러 시선을 끈다 — 천천히 돌고, 박에 맞춰 부푼다.
    */
   if(BEATV && BEATV.pos % 4 === 0){
-    const R = cell*(0.74 + 0.07*(1 - p)), lw = Math.max(5, cell*0.13);   // 말보다 바깥에 둘러 쫙 퍼지게
-    const rot = now*1.1;
+    // v0.2.54 박에 말에서 **확 튀어나왔다 다시 빨려 들어간다** — 고리 색은 끊김 없는 원형 그라데이션
+    const e = Math.pow(p, 0.55);                           // 박 순간에 빠르게 커지고 천천히 돌아온다
+    const R = cell*(0.34 + 0.46*e), lw = Math.max(4, cell*(0.07 + 0.08*e));
+    const rot = now*1.6;
+    const aA = A * (0.25 + 0.75*p);                        // 박 사이에는 거의 사라진다
     ctx.save();
     ctx.lineCap = 'butt';
-    // 바깥으로 번지는 빛무리 — 크림색 판에서도 보이게 색을 그대로 깐다(더하기 합성은 흰색으로 날아간다)
-    ctx.globalAlpha = A * 0.9;
-    ctx.lineWidth = lw + Math.max(3, cell*0.06);
-    ctx.strokeStyle = 'rgba(26,18,56,0.5)';                // 밑에 진한 테두리 한 겹
+    ctx.globalAlpha = aA;
+    ctx.lineWidth = lw + Math.max(2, cell*0.04);
+    ctx.strokeStyle = 'rgba(26,18,56,0.4)';                // 밑에 진한 테두리 한 겹 — 밝은 판에서도 또렷하게
     ctx.beginPath(); ctx.arc(x, y, R, 0, Math.PI*2); ctx.stroke();
     ctx.lineWidth = lw;
-    for(let i=0;i<AURA.length;i++){
-      ctx.strokeStyle = AURA[i];
-      ctx.beginPath();
-      ctx.arc(x, y, R, rot + i*Math.PI*2/AURA.length - 0.04, rot + (i+1)*Math.PI*2/AURA.length + 0.04);
-      ctx.stroke();
+    const g = auraGrad(x, y, rot);
+    if(g){
+      ctx.strokeStyle = g;
+      ctx.beginPath(); ctx.arc(x, y, R, 0, Math.PI*2); ctx.stroke();
+    }else{                                                 // 원형 그라데이션을 못 쓰는 브라우저 — 잘게 이어 붙인다
+      const N = 36, span = Math.PI*2/N;
+      for(let i=0;i<N;i++){
+        ctx.strokeStyle = auraMix(i/N);
+        ctx.beginPath(); ctx.arc(x, y, R, rot + i*span - 0.02, rot + (i+1)*span + 0.02); ctx.stroke();
+      }
     }
-    ctx.globalCompositeOperation = 'lighter';              // 둘레로 새어 나오는 빛만 더하기로
-    const gl = ctx.createRadialGradient(x, y, R, x, y, R*1.75);
-    gl.addColorStop(0, `rgba(255,236,170,${(A*0.5).toFixed(3)})`);
-    gl.addColorStop(1, 'rgba(255,236,170,0)');
-    ctx.globalAlpha = 1; ctx.fillStyle = gl;
-    ctx.beginPath(); ctx.arc(x, y, R*1.75, 0, Math.PI*2); ctx.fill();
-    ctx.restore();
+    ctx.restore();                                         // v0.2.54 흰 빛무리는 뺐다 — 말이 허옇게 떠 보였다
   }
-  // ① 옮길 말 — 그 말 모양 그대로 초록 테두리 (v0.2.44)
-  const ring = popRing(t.color, HINT_STEP, bp.col);        // 색만 바뀌게 — 고리 모양은 한 단계로 고정(캐시 절약)
+  // ① 옮길 말 — 그 말 모양 그대로 박자색 테두리 (v0.2.44)
+  // v0.2.54 1박(흰색)은 말을 허옇게 만들어 안 그린다 — 그 박은 무지개 고리가 대신한다
+  const ring = (BEATV && BEATV.pos % 4 === 0) ? null : popRing(t.color, HINT_STEP, bp.col);
   if(ring){
     ctx.globalAlpha = A;
     ctx.drawImage(ring, Math.round(x - ring.width/2), Math.round(y - ring.height/2));
@@ -3115,6 +3117,20 @@ function setText(id, v){
 const VEIL = document.createElement('canvas');   // 튜토리얼 어둠막 작업판 (v0.1.96)
 const POP_MARK = '#FF2E93';   // 곧 터질 말 테두리 색
 const AURA = ['#FF3860','#FB923C','#FDE047','#4ADE80','#22D3EE','#A855F7'];   // 1박 무지개 오오라 (v0.2.53)
+/** 끊김 없는 원형 무지개 (v0.2.54) — 못 쓰는 브라우저면 null */
+function auraGrad(x, y, rot){
+  if(!ctx.createConicGradient) return null;
+  const g = ctx.createConicGradient(rot, x, y);
+  for(let i=0;i<=AURA.length;i++) g.addColorStop(i/AURA.length, AURA[i % AURA.length]);
+  return g;
+}
+/** 대체용 — 무지개를 t(0~1) 위치에서 섞어 준다 */
+function auraMix(t){
+  const n = AURA.length, u = t*n, i = Math.floor(u) % n, f = u - Math.floor(u);
+  const hex = h => [parseInt(h.slice(1,3),16), parseInt(h.slice(3,5),16), parseInt(h.slice(5,7),16)];
+  const a = hex(AURA[i]), b = hex(AURA[(i+1) % n]);
+  return `rgb(${a.map((v,k) => Math.round(v + (b[k]-v)*f)).join(',')})`;
+}
 const HINT_STEP = 3;          // 힌트 고리는 한 단계 모양만 쓴다 (v0.2.51) — 색이 박을 따라가므로 캐시를 아낀다
 
 /*
