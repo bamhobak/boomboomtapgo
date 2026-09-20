@@ -228,6 +228,8 @@
              font-family:Jua;font-size:23px;padding:11px 54px}
   #start #go:active{transform:translate(0,4px);box-shadow:0 3px 0 #3B2314}
   #start .menurow{display:flex;gap:8px;width:min(360px,100%)}
+  #start .gorow{display:flex;gap:10px;align-items:center;justify-content:center}
+  #start #practiceBtn{font-family:Jua;font-size:17px;padding:11px 20px}
   #start .menurow button{flex:1}
   #set{z-index:11}
   #set .knobs.setrow,#set .toggles{width:min(360px,100%)}
@@ -447,6 +449,19 @@
    * 캔버스는 이제 모서리도 그림자도 없는 평범한 네모 — 둥근 모서리는 캔버스 안에서 이미 잘라 그린다.
    */
   .cvglow{position:absolute;z-index:0;pointer-events:none;transition:box-shadow 60ms linear}
+  /* 일시정지 (v0.2.43) — 단추는 판 오른쪽 위 모서리에, 멈춤 판은 판을 통째로 덮는다 */
+  #pauseBtn{position:absolute;z-index:8;width:38px;height:38px;padding:0;border-radius:12px;
+            background:rgba(26,18,56,.72);color:var(--cream);border:2px solid rgba(255,255,255,.35);
+            font-size:13px;letter-spacing:.08em;line-height:1;box-shadow:none}
+  #pauseBtn[disabled]{opacity:.28}
+  .pausebox{position:absolute;z-index:9;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;
+            background:#1A1238;border:4px solid var(--edge);box-shadow:0 10px 0 rgba(0,0,0,.45);
+            background-image:radial-gradient(circle,rgba(255,255,255,.05) 1px,transparent 1.6px);background-size:16px 16px}
+  .pausebox h2{margin:0;font-family:Jua;font-size:26px;color:var(--cream)}
+  .pausebox .note{margin:0;font-size:13px;color:var(--cream-dim)}
+  .pausebox #pResume{font-family:Jua;font-size:20px;padding:12px 34px}
+  .pausebox .prow{display:flex;gap:8px}
+  .pausebox .prow button{font-size:13px;padding:9px 16px}
   #cv{will-change:transform}
   /*
    * 흰 발판 위에서도 또렷하게 — 진한 남색 테두리.
@@ -494,6 +509,7 @@
 
   <div class="boardwrap">
     <div class="thump top" id="thumpTop" aria-hidden="true"><i class="glow"></i><i class="cone"></i></div>
+    <button id="pauseBtn" type="button" aria-label="일시정지" hidden>❚❚</button>
     <i class="cvglow" id="cvGlow" aria-hidden="true"></i>
     <canvas id="cv"></canvas>
     <div id="announce"></div>
@@ -542,12 +558,26 @@
     </div>
 
 
-    <button id="go">시작</button>
+    <div class="gorow">
+      <button id="go">시작</button>
+      <button class="ghost" id="practiceBtn" type="button">연습</button>
+    </div>
     <div class="pack" id="pack" aria-hidden="true"></div>
 
   </div>
 
   <!-- 개발자 통계 (v0.2.40) — 메뉴 맨 오른쪽 강아지를 눌러 2424 를 넣으면 열린다 -->
+  <!-- 일시정지 (v0.2.43) — 판을 완전히 가린다. 풀면 구호를 세고 그 턴 1박부터 다시 -->
+  <div class="pausebox" id="pause" hidden role="dialog" aria-modal="true">
+    <h2>잠깐 멈춤</h2>
+    <p class="note">판은 가려 두었습니다</p>
+    <button id="pResume" type="button">이어서 하기</button>
+    <div class="prow">
+      <button class="ghost" id="pRestart" type="button">다시하기</button>
+      <button class="ghost" id="pHome" type="button">처음으로</button>
+    </div>
+  </div>
+
   <div class="overlay" id="dev" hidden role="dialog" aria-modal="true" aria-labelledby="devTitle">
     <h2 id="devTitle">개발자 통계</h2>
     <form class="nameform" id="devPin">
@@ -632,7 +662,7 @@
    ========================================================================= */
 
 // 게임 버전 — 수정해서 배포할 때마다 끝 두 자리를 1씩 올린다(v0.1.01 → v0.1.02). 화면 오른쪽 아래에 보인다
-const GAME_VERSION = 'v0.2.42';   // 버전 표기 — 패치 자리는 두 자리 (v0.2.01, v0.2.02 …)
+const GAME_VERSION = 'v0.2.43';   // 버전 표기 — 패치 자리는 두 자리 (v0.2.01, v0.2.02 …)
 /*
  * 번쩍임 줄이기 (v0.1.22) — 광과민성 배려. 켜면 화면 전체 번쩍임·흔들림을 끄고, 발판 조명·테두리 박동을 약하게.
  * 폰의 '동작 줄이기'가 켜져 있으면 처음부터 켠다. 고른 값은 이 기기에 기억한다.
@@ -1020,7 +1050,8 @@ function finalizeBar(k){
   const bar = BARS[k];
   if(!bar || bar.final) return false;
   const level = S.tut ? TUT_LEVEL                          // 튜토리얼은 2단계 고정 — 콤보로 안 오른다
-                      : Math.max(levelOfCombo(S.combo), floorLevel(bar.startTime), S.levelFloor || 0);
+              : S.practice ? 0                             // 연습은 1단계 고정 (v0.2.43)
+              : Math.max(levelOfCombo(S.combo), floorLevel(bar.startTime), S.levelFloor || 0);
   const bpm = bpmOfLevel(level);
   Object.assign(bar, { level, bpm, beatLen:60/bpm, final:true });
   BARS.length = k + 1;
@@ -1476,7 +1507,7 @@ const S = {
   fx:[], bits:[], rings:[], flashAt:-9, flashA:0, swapAnim:null,
   stats:{perfect:0,good:0,miss:0,turns:0,blocked:0,blasts:0,maxCombo:0,maxLevel:1,overBars:0},
   actedBeats:{}, blockFlash:-9,
-  errors:[], shake:0, hold:0, holding:false, releasedBar:0, dropPlan:null, popGroups:null, planBar:0, pin:null, droppedBar:-1, reshuffling:false, lastSwap:null, combo:0, comboMade:false, announceAt:-9, countShown:'', level:0, levelFloor:0, hintBar:-1, hint:null, why:[], timeUp:false, bonusTime:0, lastPlayBar:Infinity, overAt:0,
+  errors:[], shake:0, hold:0, holding:false, releasedBar:0, dropPlan:null, popGroups:null, planBar:0, pin:null, droppedBar:-1, reshuffling:false, lastSwap:null, combo:0, comboMade:false, announceAt:-9, countShown:'', level:0, levelFloor:0, hintBar:-1, hint:null, why:[], paused:false, pauseBar:0, pauseLockBar:-2, timeUp:false, bonusTime:0, lastPlayBar:Infinity, overAt:0,
   barIndex:-1, beatIndex:-1, drag:null, sel:null,
 };
 
@@ -1535,6 +1566,14 @@ function layout(){
   ctx.setTransform(dpr,0,0,dpr,0,0);
   const jt = el('judgeTxt');                       // v0.2.18 판정 글자는 판 바로 아래에서 튀어오른다
   if(jt) jt.style.top = (cv.offsetTop + ch + 12) + 'px';
+  const pb = el('pauseBtn');                       // v0.2.43 판 오른쪽 위 모서리
+  if(pb){ pb.style.left = (cv.offsetLeft + cw - 46) + 'px'; pb.style.top = (cv.offsetTop + 8) + 'px'; }
+  const pz = el('pause');                          // 멈춤 판은 판을 통째로 덮는다(블럭이 안 보이게)
+  if(pz){
+    pz.style.left = cv.offsetLeft + 'px'; pz.style.top = cv.offsetTop + 'px';
+    pz.style.width = cw + 'px'; pz.style.height = ch + 'px';
+    pz.style.borderRadius = boardR() + 'px';
+  }
   const gl = el('cvGlow');                         // v0.2.17 번짐 판을 캔버스와 똑같은 자리·크기로
   if(gl){
     gl.style.width = cw+'px'; gl.style.height = ch+'px';
@@ -2102,7 +2141,7 @@ function cellFromEvent(e){
 }
 
 cv.addEventListener('pointerdown', e => {
-  if(!S.live || locked() || songTime() < 0) return;       // 카운트다운 중엔 조용히 무시
+  if(!S.live || S.paused || locked() || songTime() < 0) return;   // 멈춤·카운트다운 중엔 조용히 무시
   const p = cellFromEvent(e);
   if(!p) return;
   if(!Tut.allow(p[0], p[1])) return;                     // v0.1.96 튜토리얼 — 표시된 칸만
@@ -2595,7 +2634,8 @@ function drawWhy(w, h, now){
  */
 function drawHint(w, h, now){
   if(!S.live || S.tut || S.sel || S.holding) return;
-  if(S.barIndex !== S.hintBar || locked()) return;
+  if(!S.practice && S.barIndex !== S.hintBar) return;     // 연습에서는 늘 짚어 준다 (v0.2.43)
+  if(locked()) return;
   const alive = S.hint && S.grid[S.hint[0][0]][S.hint[0][1]] && S.grid[S.hint[1][0]][S.hint[1][1]];
   if(!alive){
     if(S.dropPlan || !boardSettled(now)) return;           // 판이 가라앉은 뒤에 고른다
@@ -3384,6 +3424,7 @@ function frame(){
   raf = requestAnimationFrame(frame);
   perfTick();
   if(!S.live) return;
+  if(S.paused) return;                              // v0.2.43 멈춤 — 판도 시계도 그대로 둔다
   const now = clock();
   if(Tut.on) Tut.tick(now);
 
@@ -3430,11 +3471,11 @@ function frame(){
   const bi = barAtBeat(Math.floor(beat));
   const bar = BARS[bi];
 
-  if(bi !== S.barIndex) S.barIndex = bi;
+  if(bi !== S.barIndex){ S.barIndex = bi; pauseBtnSync(); }   // v0.2.43 턴이 바뀌면 멈춤 단추가 다시 눌린다
 
 
   // 1분 타임어택 — 시간이 다 되면 그 마디(턴)의 4박까지만 손을 쓸 수 있다
-  if(S.tut) S.bonusTime = Math.max(S.bonusTime, song);       // 튜토리얼은 시계가 안 준다(늘 1분으로 보인다)
+  if(S.tut || S.practice) S.bonusTime = Math.max(S.bonusTime, song);   // 튜토리얼·연습은 시계가 안 준다(v0.2.43)
   if(!S.timeUp && song >= CONFIG.timeLimit + S.bonusTime){
     S.timeUp = true;
     S.lastPlayBar = bi;
@@ -3482,10 +3523,10 @@ function frame(){
   // v0.2.16 간판 글자·시간 막대는 값이 바뀔 때만 쓴다 — 프레임마다 쓰면 그때마다 다시 재고 다시 칠한다
   setText('lvl', bar.level + 1);
   setText('hudSub', bar.bpm + ' BPM');
-  const left = S.tut ? CONFIG.timeLimit
+  const left = (S.tut || S.practice) ? CONFIG.timeLimit
                      : Math.max(0, CONFIG.timeLimit + S.bonusTime - Math.max(0, song));
   const tv = el('time'), tf = el('timeFill'), low = left <= 10;
-  setText('time', S.timeUp ? '0' : Math.ceil(left));
+  setText('time', S.practice ? '∞' : (S.timeUp ? '0' : Math.ceil(left)));
   tv.classList.toggle('low', low);
   const wpc = (Math.round(Math.min(100, left / CONFIG.timeLimit * 100) * 4) / 4).toFixed(2) + '%';   // 60초 넘게 모이면 꽉 찬 채로
   if(tf.style.width !== wpc) tf.style.width = wpc;
@@ -3718,7 +3759,7 @@ function menuStop(fade){
   if(!S.live && (!el('start').hidden || !el('end').hidden)) menuStart();
 }, { passive:true }));
 
-async function start(tut){        // tut: true = 튜토리얼(박자 켬) · 'free' = 튜토리얼(박자 끔)
+async function start(tut){        // tut: true = 튜토리얼(박자 켬) · 'free' = 튜토리얼(박자 끔) · 'practice' = 연습
   menuStop(0.3);
   Audio_.init();
   if(Audio_.ac.state==='suspended') Audio_.ac.resume();
@@ -3726,6 +3767,7 @@ async function start(tut){        // tut: true = 튜토리얼(박자 켬) · 'fr
   await Promise.race([loadBank(), new Promise(r => setTimeout(r, 1800))]);
   warmSfx();                                       // v0.2.25 소리도 한 번씩 무음으로
   S.tut = tut === true || tut === 'free';          // 마디를 짜기 전에 정해야 튜토리얼 빠르기가 먹는다 (v0.2.08)
+  S.practice = tut === 'practice';                 // v0.2.43 연습 — 시간 없음·레벨 1 고정·늘 힌트
   buildTimeline();
   Bgm.run = null; Bgm.resume = {};                 // 판마다 곡은 처음부터
 
@@ -3742,7 +3784,7 @@ async function start(tut){        // tut: true = 튜토리얼(박자 켬) · 'fr
     fx:[], bits:[], rings:[], flashAt:-9, flashA:0, swapAnim:null,
     stats:{perfect:0,good:0,miss:0,turns:0,blocked:0,blasts:0,maxCombo:0,maxLevel:S.tut ? TUT_LEVEL+1 : 1,overBars:0},
     actedBeats:{}, blockFlash:-9,
-    errors:[], shake:0, hold:0, tut:tut === true || tut === 'free', free:tut === 'free', holding:false, releasedBar:0, dropPlan:null, popGroups:null, planBar:0, pin:null, droppedBar:-1, reshuffling:false, reshuffleAt:null, turnJ:{}, multBar:-1, lastSwap:null, combo:0, comboMade:false, announceAt:-9, countShown:'', level:S.tut ? TUT_LEVEL : 0, levelFloor:0, hintBar:-1, hint:null, why:[], timeUp:false, bonusTime:0, lastPlayBar:Infinity, overAt:0,
+    errors:[], shake:0, hold:0, tut:tut === true || tut === 'free', free:tut === 'free', practice:tut === 'practice', holding:false, releasedBar:0, dropPlan:null, popGroups:null, planBar:0, pin:null, droppedBar:-1, reshuffling:false, reshuffleAt:null, turnJ:{}, multBar:-1, lastSwap:null, combo:0, comboMade:false, announceAt:-9, countShown:'', level:S.tut ? TUT_LEVEL : 0, levelFloor:0, hintBar:-1, hint:null, why:[], paused:false, pauseBar:0, pauseLockBar:-2, timeUp:false, bonusTime:0, lastPlayBar:Infinity, overAt:0,
       barIndex:-1, beatIndex:-1, drag:null, sel:null,
   });
   S.tut = tut === true || tut === 'free';         // v0.1.82 클릭 이벤트가 인자로 들어와 튜토리얼로 오인되던 버그 방지
@@ -3775,8 +3817,81 @@ async function start(tut){        // tut: true = 튜토리얼(박자 켬) · 'fr
   clearInterval(schedTimer);
   schedTimer = setInterval(pump, 25);
   pump();
+  pauseBtnSync();
   if(!raf) frame();
 }
+
+/*
+ * 일시정지 (v0.2.43).
+ * 멈추면 박자 예약과 곡을 끊고, 판을 통째로 덮는 판을 띄운다(블럭 배치를 볼 수 없게).
+ * 풀면 '둠! 칫! 딱! 숑!' 을 다시 세고 **멈췄던 그 턴의 1박부터** 다시 시작한다 —
+ * 곡 시계를 그 마디 머리로 되돌리고(`S.hold`), 그 마디에 한 일도 지운다.
+ * 같은 턴에 다시 멈추지는 못한다(멈춤으로 박을 넘기는 일이 없게). 다음 턴부터 다시 눌린다.
+ */
+function pauseBtnSync(){
+  const b = el('pauseBtn');
+  if(!b) return;
+  b.hidden = !S.live;
+  b.disabled = S.paused || S.barIndex === S.pauseLockBar;
+}
+function pauseGame(){
+  if(!S.live || S.paused || S.barIndex === S.pauseLockBar) return;
+  S.paused = true;
+  S.pauseBar = Math.max(0, S.barIndex);
+  clearInterval(schedTimer); schedTimer = null;
+  bgmStop(0.25);
+  S.drag = null; S.sel = null; if(S.pin) S.pin = null;
+  el('pause').hidden = false;
+  pauseBtnSync();
+}
+function resumeGame(){
+  if(!S.paused) return;
+  el('pause').hidden = true;
+  const bar = BARS[Math.min(S.pauseBar, BARS.length - 1)];
+  const hasChant = Bank.buf && Bank.buf.countin;
+  const lead = hasChant ? COUNT_LEAD : COUNT_IN * bpmBeat(bar.level);
+  const t0 = Audio_.ac.currentTime + 0.25;
+  if(hasChant) sfx('countin', t0, 0.95);
+  else for(let i=COUNT_IN;i>=1;i--){
+    const ct = t0 + lead - i*bpmBeat(bar.level);
+    if(!sfx('tick', ct, 0.6)) Audio_.tone(ct, 880, 0.12, 'square', 0.14);
+  }
+  S.countLead = lead;
+  const at = t0 + lead;                            // 이 순간이 그 마디의 1박이 된다
+  setTimeout(() => {
+    if(!S.live) return;
+    S.hold = (at - Audio_.startAC) - bar.startTime;   // songTime() === bar.startTime
+    S.beatIndex = bar.startBeat - 1;
+    S.barIndex = -1;                                  // 마디 머리를 새로 밟게
+    for(const k of Object.keys(S.actedBeats)) if(+k >= bar.startBeat) delete S.actedBeats[k];
+    S.turnJ = {}; S.lastTurnJ = null; S.why = [];
+    BARS.length = Math.min(BARS.length, S.pauseBar + 1);
+    BARS[S.pauseBar].final = true; appendBar();
+    nextBeatToSchedule = bar.startBeat;
+    S.paused = false;
+    S.pauseLockBar = S.pauseBar;                      // 이 턴에는 다시 못 멈춘다
+    clearInterval(schedTimer);
+    schedTimer = setInterval(pump, 25);
+    pump();
+    pauseBtnSync();
+  }, Math.max(0, (at - Audio_.ac.currentTime) * 1000));
+}
+el('pauseBtn').addEventListener('click', pauseGame);
+el('pResume').addEventListener('click', resumeGame);
+el('pRestart').addEventListener('click', () => {
+  el('pause').hidden = true; S.paused = false; S.live = false;
+  clearInterval(schedTimer); schedTimer = null; bgmStop(0.2);
+  start(S.practice ? 'practice' : undefined);
+});
+el('pHome').addEventListener('click', () => {
+  el('pause').hidden = true; S.paused = false; S.live = false;
+  clearInterval(schedTimer); schedTimer = null; bgmStop(0.3);
+  cv.classList.remove('done');
+  el('end').hidden = true; el('start').hidden = false;
+  pauseBtnSync();
+  Rank.refresh('boardStart');
+  setTimeout(menuStart, 300);
+});
 
 /*
  * 끝맺음 (v0.1.49) — 뚝 끊기지 않게 한 박자 쉬어 간다.
@@ -3786,6 +3901,7 @@ async function start(tut){        // tut: true = 튜토리얼(박자 켬) · 'fr
 function finish(){
   if(!S.live || S.tut) return;                     // 튜토리얼은 끝나지 않는다
   S.live = false;
+  S.paused = false; el('pause').hidden = true; pauseBtnSync();
   bgmStop(1.4);                                    // 곡은 서서히 사라진다
   clearInterval(schedTimer);
   const ft = Audio_.startAC + clock();
@@ -3825,7 +3941,7 @@ function finish(){
     e.hidden = false;
     e.classList.remove('fadein'); void e.offsetWidth; e.classList.add('fadein');
   }, 900);
-  Rank.afterGame(S.score, S.stats.maxLevel, S.stats.maxCombo);
+  if(!S.practice) Rank.afterGame(S.score, S.stats.maxLevel, S.stats.maxCombo);   // 연습 기록은 안 남긴다
 }
 
 /* ---------------------------------------------------------------- 랭킹 */
@@ -4160,6 +4276,12 @@ const Tut = {
 /* 튜토리얼을 한 번도 안 봤으면 단추가 깜빡여 눈에 띈다 (v0.2.41) */
 try{ if(!localStorage.getItem('btg_tut_done')) el('tutBtn').classList.add('callme'); }catch(e){}
 el('tutBtn').addEventListener('click', () => { el('tutBtn').classList.remove('callme'); Tut.start(); });
+el('practiceBtn').addEventListener('click', () => {      // v0.2.43 연습 — 시간 없음·레벨 1·늘 힌트
+  const nin = el('menuName');
+  const nm = Rank.setName(nin ? nin.value : '') || Rank.ensureName();
+  if(nin) nin.value = nm;
+  start('practice');
+});
 el('tutNext').addEventListener('click', () => Tut.next());
 el('tutSkip').addEventListener('click', () => Tut.quit());
 
