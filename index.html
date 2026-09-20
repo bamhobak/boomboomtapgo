@@ -115,19 +115,6 @@
 
   .boardwrap{flex:1 1 auto;position:relative;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;min-height:0;padding:44px 4px 0}   /* v0.2.11 판을 더 아래로 */   /* v0.1.87 판·구호·우퍼를 한 덩어리로 위에 붙인다 */
 
-  /* 박자 구호 — 판 바로 위. 박마다 그 박 글자가 커지며 켜진다: 둠 · 칫 · 딱(누르기) · 숑(드래그) */
-  .callout{display:flex;gap:30px;align-items:flex-end;justify-content:center;height:54px;margin-bottom:8px;
-           font-size:32px;line-height:1;color:var(--cream-faint);pointer-events:none;user-select:none}
-  .callout span{display:inline-block;transform-origin:50% 80%;transition:color 90ms ease,transform 90ms ease,text-shadow 90ms ease}
-  .callout span.t{color:rgba(255,138,30,.4)}
-  .callout span.d{color:rgba(76,141,255,.45)}
-  .callout span.on{color:var(--cream);transform:scale(1.35)}
-  .callout span.t.on{color:var(--tap);text-shadow:0 0 14px rgba(255,138,30,.65)}
-  .callout span.d.on{color:var(--drag);text-shadow:0 0 14px rgba(76,141,255,.7)}
-  .callout span.hit{animation:callhit 240ms cubic-bezier(.2,.8,.2,1)}
-  @keyframes callhit{0%{transform:scale(1.75)}100%{transform:scale(1.35)}}
-  .callout.waiting{opacity:.35}
-  @media (prefers-reduced-motion:reduce){ .callout span.hit{animation:none} }
   /* 끝맺음 — 판이 천천히 가라앉고, 결과 화면이 떠오른다 (v0.1.49) */
   #cv{transition:opacity 900ms ease,filter 900ms ease}
   #cv.done{opacity:.4;filter:saturate(.45)}
@@ -136,24 +123,7 @@
   @media (prefers-reduced-motion:reduce){ #cv{transition:none} .overlay.fadein{animation:none} }
   canvas{display:block;position:relative;z-index:1;touch-action:none;-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
 
-  .rail{flex:0 0 auto;display:flex;flex-direction:column;align-items:center;gap:10px;
-        padding:12px 18px 18px}
-  .chip{display:inline-flex;align-items:baseline;gap:9px;padding:8px 18px;
-        background:var(--panel);box-shadow:0 0 0 3px var(--edge);font-size:17px}
-  .chip em{font-style:normal;font-size:12px;letter-spacing:.12em;color:var(--cyan)}
-  /* 박자 레일 — 이번 턴에 언제 뭘 해야 하는지가 한눈에 읽혀야 한다 */
-  .beats{display:flex;gap:12px;align-items:center;height:26px}
-  .beat{width:10px;height:10px;background:var(--cream-faint);
-        transition:transform 90ms ease,background 90ms ease,box-shadow 90ms ease}
-  .beat.slotT{width:20px;height:20px;background:transparent;box-shadow:inset 0 0 0 3px var(--tap)}
-  .beat.slotD{width:28px;height:12px;background:transparent;box-shadow:inset 0 0 0 3px var(--drag)}
-  .beat.hit{transform:scale(1.3)}
-  .beat.slotT.hit{background:var(--tap);box-shadow:0 0 16px rgba(255,138,30,.8)}
-  .beat.slotD.hit{background:var(--drag);box-shadow:0 0 16px rgba(76,141,255,.8)}
-  .beat:not(.slotT):not(.slotD).hit{background:var(--cream)}
   /* 판이 정리되는 동안 — 곡이 기다리는 중 */
-  .beats.waiting{opacity:.35}
-  .beats.waiting .beat{transform:none}
 
   /*
    * 아래 우퍼 (v0.1.56) — 판 밑에 저음 스피커가 있다고 치고 박마다 쿵 울린다.
@@ -161,10 +131,8 @@
    * --tk(0~1)는 매 프레임 자바스크립트가 넣는다. 말은 건드리지 않는다.
    */
   /* v0.1.91 구호 글자는 빼고, 판 위·아래를 우퍼 한 쌍으로 — 위쪽은 거울처럼 뒤집는다 */
-  .callout{display:none}
   .thump.top{transform:scaleY(-1);height:0;margin:0 -16px}
   /* 자유 연습(튜토리얼 앞부분) — 박자가 없으니 구호는 숨기고 우퍼도 조용히 (v0.1.90) */
-  #stage.freeplay .callout{display:none}
   #stage.freeplay .thump,#stage.freeplay .thump.top{opacity:.25}
   .thump{position:relative;align-self:stretch;width:auto;height:0;margin:0 -16px;display:flex;justify-content:center;pointer-events:none;z-index:0;--tc:255,255,255;--tk:0}   /* v0.1.92 자리를 안 차지한다 — 판 크기를 깎지 않게 */
   /* v0.1.93 판 모서리와 우퍼 사이의 어두운 틈을 없앤다 — 판 뒤로 파고들어 메운다 */
@@ -217,10 +185,10 @@
   #start{background:#2A2160;
          background-image:radial-gradient(circle at 20% 25%,rgba(255,255,255,.06) 0 5px,transparent 6px),
                           radial-gradient(circle at 70% 75%,rgba(255,255,255,.05) 0 4px,transparent 5px);
-         background-size:44px 44px,44px 44px;gap:12px;padding:16px 14px 0;
+         background-size:44px 44px,44px 44px;gap:8px;padding:10px 14px 0;
          justify-content:space-between;overflow:hidden;touch-action:none;overscroll-behavior:contain}
   /* v0.1.80 메뉴는 위아래로 끌리지 않는다 — 화면이 짧으면 로고와 랭킹이 먼저 줄어든다 */
-  #start h1.logo img{max-height:24vh;object-fit:contain}
+  #start h1.logo img{max-height:19vh;object-fit:contain}   /* v0.2.41 랭킹 5줄 자리 */
   #start .rank{min-height:0}
   #start .board{overflow:hidden}
   /* v0.1.77 로고는 맨 위, 강아지 줄은 맨 아래에 고정 — 가운데(랭킹·버튼·시작)가 남는 공간을 나눠 갖는다 */
@@ -242,23 +210,22 @@
                            border-radius:20px;box-shadow:0 6px 0 #3B2314;color:#6B4A2A}
   #help .tag,#start .tag{padding:12px 14px;font-size:13px;line-height:1.7;max-width:none;text-align:center}
   #start .tag b,#help .tag b{color:#3B2314}
-  #start .rank{padding:12px 14px 14px}
+  #start .rank{padding:9px 12px 10px}
   #start .rank h2{color:#3B2314;font-family:Jua;letter-spacing:0;font-size:15px}
   #start .rank small{color:#8B5A2B}
   #start .board{background:transparent;box-shadow:none;gap:4px}
   #start .board li{color:#3B2314;border-radius:11px;background:#FFE9CF !important;box-shadow:inset 0 0 0 2px rgba(59,35,20,.18)}
-  #start .board li.mine{background:#FFD98A !important;box-shadow:inset 0 0 0 2px #3B2314}
   #start .board li .rk{color:#8B5A2B}
   #start .board li .nm small{color:#8B5A2B}
   #start .board li .sc{color:#B45309}
   #start .board li b{color:#3B2314}
   #start .board li em{color:#8B5A2B}
   /* 버튼 — 스티커 */
-  #start button.ghost{background:#FFF4E6;color:#3B2314;border:3px solid #3B2314;border-radius:14px;box-shadow:0 4px 0 #3B2314;font-size:13px;padding:10px 18px}
+  #start button.ghost{background:#FFF4E6;color:#3B2314;border:3px solid #3B2314;border-radius:14px;box-shadow:0 4px 0 #3B2314;font-size:12px;padding:8px 14px}
   #start button.ghost:active{transform:translate(0,3px);box-shadow:0 1px 0 #3B2314}
   #start button.ghost.off{opacity:.55}
   #start #go{background:#FFC02E;color:#3B2314;border:4px solid #3B2314;border-radius:20px;box-shadow:0 7px 0 #3B2314;
-             font-family:Jua;font-size:26px;padding:14px 64px}
+             font-family:Jua;font-size:23px;padding:11px 54px}
   #start #go:active{transform:translate(0,4px);box-shadow:0 3px 0 #3B2314}
   #start .menurow{display:flex;gap:8px;width:min(360px,100%)}
   #start .menurow button{flex:1}
@@ -275,8 +242,8 @@
   #start input[type=range]::-moz-range-track{background:rgba(59,35,20,.25)}
   #start input[type=range]::-moz-range-thumb{background:#FF8A1E;border-radius:6px}
   /* 아래에서 고개를 내미는 강아지들 */
-  #start .pack{display:flex;justify-content:center;gap:2px;margin:6px 0 10px;pointer-events:none}   /* v0.1.84 아래에 잘리지 않게 올렸다 */
-  #start .pack img{width:64px;height:64px;display:block;--ps:1}
+  #start .pack{display:flex;justify-content:center;gap:2px;margin:2px 0 4px;pointer-events:none}   /* v0.1.84 아래에 잘리지 않게 올렸다 */
+  #start .pack img{width:52px;height:52px;display:block;--ps:1}   /* v0.2.41 랭킹 5줄 자리를 내준다 */
   #start .pack img:last-child{pointer-events:auto;cursor:pointer}   /* v0.2.40 개발자 통계 문 */
   /* 개발자 통계 */
   #dev #devPw{text-align:center;letter-spacing:.3em}
@@ -314,6 +281,13 @@
   .tutbox #tutNext:active{transform:translate(0,3px);box-shadow:0 2px 0 #3B2314}
   .tutbox #tutNext[disabled]{opacity:.45;box-shadow:0 5px 0 rgba(59,35,20,.4)}
   #start #tutBtn{background:#FFC02E}
+  /* v0.2.41 튜토리얼을 한 번도 안 본 사람에게 — 단추가 천천히 깜빡인다 */
+  #start #tutBtn.callme{animation:tutcall 1.15s ease-in-out infinite}
+  @keyframes tutcall{
+      0%,100%{background:#FFC02E;box-shadow:0 5px 0 #8A6D00;transform:none}
+     50%{background:#FFE680;box-shadow:0 5px 0 #8A6D00,0 0 18px rgba(255,214,90,.85);transform:translateY(-2px) scale(1.04)}
+  }
+  @media (prefers-reduced-motion:reduce){ #start #tutBtn.callme{animation:none} }
 
   .overlay{position:absolute;inset:0;z-index:10;display:flex;flex-direction:column;align-items:center;
            justify-content:center;gap:20px;padding:26px;background:rgba(10,10,18,.94);
@@ -371,14 +345,6 @@
 
   /* 한 턴의 구조를 그대로 보여준다 */
   .turn{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;width:min(340px,100%)}
-  .slot{display:flex;flex-direction:column;align-items:center;gap:3px;padding:10px 4px;
-        background:var(--panel);box-shadow:inset 0 0 0 3px var(--edge)}
-  .slot b{font-size:11px;letter-spacing:.12em;color:var(--cream-dim)}
-  .slot span{font-size:14px}
-  .slot.t{box-shadow:inset 0 0 0 3px var(--tap)}
-  .slot.t span{color:var(--tap)}
-  .slot.d{box-shadow:inset 0 0 0 3px var(--drag)}
-  .slot.d span{color:var(--drag)}
 
   /*
    * 결과판 (v0.2.18 압축) — 점수는 한 줄로 크게, 나머지는 세 칸씩 작게.
@@ -397,13 +363,13 @@
   .rank h2 small{font-size:10px;letter-spacing:.05em;color:var(--cream-dim);margin-left:6px}
   .board{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:2px;
          background:var(--edge);box-shadow:0 0 0 3px var(--edge)}
-  .board li{display:grid;grid-template-columns:30px 1fr auto;align-items:center;gap:8px;
-            padding:6px 10px;background:var(--panel);font-size:14px;text-align:left}
+  .board li{display:grid;grid-template-columns:28px 1fr auto;align-items:center;gap:8px;
+            padding:4px 9px;background:var(--panel);font-size:13px;text-align:left}
   .board li .rk{font-variant-numeric:tabular-nums;color:var(--cream-dim);text-align:center}
   .board li .nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .board li .nm small{font-size:10px;color:var(--cream-dim);margin-left:6px}
   .board li .sc{font-variant-numeric:tabular-nums;color:var(--gold)}
-  .board li.p1,.board li.p2,.board li.p3{font-size:16px;padding:8px 10px}
+  .board li.p1,.board li.p2,.board li.p3{font-size:15px;padding:6px 9px}
   .board li.p1 .rk,.board li.p2 .rk,.board li.p3 .rk{font-size:18px}
   .board li.ghost{opacity:.35}
   .board li.me{box-shadow:inset 0 0 0 2px var(--cyan)}
@@ -411,7 +377,7 @@
   .nameform{display:flex;flex-direction:column;gap:8px}
   .nameform p{margin:0;font-size:15px;color:var(--gold)}
   .namerow{display:flex;gap:8px}
-  .namerow input{flex:1;min-width:0;font:inherit;font-size:16px;padding:10px 12px;border:none;border-radius:0;
+  .namerow input{flex:1;min-width:0;font:inherit;font-size:16px;padding:8px 11px;border:none;border-radius:0;
                  background:var(--panel);color:var(--cream);box-shadow:inset 0 0 0 3px var(--edge)}
   .namerow input:focus{outline:none;box-shadow:inset 0 0 0 3px var(--gold)}
   .namerow button{font-size:15px;padding:10px 18px;box-shadow:4px 4px 0 #8A6D00}
@@ -504,33 +470,7 @@
   .timebar .fill.low{background:#FF5C7A}
   .timebar .clock{width:44px;height:44px;background:var(--room);box-shadow:0 0 0 3px var(--edge);font-size:18px}
 
-  /* v0.1.88 구호는 한 줄을 꽉 채운다 — 사각 칸은 없애고 글자만 크게 */
-  .callout{gap:0;height:auto;margin:2px 0 6px;font-size:clamp(26px,8.4vw,46px);align-items:center;
-           width:100%;box-sizing:border-box;padding:0 16px;justify-content:space-around;align-self:stretch}
-  .callout span{width:auto;height:auto;padding:0 2px;border:0;border-radius:0;font-family:Jua;line-height:1;
-                display:flex;align-items:center;justify-content:center;color:rgba(233,233,242,.38);transform-origin:50% 60%;
-                -webkit-text-stroke:5px rgba(10,7,24,.55);paint-order:stroke fill}
-  .callout span.t{color:rgba(255,138,30,.62)}
-  .callout span.d{color:rgba(76,141,255,.66)}
-  .callout span.on{color:var(--cream);transform:scale(1.14);text-shadow:0 0 22px rgba(233,233,242,.6)}
-  .callout span.t.on{color:var(--tap);text-shadow:0 0 22px rgba(255,138,30,.75)}
-  .callout span.d.on{color:var(--drag);text-shadow:0 0 22px rgba(76,141,255,.8)}
-  @keyframes callhit{0%{transform:scale(1.35)}100%{transform:scale(1.14)}}
 
-  .rail{flex-direction:row;align-items:stretch;gap:10px;margin:4px 8px 10px;padding:8px;
-        border-radius:20px 20px 14px 14px;border:3px solid var(--edge);background:var(--panel)}
-  .rail .grill{flex:0 0 40px;border-radius:12px;background-color:var(--room);
-               background-image:radial-gradient(circle,#2A2A45 1.6px,transparent 2px);background-size:9px 9px}
-  .rail .deckmid{flex:1;min-width:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px}
-  .beats{gap:12px;height:34px}
-  .beat,.beat.slotT,.beat.slotD{width:26px;height:26px;border-radius:50%}
-  .beat{background:#2A2A45;box-shadow:0 3px 0 #15152A}
-  .beat.slotT{background:#5A3413;box-shadow:inset 0 0 0 2px var(--tap),0 3px 0 #2E1A08}
-  .beat.slotD{background:#16284A;box-shadow:inset 0 0 0 2px var(--drag),0 3px 0 #0A1426}
-  .beat.hit{transform:translateY(2px)}
-  .beat:not(.slotT):not(.slotD).hit{background:var(--cream);box-shadow:0 1px 0 #8A8AA0,0 0 10px rgba(233,233,242,.5)}
-  .beat.slotT.hit{background:var(--tap);box-shadow:0 1px 0 #2E1A08,0 0 16px rgba(255,138,30,.8)}
-  .beat.slotD.hit{background:var(--drag);box-shadow:0 1px 0 #0A1426,0 0 16px rgba(76,141,255,.8)}
   .ver{bottom:2px}
 </style>
 
@@ -554,7 +494,6 @@
 
   <div class="boardwrap">
     <div class="thump top" id="thumpTop" aria-hidden="true"><i class="glow"></i><i class="cone"></i></div>
-    <div class="callout" id="callout" aria-hidden="true"></div>
     <i class="cvglow" id="cvGlow" aria-hidden="true"></i>
     <canvas id="cv"></canvas>
     <div id="announce"></div>
@@ -614,7 +553,7 @@
     <form class="nameform" id="devPin">
       <p>비밀번호를 넣으세요</p>
       <div class="namerow">
-        <input id="devPw" inputmode="numeric" maxlength="8" autocomplete="off" placeholder="● ● ● ●">
+        <input id="devPw" type="password" inputmode="numeric" maxlength="12" autocomplete="off" placeholder="비밀번호">
         <button id="devGo" type="submit">확인</button>
       </div>
     </form>
@@ -693,7 +632,7 @@
    ========================================================================= */
 
 // 게임 버전 — 수정해서 배포할 때마다 끝 두 자리를 1씩 올린다(v0.1.01 → v0.1.02). 화면 오른쪽 아래에 보인다
-const GAME_VERSION = 'v0.2.40';   // 버전 표기 — 패치 자리는 두 자리 (v0.2.01, v0.2.02 …)
+const GAME_VERSION = 'v0.2.41';   // 버전 표기 — 패치 자리는 두 자리 (v0.2.01, v0.2.02 …)
 /*
  * 번쩍임 줄이기 (v0.1.22) — 광과민성 배려. 켜면 화면 전체 번쩍임·흔들림을 끄고, 발판 조명·테두리 박동을 약하게.
  * 폰의 '동작 줄이기'가 켜져 있으면 처음부터 켠다. 고른 값은 이 기기에 기억한다.
@@ -1107,8 +1046,6 @@ function timeOfBeat(b){
   const bar = BARS[Math.min(BARS.length-1, Math.floor(b / CONFIG.pattern.length))];
   return bar.startTime + (b - bar.startBeat) * bar.beatLen;
 }
-/** 지금 마디의 한 박 길이 */
-const beatLenNow = () => (BARS[Math.max(0, S.barIndex)] || BARS[0]).beatLen;
 function barAtBeat(b){
   for(let i=BARS.length-1;i>=0;i--) if(b >= BARS[i].startBeat) return i;
   return 0;
@@ -1565,12 +1502,10 @@ const boardR = () => Math.round(Math.max(12, cell*0.42));   // 판 모서리 둥
 
 function layout(){
   const wrap = cv.parentElement;
-  const co = el('callout');
-  const callH = co && co.offsetHeight ? co.offsetHeight + 6 : 0;   // 구호 줄(v0.1.91 부터 안 쓴다)
-  const thumpH = 0;                                 // v0.1.92 우퍼는 판 가장자리에 겹쳐 그린다 — 판 크기를 깎지 않는다
   const cs = getComputedStyle(wrap);                // v0.1.95 판을 내린 만큼(위 여백) 빼고 잰다
   const padV = (parseFloat(cs.paddingTop) || 0) + (parseFloat(cs.paddingBottom) || 0);
-  const w = wrap.clientWidth, h = wrap.clientHeight - callH - thumpH - padV;
+  // v0.1.92 우퍼는 판 가장자리에 겹쳐 그린다 — 판 크기를 깎지 않는다
+  const w = wrap.clientWidth, h = wrap.clientHeight - padV;
   cell = Math.max(8, Math.floor(Math.min((w-PAD*2)/CONFIG.cols, (h-PAD*2)/CONFIG.rows)));
   POP_RING_CACHE.clear();                            // 칸 크기가 바뀌면 만들어 둔 고리는 버린다 (v0.2.11)
   if(typeof warmUp === 'function') warmUp.done = false;   // v0.2.22 새 크기로 다시 데운다
@@ -2892,8 +2827,6 @@ function warmJit(){
   }
   warmJit.ms = +(performance.now() - t0).toFixed(1);
 }
-/** 칸 크기가 바뀌면 고리는 다시 만들어야 하니 데우기도 다시 */
-function reheat(){ warmUp.done = false; warmUp(); }
 
 const THUMP = { k:-1, rgb:'' };                  // 우퍼에 마지막으로 써 넣은 값 (v0.2.16)
 /*
@@ -2922,7 +2855,6 @@ function setText(id, v){
   const n = el(id);
   if(n) n.textContent = t;
 }
-const RING = document.createElement('canvas');   // 고리 그리는 작업판(하나를 돌려 쓴다)
 const VEIL = document.createElement('canvas');   // 튜토리얼 어둠막 작업판 (v0.1.96)
 const POP_MARK = '#FF2E93';   // 곧 터질 말 테두리 색
 
@@ -2968,22 +2900,6 @@ function drawTile(t, r, c, now, dx, dy){
   ctx.globalAlpha = 1;
 }
 
-/*
- * 댄스 발판 (v0.1.19) — 8×8 칸이 오락실 댄스 게임기의 발판이다. 박마다 발판이 은은하게 켜진다.
- * 레벨이 곧 조명: 레벨 1 은 따뜻하고 어둑한 한 가지 색, 오를수록 색이 늘고, 레벨 9 는 무지개.
- * 콤보가 끊겨 레벨이 떨어지면 조명도 같이 줄어든다.
- * 안전: 번쩍임은 발판 안쪽에서만, 밝기 차이는 작게(켜진 칸도 알파 0.3 을 넘지 않는다). 화면 전체를 번쩍이지 않는다.
- */
-const FLOOR_LIGHTS = [
-  ['#FFB347'],                                                   // 1 — 따뜻한 호박색 하나
-  ['#FFB347', '#FF7EB6'],                                        // 2
-  ['#FFB347', '#FF7EB6', '#7FD8FF'],                             // 3
-  ['#FFB347', '#FF7EB6', '#7FD8FF', '#9DFF8A'],                  // 4
-  ['#FFB347', '#FF7EB6', '#7FD8FF', '#9DFF8A', '#C69CFF'],       // 5
-  ['#FF9F43', '#FF6BA8', '#5CC8FF', '#7DFF6B', '#B38BFF', '#FFE45C'],   // 6
-  ['#FF9F43', '#FF5C9A', '#45BFFF', '#6BFF5C', '#A67BFF', '#FFE03D', '#FF6B6B'], // 7
-  ['#FF8C2E', '#FF4F90', '#33B5FF', '#5CFF4F', '#9A6BFF', '#FFDA2E', '#FF5C5C', '#2EFFE0'], // 8
-];
 /*
  * 레벨 음량 표시기 (v0.1.38) — 판 바닥이 아래에서부터 차오른다. 레벨 1 은 불 없음, 한 단계마다 맨 아랫줄부터
  * 한 줄씩 켜져 레벨 9 면 8줄 전부. 줄마다 색이 달라(아래 주황 → 가운데 분홍 → 위 보라·파랑) 곁눈으로도 읽힌다.
@@ -3467,16 +3383,6 @@ function frame(){
   const m = el('mult');
   setText('mult', '×' + S.mult.toFixed(1));
   m.classList.toggle('hot', S.mult > 2.4);
-  if(el('chip')) el('chip').innerHTML =        // v0.1.36 조작판 안내창은 뺐다(요청) — 되살리면 다시 쓰인다
-      S.overAt ? '끝 <em>콤보가 끊겼습니다</em>'
-    : S.timeUp && bi > S.lastPlayBar ? '연쇄 중 <em>터지는 동안 계속 갑니다</em>'
-    : S.timeUp ? '마지막 수 <em>이 턴 4박까지</em>'
-    : S.reshuffling ? '다시 깔기 <em>옮길 수가 없었습니다</em>'
-    : S.holding ? '정리 중 <em>곡이 기다립니다</em>'
-    : slot==='T' ? '누르기 <em>옮길 말 고르기</em>'
-    : slot==='D' ? (S.sel ? '드래그 <em>고른 말 밀기</em>' : '드래그 <em>밀 방향</em>')
-    : '대기 <em>다음 수 읽기</em>';
-  if(el('beats')) el('beats').classList.toggle('waiting', S.holding);
   el('stage').classList.toggle('freeplay', !!S.free);   // v0.1.90 박자 없는 연습 — 구호·우퍼를 쉬게 한다
   /*
    * 아래·위 우퍼 — 지금 박의 색과 세기로 쿵 (v0.1.56)
@@ -3501,7 +3407,6 @@ function frame(){
       if(gl) gl.style.boxShadow = `0 0 ${Math.round(16 + 30*q)}px rgba(${bp.rgb},${(0.2 + 0.45*q).toFixed(3)})`;
     }
   }
-  el('callout').classList.toggle('waiting', S.holding);
 
   draw(now);
   if(S.overAt && now - S.overAt > 1.1) finish();   // 마지막 터짐을 보고 끝낸다
@@ -3629,41 +3534,8 @@ function announce(text, cd){
 }
 
 function flashBeat(pos, pattern){
-  const box = el('beats');                          // v0.1.55 조작판을 없앴다 — 박 점이 없으면 구호만 갱신한다
   const sig = pattern.join('');
-  if(box){
-  if(box.dataset.sig !== sig){
-    box.dataset.sig = sig;
-    box.innerHTML = '';
-    for(const s of pattern){
-      const d = document.createElement('div');
-      d.className = 'beat' + (s==='T' ? ' slotT' : s==='D' ? ' slotD' : '');
-      box.appendChild(d);
-    }
-  }
-  [...box.children].forEach((d,i)=>d.classList.toggle('hit', i===pos));
-  }
-
-  // 판 위 구호 — 둠 · 칫 · 딱(3박 누르기) · 숑(4박 드래그)
-  const co = el('callout');
-  if(co){
-    if(co.dataset.sig !== sig){
-      co.dataset.sig = sig;
-      co.innerHTML = '';
-      for(const sl of pattern){
-        const w = document.createElement('span');
-        w.textContent = '둠칫딱숑'[co.children.length] || '·';   // 네 박에 한 글자씩 — 게임 이름이 곧 박자 구호
-        if(sl==='T') w.className = 't';
-        if(sl==='D') w.className = 'd';
-        co.appendChild(w);
-      }
-    }
-    [...co.children].forEach((w,i)=>{
-      w.classList.toggle('on', i===pos);
-      w.classList.remove('hit');
-      if(i===pos){ void w.offsetWidth; w.classList.add('hit'); }   // 박마다 한 번 튄다
-    });
-  }
+  void sig;                                        // v0.2.41 구호 줄·박 점은 화면에서 뺐다 — 자리표시만 남긴다
 }
 
 /* --------------------------------------------------------- 시작 / 종료 */
@@ -4171,7 +4043,9 @@ const Tut = {
     nin.addEventListener('keydown', e => { if(e.key === 'Enter'){ e.preventDefault(); nin.blur(); } });
   }
 }
-el('tutBtn').addEventListener('click', () => Tut.start());
+/* 튜토리얼을 한 번도 안 봤으면 단추가 깜빡여 눈에 띈다 (v0.2.41) */
+try{ if(!localStorage.getItem('btg_tut_done')) el('tutBtn').classList.add('callme'); }catch(e){}
+el('tutBtn').addEventListener('click', () => { el('tutBtn').classList.remove('callme'); Tut.start(); });
 el('tutNext').addEventListener('click', () => Tut.next());
 el('tutSkip').addEventListener('click', () => Tut.quit());
 
@@ -4259,7 +4133,7 @@ async function devLoad(){
 }
 el('devPin').addEventListener('submit', e => {
   e.preventDefault();
-  if(el('devPw').value.trim() !== DEV_PIN){ el('devPw').value = ''; el('devPw').placeholder = '다시'; return; }
+  if(el('devPw').value.trim() !== DEV_PIN){ el('devPw').value = ''; el('devPw').placeholder = '다시'; return; }   // 자릿수는 안 알려 준다
   el('devPin').hidden = true;
   devLoad();
 });
