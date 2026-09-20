@@ -661,7 +661,7 @@
    ========================================================================= */
 
 // 게임 버전 — 수정해서 배포할 때마다 끝 두 자리를 1씩 올린다(v0.1.01 → v0.1.02). 화면 오른쪽 아래에 보인다
-const GAME_VERSION = 'v0.2.26';   // 버전 표기 — 패치 자리는 두 자리 (v0.2.01, v0.2.02 …)
+const GAME_VERSION = 'v0.2.27';   // 버전 표기 — 패치 자리는 두 자리 (v0.2.01, v0.2.02 …)
 /*
  * 번쩍임 줄이기 (v0.1.22) — 광과민성 배려. 켜면 화면 전체 번쩍임·흔들림을 끄고, 발판 조명·테두리 박동을 약하게.
  * 폰의 '동작 줄이기'가 켜져 있으면 처음부터 켠다. 고른 값은 이 기기에 기억한다.
@@ -2538,6 +2538,33 @@ function drawLevelFx(w, h, now){
  * 튜토리얼 과녁 (v0.1.82) — 시범·연습 때 "이 말을 눌러서 저쪽으로" 를 판 위에 직접 그린다.
  * 누를 칸은 굵은 고리로 깜빡이고, 밀 방향으로 통통한 화살표가 뻗는다. 시범 중에는 손 자국도 따라 움직인다.
  */
+/*
+ * 지금 몇 박인지 판 가운데에 크게 (v0.2.27).
+ * 박자를 처음 배우는 단계에서 1·2·3·4 가 박마다 팡 튀어오른다 — 색은 우퍼·테두리와 같은 박자색
+ * (1 흰 · 2 노랑 · 3 주황 · 4 파랑). 그 단계에서만 보인다(TUT 의 beats).
+ */
+function drawTutBeat(w, h){
+  if(!Tut.on || !TUT[Tut.i] || !TUT[Tut.i].beats) return;
+  const V = BEATV;
+  if(!V) return;
+  const bp = BEAT_POP[V.pos % 4];
+  const k = Math.max(0, Math.min(1, V.k));
+  const pop = 1 + 0.42 * k * (V.slot === 'T' || V.slot === 'D' ? 1.25 : 1);
+  const size = Math.round(cell * 1.9 * pop);
+  const x = w/2, y = h/2;
+  ctx.save();
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.font = `700 ${size}px Fredoka, Jua, sans-serif`;
+  ctx.globalAlpha = 0.25 + 0.6 * k;
+  ctx.lineJoin = 'round';
+  ctx.lineWidth = Math.max(4, size * 0.09);
+  ctx.strokeStyle = 'rgba(10,7,24,0.75)';
+  ctx.strokeText(String(V.pos + 1), x, y);
+  ctx.fillStyle = bp.col;
+  ctx.fillText(String(V.pos + 1), x, y);
+  ctx.restore();
+}
+
 function drawTutMark(w, h, now){
   if(!Tut.on || !Tut.want) return;
   const [fr, fc] = Tut.want.from, [tr, tc] = Tut.want.to;
@@ -3167,6 +3194,7 @@ function draw(now){
     ctx.fillRect(0, 0, w, h);
     ctx.globalAlpha = 1;
   }
+  drawTutBeat(w, h);                                // 튜토리얼 — 지금 몇 박인지 가운데에 (v0.2.27)
   drawTutMark(w, h, now);                           // 튜토리얼 — 시범·연습 과녁
   drawBarRing(w, h);                                // 바깥에서 가운데로 들어오는 마디 빛 고리
   drawLevelFx(w, h, now);                           // 레벨이 바뀐 마디의 1·2박 연출
@@ -3862,8 +3890,8 @@ const TUT = [
   { demo: 'move', shape: 'line5', say: '<b>5마리 한 줄</b>이면 판 위의 <b>그 강아지가 전부</b> 터져요. 가장 크게 터지는 수예요.<br><b>화살표 쪽으로 밀어</b> 다섯 마리를 한 줄로 만들어 보세요.',
     good: '잘했어요! 판 위의 그 강아지가 전부 터졌어요.' },
   { rhythm: true, say: '조작은 다 익혔어요!<br>이제 <b>리듬</b>을 얹어 볼게요. 음악이 시작돼요.' },
-  { say: '한 마디(4박)가 <b>한 턴</b>이에요.<br><b>1 · 2</b>박은 판을 읽는 시간,<br><b>3</b>박에 누르고 <b>4</b>박에 밀어요.' },
-  { say: '판 바깥에서 <b>빛 고리</b>가 들어와요.<br><b>주황 원</b>에 닿으면 <b>3</b>박, <b>파랑 원</b>에 닿으면 <b>4</b>박이에요.', wait: 2 },
+  { beats: true, say: '한 마디(4박)가 <b>한 턴</b>이에요.<br><b>1 · 2</b>박은 판을 읽는 시간,<br><b>3</b>박에 누르고 <b>4</b>박에 밀어요.' },
+  { beats: true, say: '판 바깥에서 <b>빛 고리</b>가 들어와요.<br><b>주황 원</b>에 닿으면 <b>3</b>박, <b>파랑 원</b>에 닿으면 <b>4</b>박이에요.', wait: 2 },
   { demo: 'move', shape: 'line3', strict: true, say: '이제 박자에 맞춰서 해 볼게요.<br><b>3</b>박(주황 원)에 누르고, <b>4</b>박(파랑 원)에 화살표 쪽으로 미세요.<br>둘 다 <b>NICE</b> 이상이어야 넘어가요.',
     good: '잘했어요! 박자에 맞췄어요.' },
   { say: '이제 시작해 볼까요?', last: true },
