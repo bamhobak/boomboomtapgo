@@ -167,9 +167,9 @@
                background:linear-gradient(180deg,rgba(var(--tc),calc(.4 + .6 * var(--tk))),rgba(var(--tc),calc(.12 + .45 * var(--tk))));
                box-shadow:0 0 calc(16px + 36px * var(--tk)) rgba(var(--tc),calc(.26 + .64 * var(--tk)));
                transform:scaleY(calc(1 + 0.75 * var(--tk)));transform-origin:50% 0}
+  /* v0.2.16 blur 필터 제거 — 매 프레임 흐림 처리가 브라우저에선 그대로 끊김이 된다. 그라데이션을 한 단 더 둬서 부드럽게 */
   .thump .glow{position:absolute;left:-4%;right:-4%;top:-14px;height:70px;border-radius:50%;
-               background:radial-gradient(ellipse at 50% 0%,rgba(var(--tc),calc(.12 + .5 * var(--tk))),transparent 74%);
-               filter:blur(4px)}
+               background:radial-gradient(ellipse at 50% 0%,rgba(var(--tc),calc(.12 + .5 * var(--tk))) 0%,rgba(var(--tc),calc(.05 + .22 * var(--tk))) 42%,transparent 76%)}
   /* 3·4박 판정 글자 — 우퍼 위에 뜬다 (v0.1.60) */
   /*
    * 판정 글자는 팝콘처럼 튄다 (v0.1.62) — 우퍼에서 튀어 올라 판 위까지 올라간다.
@@ -626,7 +626,7 @@
    ========================================================================= */
 
 // 게임 버전 — 수정해서 배포할 때마다 끝 두 자리를 1씩 올린다(v0.1.01 → v0.1.02). 화면 오른쪽 아래에 보인다
-const GAME_VERSION = 'v0.2.15';   // 버전 표기 — 패치 자리는 두 자리 (v0.2.01, v0.2.02 …)
+const GAME_VERSION = 'v0.2.16';   // 버전 표기 — 패치 자리는 두 자리 (v0.2.01, v0.2.02 …)
 /*
  * 번쩍임 줄이기 (v0.1.22) — 광과민성 배려. 켜면 화면 전체 번쩍임·흔들림을 끄고, 발판 조명·테두리 박동을 약하게.
  * 폰의 '동작 줄이기'가 켜져 있으면 처음부터 켠다. 고른 값은 이 기기에 기억한다.
@@ -2655,6 +2655,15 @@ function popMark(x, y, now, color, alpha){
     ctx.restore();
   }
 }
+const THUMP = { k:-1, rgb:'' };                  // 우퍼에 마지막으로 써 넣은 값 (v0.2.16)
+const TEXT_WAS = {};                             // 간판 글자 — 바뀐 것만 다시 쓴다 (v0.2.16)
+function setText(id, v){
+  const t = String(v);
+  if(TEXT_WAS[id] === t) return;
+  TEXT_WAS[id] = t;
+  const n = el(id);
+  if(n) n.textContent = t;
+}
 const RING = document.createElement('canvas');   // 고리 그리는 작업판(하나를 돌려 쓴다)
 const VEIL = document.createElement('canvas');   // 튜토리얼 어둠막 작업판 (v0.1.96)
 const POP_MARK = '#FF2E93';   // 곧 터질 말 테두리 색
@@ -3157,18 +3166,20 @@ function frame(){
   }
   const slot = slotAt(ib);
 
-  el('lvl').textContent = bar.level + 1;
-  el('hudSub').textContent = bar.bpm + ' BPM';
+  // v0.2.16 간판 글자·시간 막대는 값이 바뀔 때만 쓴다 — 프레임마다 쓰면 그때마다 다시 재고 다시 칠한다
+  setText('lvl', bar.level + 1);
+  setText('hudSub', bar.bpm + ' BPM');
   const left = S.tut ? CONFIG.timeLimit
                      : Math.max(0, CONFIG.timeLimit + S.bonusTime - Math.max(0, song));
   const tv = el('time'), tf = el('timeFill'), low = left <= 10;
-  tv.textContent = S.timeUp ? '0' : Math.ceil(left);
+  setText('time', S.timeUp ? '0' : Math.ceil(left));
   tv.classList.toggle('low', low);
-  tf.style.width = Math.min(100, left / CONFIG.timeLimit * 100).toFixed(2) + '%';   // 60초 넘게 모이면 꽉 찬 채로
+  const wpc = (Math.round(Math.min(100, left / CONFIG.timeLimit * 100) * 4) / 4).toFixed(2) + '%';   // 60초 넘게 모이면 꽉 찬 채로
+  if(tf.style.width !== wpc) tf.style.width = wpc;
   tf.classList.toggle('low', low);
-  el('score').textContent = S.score.toLocaleString();
+  setText('score', S.score.toLocaleString());
   const m = el('mult');
-  m.textContent = '×' + S.mult.toFixed(1);
+  setText('mult', '×' + S.mult.toFixed(1));
   m.classList.toggle('hot', S.mult > 2.4);
   if(el('chip')) el('chip').innerHTML =        // v0.1.36 조작판 안내창은 뺐다(요청) — 되살리면 다시 쓰인다
       S.overAt ? '끝 <em>콤보가 끊겼습니다</em>'
@@ -3181,17 +3192,27 @@ function frame(){
     : '대기 <em>다음 수 읽기</em>';
   if(el('beats')) el('beats').classList.toggle('waiting', S.holding);
   el('stage').classList.toggle('freeplay', !!S.free);   // v0.1.90 박자 없는 연습 — 구호·우퍼를 쉬게 한다
-  // 아래 우퍼 — 지금 박의 색과 세기로 쿵 (v0.1.56)
+  /*
+   * 아래·위 우퍼 — 지금 박의 색과 세기로 쿵 (v0.1.56)
+   * v0.2.16: 값을 프레임마다 새로 쓰면 브라우저가 매번 스타일을 다시 계산하고 번짐(box-shadow)을 다시 칠한다.
+   * 설치해서 쓸 때는 티가 안 나는데 브라우저 안(특히 앱 속 브라우저)에서는 이게 그대로 끊김이 됐다.
+   * 그래서 세기를 16눈금으로 끊어, 눈금이 바뀔 때만 쓴다.
+   */
   {
     const V = BEATV, bp = BEAT_POP[V ? V.pos % 4 : 0];
     const k = Math.max(0, Math.min(1, (V && !S.holding ? V.k : 0) * (bp.amp / 2.2) * (CALM.on ? 0.4 : 1)));
-    for(const id of ['thump', 'thumpTop']){          // v0.1.91 위·아래 우퍼가 같이 쿵
-      const th = el(id);
-      if(!th) continue;
-      th.style.setProperty('--tc', bp.rgb);
-      th.style.setProperty('--tk', k.toFixed(3));
+    const q = Math.round(k * 16) / 16;
+    if(q !== THUMP.k || bp.rgb !== THUMP.rgb){
+      THUMP.k = q; THUMP.rgb = bp.rgb;
+      const ks = q.toFixed(3);
+      for(const id of ['thump', 'thumpTop']){        // v0.1.91 위·아래 우퍼가 같이 쿵
+        const th = el(id);
+        if(!th) continue;
+        th.style.setProperty('--tc', bp.rgb);
+        th.style.setProperty('--tk', ks);
+      }
+      cv.style.boxShadow = `0 0 ${Math.round(16 + 30*q)}px rgba(${bp.rgb},${(0.2 + 0.45*q).toFixed(3)})`;   // 판 둘레 번짐도 박 색
     }
-    cv.style.boxShadow = `0 0 ${Math.round(16 + 30*k)}px rgba(${bp.rgb},${(0.2 + 0.45*k).toFixed(3)})`;   // 판 둘레 번짐도 박 색
   }
   el('callout').classList.toggle('waiting', S.holding);
 
@@ -3447,8 +3468,8 @@ async function start(tut){        // tut: true = 튜토리얼(박자 켬) · 'fr
   S.tut = tut === true || tut === 'free';         // v0.1.82 클릭 이벤트가 인자로 들어와 튜토리얼로 오인되던 버그 방지
   S.free = tut === 'free';                        // v0.1.89 박자 없이 아무 때나 눌러 옮기는 연습 구간                                   // v0.1.79 튜토리얼 판 — 시간이 안 줄고, 미스도 없고, 끝나지도 않는다
   el('start').hidden = true; el('end').hidden = true;
-  el('lvl').textContent = (S.tut ? TUT_LEVEL : 0) + 1;            // v0.2.10 튜토리얼은 처음부터 2단계로 보인다
-  el('hudSub').textContent = bpmOfLevel(S.tut ? TUT_LEVEL : 0) + ' BPM';
+  setText('lvl', (S.tut ? TUT_LEVEL : 0) + 1);                    // v0.2.10 튜토리얼은 처음부터 2단계로 보인다
+  setText('hudSub', bpmOfLevel(S.tut ? TUT_LEVEL : 0) + ' BPM');
   cv.classList.remove('done');                     // 새 판 — 가라앉았던 판을 되살린다
   layout();
 
