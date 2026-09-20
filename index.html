@@ -615,7 +615,7 @@
    ========================================================================= */
 
 // 게임 버전 — 수정해서 배포할 때마다 끝 두 자리를 1씩 올린다(v0.1.01 → v0.1.02). 화면 오른쪽 아래에 보인다
-const GAME_VERSION = 'v0.1.81';
+const GAME_VERSION = 'v0.1.82';
 /*
  * 번쩍임 줄이기 (v0.1.22) — 광과민성 배려. 켜면 화면 전체 번쩍임·흔들림을 끄고, 발판 조명·테두리 박동을 약하게.
  * 폰의 '동작 줄이기'가 켜져 있으면 처음부터 켠다. 고른 값은 이 기기에 기억한다.
@@ -1308,6 +1308,18 @@ function swapMakesMatch(g, a, b){
   return ok;
 }
 
+/** 둘 수 있는 수 하나를 찾아 돌려준다 — 튜토리얼 시범·연습 과녁 (v0.1.82) */
+function findMove(g){
+  for(let r=0;r<CONFIG.rows;r++) for(let c=0;c<CONFIG.cols;c++){
+    for(const [dr,dc] of [[0,1],[1,0],[0,-1],[-1,0]]){
+      const nr=r+dr, nc=c+dc;
+      if(!inb(nr,nc) || !g[r][c] || !g[nr][nc]) continue;
+      if(swapMakesMatch(g, [r,c], [nr,nc])) return [[r,c],[nr,nc]];
+    }
+  }
+  return null;
+}
+
 /** 유효한 수가 하나라도 있는지 */
 function hasMove(g){
   for(let r=0;r<CONFIG.rows;r++) for(let c=0;c<CONFIG.cols;c++){
@@ -1942,6 +1954,7 @@ function trySelect(r, c, now, quiet){
   S.sel = { id:S.grid[r][c].id, bar:S.barIndex };
   S.actSide = (c + 0.5) / CONFIG.cols * 2 - 1;     // v0.1.71 누른 자리(판 가운데 기준 -1~+1)
   applyJudge(j);
+  if(Tut.on) Tut.hit('press');
   // 누른 말이 짖거나 운다 — 품종마다 제 소리. 콤보·레벨이 오를수록 크고 높고 겹겹이
   const I = heat(), vt = Audio_.startAC+now, vk = 'voice' + PETS[S.grid[r][c].color].voice;
   if(sfx(vk, vt, 0.55 + 0.35*I, 1 + 0.12*I)){
@@ -1997,7 +2010,7 @@ function tryResolveDrag(now){
 
   S.stats.turns++;
   applyJudge(j);
-  if(Tut.on && TUT[Tut.i] && TUT[Tut.i].need === 'swap') Tut.mark();
+  if(Tut.on) Tut.hit('move');
 }
 
 cv.addEventListener('pointermove', e => {
@@ -2152,6 +2165,12 @@ function drawBarRing(w, h){
     // v0.1.78 움직이는 빛 고리의 선과 같은 굵기로 아주 얇게 — 대신 진하게
     const zb = Math.max(2, cell * 0.042);
     const on = V.pos === pos ? 1 : V.pos === pos - 1 ? 0.5 + 0.5*V.ph : 0.35;   // 다가올수록 조금 진하게
+    // v0.1.82 과녁 밑에 옅은 그림자를 한 겹 — 크림 판 위에서 떠 보이게
+    ctx.fillStyle = 'rgba(26,18,56,0.16)';
+    ctx.beginPath();
+    ctx.arc(cx, cy, R0 + zb*2.1, 0, Math.PI*2);
+    ctx.arc(cx, cy, Math.max(0, R0 - zb*2.1), 0, Math.PI*2, true);
+    ctx.fill('evenodd');
     ctx.fillStyle = `rgba(${zr},${(CALM.on ? 0.3 : 0.45) * on + 0.3})`;    // v0.1.78 얇아진 만큼 진하게
     ctx.beginPath();
     ctx.arc(cx, cy, R0 + zb, 0, Math.PI*2);
@@ -2227,6 +2246,49 @@ function drawLevelFx(w, h, now){
   ctx.strokeText(txt, w/2, h/2);
   ctx.fillStyle = F.up ? '#FDE047' : '#C9C3E6';
   ctx.fillText(txt, w/2, h/2);
+  ctx.restore();
+}
+
+/*
+ * 튜토리얼 과녁 (v0.1.82) — 시범·연습 때 "이 말을 눌러서 저쪽으로" 를 판 위에 직접 그린다.
+ * 누를 칸은 굵은 고리로 깜빡이고, 밀 방향으로 통통한 화살표가 뻗는다. 시범 중에는 손 자국도 따라 움직인다.
+ */
+function drawTutMark(w, h, now){
+  if(!Tut.on || !Tut.want) return;
+  const [fr, fc] = Tut.want.from, [tr, tc] = Tut.want.to;
+  const x = PAD + (fc + 0.5)*cell, y = PAD + (fr + 0.5)*cell;
+  const x2 = PAD + (tc + 0.5)*cell, y2 = PAD + (tr + 0.5)*cell;
+  const p = 0.5 + 0.5*Math.sin(now*7);
+  ctx.save();
+  // 누를 칸 — 굵은 고리
+  ctx.strokeStyle = 'rgba(59,35,20,0.85)'; ctx.lineWidth = Math.max(5, cell*0.13);
+  ctx.beginPath(); ctx.arc(x, y, cell*(0.44 + 0.05*p), 0, Math.PI*2); ctx.stroke();
+  ctx.strokeStyle = 'rgba(255,192,46,0.95)'; ctx.lineWidth = Math.max(2, cell*0.07);
+  ctx.beginPath(); ctx.arc(x, y, cell*(0.44 + 0.05*p), 0, Math.PI*2); ctx.stroke();
+  // 밀 방향 — 화살표
+  if(Tut.want.arrow !== false){
+    const ang = Math.atan2(y2 - y, x2 - x), L = cell*0.86;
+    const ax = x + Math.cos(ang)*cell*0.42, ay = y + Math.sin(ang)*cell*0.42;
+    const bx = x + Math.cos(ang)*L, by = y + Math.sin(ang)*L;
+    ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+    for(const [col, wd] of [['rgba(59,35,20,0.85)', cell*0.2], ['rgba(255,192,46,0.95)', cell*0.11]]){
+      ctx.strokeStyle = col; ctx.fillStyle = col; ctx.lineWidth = wd;
+      ctx.beginPath(); ctx.moveTo(ax, ay); ctx.lineTo(bx, by); ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(bx + Math.cos(ang)*cell*0.16, by + Math.sin(ang)*cell*0.16);
+      ctx.lineTo(bx + Math.cos(ang + 2.5)*cell*0.22, by + Math.sin(ang + 2.5)*cell*0.22);
+      ctx.lineTo(bx + Math.cos(ang - 2.5)*cell*0.22, by + Math.sin(ang - 2.5)*cell*0.22);
+      ctx.closePath(); ctx.fill();
+    }
+  }
+  // 시범 중 — 손 자국이 누르는 칸에서 미는 칸으로 간다
+  if(Tut.handT !== null){
+    const u = Math.max(0, Math.min(1, Tut.handT));
+    const hx = x + (x2 - x)*u, hy = y + (y2 - y)*u;
+    ctx.globalAlpha = 0.9;
+    ctx.fillStyle = 'rgba(255,255,255,0.9)'; ctx.strokeStyle = '#3B2314'; ctx.lineWidth = Math.max(2, cell*0.05);
+    ctx.beginPath(); ctx.arc(hx, hy, cell*0.2, 0, Math.PI*2); ctx.fill(); ctx.stroke();
+  }
   ctx.restore();
 }
 
@@ -2696,6 +2758,7 @@ function draw(now){
     ctx.fillRect(0, 0, w, h);
     ctx.globalAlpha = 1;
   }
+  drawTutMark(w, h, now);                           // 튜토리얼 — 시범·연습 과녁
   drawBarRing(w, h);                                // 바깥에서 가운데로 들어오는 마디 빛 고리
   drawLevelFx(w, h, now);                           // 레벨이 바뀐 마디의 1·2박 연출
   drawBeatFrame(w, h);
@@ -3102,10 +3165,10 @@ async function start(tut){
     fx:[], bits:[], rings:[], flashAt:-9, flashA:0, swapAnim:null,
     stats:{perfect:0,good:0,miss:0,turns:0,blocked:0,blasts:0,maxCombo:0,maxLevel:1,overBars:0},
     actedBeats:{}, blockFlash:-9,
-    errors:[], shake:0, hold:0, tut:!!tut, holding:false, releasedBar:0, dropPlan:null, popGroups:null, planBar:0, pin:null, droppedBar:-1, reshuffling:false, reshuffleAt:null, turnJ:{}, multBar:-1, lastSwap:null, combo:0, comboMade:false, announceAt:-9, countShown:'', level:0, timeUp:false, bonusTime:0, lastPlayBar:Infinity, overAt:0,
+    errors:[], shake:0, hold:0, tut:tut === true, holding:false, releasedBar:0, dropPlan:null, popGroups:null, planBar:0, pin:null, droppedBar:-1, reshuffling:false, reshuffleAt:null, turnJ:{}, multBar:-1, lastSwap:null, combo:0, comboMade:false, announceAt:-9, countShown:'', level:0, timeUp:false, bonusTime:0, lastPlayBar:Infinity, overAt:0,
       barIndex:-1, beatIndex:-1, drag:null, sel:null,
   });
-  S.tut = !!tut;                                   // v0.1.79 튜토리얼 판 — 시간이 안 줄고, 미스도 없고, 끝나지도 않는다
+  S.tut = tut === true;                           // v0.1.82 클릭 이벤트가 인자로 들어와 튜토리얼로 오인되던 버그 방지                                   // v0.1.79 튜토리얼 판 — 시간이 안 줄고, 미스도 없고, 끝나지도 않는다
   el('start').hidden = true; el('end').hidden = true;
   cv.classList.remove('done');                     // 새 판 — 가라앉았던 판을 되살린다
   layout();
@@ -3301,28 +3364,32 @@ const Rank = (() => {
 /* ------------------------------------------------------------ UI 바인딩 */
 
 el('off').addEventListener('input', e => { CONFIG.offset=+e.target.value/1000; el('offv').textContent=e.target.value; });
-el('go').addEventListener('click', start);
+el('go').addEventListener('click', () => start());
 // 게임 설명 — 시작 화면 위에 창으로 띄운다
 /*
  * 튜토리얼 (v0.1.79) — 실제 판에서 배운다. 시간이 줄지 않고, 놓쳐도 미스가 아니고, 게임도 안 끝난다.
  * 단계마다 할 일이 있으면 그걸 해내야 '다음'이 켜진다(누르기·밀기는 직접 해 봐야 넘어간다).
  */
 const TUT = [
-  { t: '<b>둠칫딱숑</b>은 리듬에 맞춰 같은 강아지 <b>3마리</b>를 모으는 게임이에요.<br>먼저 박자부터 익혀 볼게요.' },
-  { t: '한 마디(4박)가 <b>한 턴</b>이에요.<br><b>둠 · 칫</b> 두 박은 판을 읽는 시간,<br><b>딱</b>에 누르고 <b>숑</b>에 밀어요.' },
-  { t: '판 바깥에서 <b>빛 고리</b>가 가운데로 들어와요.<br>고리가 <b>주황 원</b>에 닿으면 3박, <b>파랑 원</b>에 닿으면 4박이에요.<br>판 아래 스피커도 같이 쿵 울려요.', wait: 2 },
-  { t: '이제 해 볼까요?<br><b>주황 원에 고리가 닿는 순간(3박)</b> 옮기고 싶은 강아지를 <b>누르세요</b>.<br>(조금 늦어도 괜찮아요)', need: 'sel' },
-  { t: '좋아요! 누른 강아지는 <b>&quot;오!&quot; 표정</b>으로 바뀌어요.<br>이제 <b>파랑 원에 닿는 순간(4박)</b>, 그 강아지를 옮기고 싶은 쪽으로 <b>밀어 보세요</b>.', need: 'swap' },
-  { t: '터졌어요! 판 아래에 <b>PERFECT · NICE · OK</b> 가 떠요.<br>박자에 가까울수록 좋고, 두 박이 모두 좋으면 <b>배율</b>이 많이 올라요.<br>배율은 점수에 곱해져요.' },
-  { t: '터진 자리는 <b>다음 4박에</b> 무너져 내려요.<br>내려갈 강아지 아래에는 <b>꺾쇠(∨)</b>가, 떨어지자마자 터질 강아지에는 <b>분홍 테두리</b>가 붙어요.<br>미리 보고 다음 수를 고르세요.' },
-  { t: '한 턴에 무언가 터지면 <b>콤보</b>가 이어져요.<br>콤보는 <b>시간을 늘려 주고</b>(1콤보 0.5초), <b>7콤보마다 레벨</b>이 올라 곡이 빨라져요.<br>판 바닥에 차오르는 물결이 지금 레벨이에요.' },
-  { t: '<b>4개 한 줄</b>은 직교하는 줄이 통째로, <b>ㄱ·ㄴ 모양</b>은 3×3이,<br><b>5개 한 줄</b>은 그 강아지 전부가 터져요.<br>큰 모양일수록 점수가 훨씬 커요.' },
-  { t: '실전은 <b>1분 타임어택</b>이에요.<br>콤보로 시간을 벌면서 점수를 쌓아 보세요.<br>준비됐나요?', last: true },
+  { say: '<b>둠칫딱숑</b>은 리듬에 맞춰 같은 강아지 <b>3마리</b>를 모으는 게임이에요.<br>제가 먼저 해 보일 테니 따라 해 보세요.' },
+  { say: '한 마디(4박)가 <b>한 턴</b>이에요.<br><b>둠 · 칫</b> 두 박은 판을 읽는 시간,<br><b>딱</b>에 누르고 <b>숑</b>에 밀어요.' },
+  { say: '판 바깥에서 <b>빛 고리</b>가 들어와요.<br><b>주황 원</b>에 닿으면 3박, <b>파랑 원</b>에 닿으면 4박이에요.<br>아래 스피커도 같이 쿵 울려요.', wait: 2 },
+  { demo: 'press', say: '먼저 <b>3박에 누르기</b>예요. 잘 보세요 — 제가 <b>표시된 강아지</b>를 눌러 볼게요.',
+    try: '이제 직접 해 보세요.<br><b>주황 원에 고리가 닿는 순간</b> 표시된 강아지를 <b>누르세요</b>.',
+    good: '잘했어요! 누른 강아지가 <b>&quot;오!&quot; 표정</b>이 됐죠.' },
+  { demo: 'move', say: '다음은 <b>4박에 밀기</b>예요.<br>제가 누른 다음 <b>화살표 쪽으로</b> 밀어 볼게요.',
+    try: '이번엔 직접 해 보세요.<br><b>3박에 누르고</b>, 이어서 <b>4박에 화살표 쪽으로 미세요</b>.',
+    good: '잘했어요! 세 마리가 모여서 터졌어요.' },
+  { say: '판 아래에 <b>PERFECT · NICE · OK</b> 가 떠요.<br>박자에 가까울수록 좋고, 3박·4박이 모두 좋으면 <b>배율</b>이 많이 올라요.<br>배율은 점수에 곱해져요.' },
+  { say: '터진 자리는 <b>다음 4박에</b> 무너져 내려요.<br>내려갈 강아지 아래엔 <b>꺾쇠(∨)</b>, 떨어지자마자 터질 강아지엔 <b>분홍 테두리</b>가 붙어요.' },
+  { say: '한 턴에 무언가 터지면 <b>콤보</b>가 이어져요.<br>콤보는 <b>시간을 늘리고</b>(1콤보 0.5초), <b>7콤보마다 레벨</b>이 올라 곡이 빨라져요.<br>판 바닥 물결이 지금 레벨이에요.' },
+  { say: '<b>4개 한 줄</b>은 직교하는 줄이, <b>ㄱ·ㄴ 모양</b>은 3×3이,<br><b>5개 한 줄</b>은 그 강아지 전부가 터져요.<br>큰 모양일수록 점수가 훨씬 커요.' },
+  { say: '실전은 <b>1분 타임어택</b>이에요.<br>콤보로 시간을 벌면서 점수를 쌓아 보세요.<br>준비됐나요?', last: true },
 ];
 const Tut = {
-  on: false, i: 0, t0: 0, done: false,
+  on: false, i: 0, t0: 0, done: false, phase: 'say', want: null, handT: null, demoDone: false, praiseAt: 0,
   start(){
-    this.on = true; this.i = 0; this.done = false;
+    this.on = true; this.i = 0; this.want = null; this.handT = null;
     el('tut').hidden = false;
     el('tutDots').innerHTML = TUT.map(() => '<i></i>').join('');
     start(true);
@@ -3330,31 +3397,83 @@ const Tut = {
   },
   show(){
     const step = TUT[this.i];
-    this.t0 = clock(); this.done = !step.need && !step.wait;
-    el('tutText').innerHTML = step.t;
+    this.t0 = clock(); this.phase = 'say'; this.want = null; this.handT = null; this.demoDone = false;
+    this.done = !step.demo && !step.wait;
+    el('tutText').innerHTML = step.say;
     el('tutNext').textContent = step.last ? '시작하기' : '다음';
     el('tutNext').disabled = !this.done;
     [...el('tutDots').children].forEach((d, k) => d.classList.toggle('on', k === this.i));
+    if(step.demo) this.pickTarget();
   },
-  tick(now){                                        // 프레임마다 — 할 일을 해냈는지 본다
-    if(!this.on || this.done) return;
+  pickTarget(){                                     // 시범·연습에 쓸 수 한 개를 고른다
+    const mv = findMove(S.grid);
+    if(!mv){ this.want = null; return; }
+    this.want = { from: mv[0], to: mv[1], arrow: TUT[this.i].demo === 'move' };
+  },
+  say(html){ el('tutText').innerHTML = html; },
+  tick(now){
+    if(!this.on) return;
     const step = TUT[this.i];
-    if(step.wait && now - this.t0 >= step.wait * 4 * bpmBeat(0)) this.mark();
-    else if(step.need === 'sel' && S.sel) this.mark();
+    if(this.phase === 'say' && step.wait && !this.done && now - this.t0 >= step.wait * 4 * bpmBeat(0)) this.mark();
+    if(this.phase === 'good' && now - this.praiseAt > 1.6){ this.next(); return; }
+    if(!step.demo) return;
+    const V = BEATV;
+    if(!this.want || !S.grid[this.want.from[0]][this.want.from[1]]) this.pickTarget();
+    if(!this.want || !V) return;
+
+    if(this.phase === 'say'){                        // 시범 — 3박에 누르고(필요하면) 4박에 민다
+      if(V.slot === 'T' && !S.sel && !this.demoDone){
+        const [r, c] = this.want.from;
+        if(!trySelect(r, c, now, true)){                  // 시범은 판정에 막히더라도 반드시 눌러 보인다
+          const t = S.grid[r][c];
+          if(t) S.sel = { id:t.id, bar:S.barIndex };
+        }
+        this.handT = 0;
+        this.say('보세요 — <b>3박(주황 원)</b>에 눌렀어요.' + (step.demo === 'move' ? '<br>이어서 <b>4박</b>에 화살표 쪽으로 밀 거예요.' : ''));
+      }
+      if(V.slot === 'D' && S.sel && !this.demoDone){
+        if(step.demo === 'move'){
+          this.handT = 1;
+          autoMove(this.want.from, this.want.to, now);
+          this.say('이렇게 밀면 세 마리가 모여 <b>터져요</b>.');
+        }
+        this.demoDone = true;
+        setTimeout(() => this.toTry(), 900);
+      }
+      if(V.slot === 'D' && !S.sel && step.demo === 'press' && this.demoDone === false && this.handT !== null){
+        this.demoDone = true;
+        setTimeout(() => this.toTry(), 700);
+      }
+    }
   },
-  mark(){                                           // 할 일을 해냈다
+  toTry(){                                          // 이제 직접 해 볼 차례
+    if(!this.on || this.phase !== 'say') return;
+    this.phase = 'try'; this.handT = null; this.done = false;
+    el('tutNext').disabled = true;
+    this.pickTarget();
+    this.say(TUT[this.i].try);
+  },
+  hit(kind){                                        // 사용자가 해냈다 — press · move
+    if(!this.on || this.phase !== 'try') return;
+    const step = TUT[this.i];
+    if(step.demo !== kind) return;
+    this.phase = 'good'; this.praiseAt = clock(); this.want = null; this.handT = null;
+    this.say(step.good);
+    el('tutNext').disabled = false;
+    if(!sfx('star', Audio_.startAC + clock(), 0.6)) buzz(20);
+  },
+  mark(){
     if(!this.on || this.done) return;
     this.done = true;
     el('tutNext').disabled = false;
-    if(!sfx('star', Audio_.startAC + clock(), 0.5)) buzz(20);
   },
   next(){
     if(TUT[this.i].last){ this.quit(); return; }
-    this.i = Math.min(TUT.length - 1, this.i + 1);
-    this.show();
+    if(this.i >= TUT.length - 1) return;
+    this.i++; this.show();
   },
   quit(){
-    this.on = false;
+    this.on = false; this.want = null; this.handT = null;
     el('tut').hidden = true;
     try{ localStorage.setItem('btg_tut_done', '1'); }catch(e){}
     el('tutBtn').classList.add('off');
@@ -3364,6 +3483,15 @@ const Tut = {
     setTimeout(menuStart, 300);
   },
 };
+/** 튜토리얼 시범 — 사람이 민 것과 똑같은 길로 판을 움직인다 */
+function autoMove(from, to, now){
+  const j = judgeFor(songTime() - CONFIG.offset, 'D');
+  resolveTurn(now, from, true);
+  if(S.pin){ S.pin = null; S.droppedBar = -1; }
+  S.sel = null;
+  if(!S.grid[from[0]][from[1]] || !S.grid[to[0]][to[1]]) return;
+  if(trySwap(from, to, now) && !j.blocked) applyJudge(j);   // 시범은 판정에 막혀도 판은 움직여 보인다
+}
 el('tutBtn').addEventListener('click', () => Tut.start());
 el('tutNext').addEventListener('click', () => Tut.next());
 el('tutSkip').addEventListener('click', () => Tut.quit());
@@ -3407,7 +3535,7 @@ el('snd').addEventListener('click', () => {
   el('snd').classList.toggle('off', !CONFIG.sound);
   if(Audio_.master) Audio_.master.gain.value = CONFIG.sound ? 0.5 : 0;
 });
-el('again').addEventListener('click', start);
+el('again').addEventListener('click', () => start());
 el('back').addEventListener('click', () => { el('end').hidden=true; el('start').hidden=false; Rank.refresh('boardStart'); });
 
 el('ver').textContent = GAME_VERSION;
