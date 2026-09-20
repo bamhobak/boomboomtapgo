@@ -614,7 +614,7 @@
       <b>배율</b><span>한 턴(3박+4박)을 함께 본다 — 퍼펙트+퍼펙트 <b>+0.5</b> · 퍼펙트+나이스 +0.4 · 퍼펙트+오케이·나이스+나이스 +0.3 · 나이스+오케이 +0.2 · 오케이+오케이 +0.1. <b>하나라도 놓치면 올린 만큼의 절반</b>이 깎인다</span>
       <b>점수</b><span>터진 칸 × 10 × <b>모양</b>(4줄 1.6 · ㄱㄴ+ 2.0 · 5줄 2.6) × <b>콤보</b>(콤보당 +12%, 최대 4배) × <b>배율</b></span>
       <b>콤보</b><span>3줄·2×2 <b>+1</b> · 4줄·ㄱㄴ+ <b>+2</b> · 5줄 <b>+3</b>. 한 턴 동안 아무것도 안 터지면 끊긴다</span>
-      <b>레벨</b><span>콤보 <b>5</b>마다 한 단계 오르고 템포가 <b>약 15%</b>씩 빨라진다(64 → 192 BPM, 9단계). <b>콤보가 끊기면 레벨 1</b></span>
+      <b>레벨</b><span>콤보 <b>5</b>마다 한 단계 오르고 템포가 <b>약 15%</b>씩 빨라진다(64 → 192 BPM, 9단계). <b>콤보가 끊기면 레벨이 절반</b>으로 내려간다(8 → 4 → 2 → 1)</span>
     </div>
     <button id="helpClose" type="button">닫기</button>
   </div>
@@ -662,7 +662,7 @@
    ========================================================================= */
 
 // 게임 버전 — 수정해서 배포할 때마다 끝 두 자리를 1씩 올린다(v0.1.01 → v0.1.02). 화면 오른쪽 아래에 보인다
-const GAME_VERSION = 'v0.2.32';   // 버전 표기 — 패치 자리는 두 자리 (v0.2.01, v0.2.02 …)
+const GAME_VERSION = 'v0.2.33';   // 버전 표기 — 패치 자리는 두 자리 (v0.2.01, v0.2.02 …)
 /*
  * 번쩍임 줄이기 (v0.1.22) — 광과민성 배려. 켜면 화면 전체 번쩍임·흔들림을 끄고, 발판 조명·테두리 박동을 약하게.
  * 폰의 '동작 줄이기'가 켜져 있으면 처음부터 켠다. 고른 값은 이 기기에 기억한다.
@@ -674,7 +674,7 @@ const CONFIG = {
   bpm: 64,                   // 시작 템포 — 초심자가 편하게 시작하도록 72 → 64 로 낮췄다. 레벨마다 level.stepMul 배씩 빨라진다
   // 템포는 비율로 느낀다 — +6 BPM 은 64 에선 9% 인데 100 에선 6% 라 뒤로 갈수록 덜 느껴진다.
   // 곱으로 올리면 매 레벨이 "한 단계 빨라졌다"로 고르게 느껴지고, 음악 음정도 레벨마다 반음쯤씩 고르게 오른다.
-  // 레벨은 콤보가 정한다 — comboPer 콤보마다 한 단계. 콤보가 끊기면 레벨 1 로 돌아간다
+  // 레벨은 콤보가 정한다 — comboPer 콤보마다 한 단계. 콤보가 끊기면 레벨은 절반으로 내려간다(v0.2.33)
   // 레벨 1~9: 64 · 73 · 84 · 97 · 111 · 127 · 146 · 167 · 192 BPM
   // 한 단계 14.7%(= 3 의 8제곱근) — 레벨 9 에서 정확히 192(시작의 3배). 6 이상은 고수용
   level:   { comboPer: 7, stepMul: Math.pow(3, 1/8), maxBpm: 192, max: 9 },   // v0.1.72 콤보 7마다 한 단계(5→7)
@@ -1050,7 +1050,7 @@ function finalizeBar(k){
   const bar = BARS[k];
   if(!bar || bar.final) return false;
   const level = S.tut ? TUT_LEVEL                          // 튜토리얼은 2단계 고정 — 콤보로 안 오른다
-                      : Math.max(levelOfCombo(S.combo), floorLevel(bar.startTime));
+                      : Math.max(levelOfCombo(S.combo), floorLevel(bar.startTime), S.levelFloor || 0);
   const bpm = bpmOfLevel(level);
   Object.assign(bar, { level, bpm, beatLen:60/bpm, final:true });
   BARS.length = k + 1;
@@ -1508,7 +1508,7 @@ const S = {
   fx:[], bits:[], rings:[], flashAt:-9, flashA:0, swapAnim:null,
   stats:{perfect:0,good:0,miss:0,turns:0,blocked:0,blasts:0,maxCombo:0,maxLevel:1,overBars:0},
   actedBeats:{}, blockFlash:-9,
-  errors:[], shake:0, hold:0, holding:false, releasedBar:0, dropPlan:null, popGroups:null, planBar:0, pin:null, droppedBar:-1, reshuffling:false, lastSwap:null, combo:0, comboMade:false, announceAt:-9, countShown:'', level:0, timeUp:false, bonusTime:0, lastPlayBar:Infinity, overAt:0,
+  errors:[], shake:0, hold:0, holding:false, releasedBar:0, dropPlan:null, popGroups:null, planBar:0, pin:null, droppedBar:-1, reshuffling:false, lastSwap:null, combo:0, comboMade:false, announceAt:-9, countShown:'', level:0, levelFloor:0, timeUp:false, bonusTime:0, lastPlayBar:Infinity, overAt:0,
   barIndex:-1, beatIndex:-1, drag:null, sel:null,
 };
 
@@ -3493,6 +3493,7 @@ function changeLevel(now, bar, song){
   S.lvFx = { up, from: S.level, to: bar.level, t0: now, bl: bar.beatLen, bpm: bar.bpm };   // 1·2박 연출 (v0.1.38)
   S.level = bar.level;
   S.stats.maxLevel = Math.max(S.stats.maxLevel, bar.level + 1);
+  S.levelFloor = Math.min(S.levelFloor || 0, bar.level);       // v0.2.33 지금 레벨보다 높은 바닥은 의미 없다
   if(up) levelUp(now, bar);
   else levelDown(now, bar);
   bgmRemember(bar.startTime);
@@ -3516,7 +3517,12 @@ function bgmRemember(atSong){
  * 헛스와이프도, 아무것도 안 둔 턴도 똑같이 0으로 돌아간다.
  */
 function settleCombo(now){
-  if(!S.comboMade) S.combo = 0;
+  if(!S.comboMade){
+    // v0.2.33 콤보는 0 으로 돌아가지만 **레벨은 절반까지만** 내려간다.
+    // 한 번 놓쳤다고 곡이 1단계로 곤두박질치면 흐름이 끊겨서, 반씩만 깎고 다시 올라가게 했다.
+    S.levelFloor = Math.floor(Math.max(S.level, S.levelFloor || 0) / 2);
+    S.combo = 0;
+  }
   S.comboMade = false;
 }
 
@@ -3715,7 +3721,7 @@ async function start(tut){        // tut: true = 튜토리얼(박자 켬) · 'fr
     fx:[], bits:[], rings:[], flashAt:-9, flashA:0, swapAnim:null,
     stats:{perfect:0,good:0,miss:0,turns:0,blocked:0,blasts:0,maxCombo:0,maxLevel:S.tut ? TUT_LEVEL+1 : 1,overBars:0},
     actedBeats:{}, blockFlash:-9,
-    errors:[], shake:0, hold:0, tut:tut === true || tut === 'free', free:tut === 'free', holding:false, releasedBar:0, dropPlan:null, popGroups:null, planBar:0, pin:null, droppedBar:-1, reshuffling:false, reshuffleAt:null, turnJ:{}, multBar:-1, lastSwap:null, combo:0, comboMade:false, announceAt:-9, countShown:'', level:S.tut ? TUT_LEVEL : 0, timeUp:false, bonusTime:0, lastPlayBar:Infinity, overAt:0,
+    errors:[], shake:0, hold:0, tut:tut === true || tut === 'free', free:tut === 'free', holding:false, releasedBar:0, dropPlan:null, popGroups:null, planBar:0, pin:null, droppedBar:-1, reshuffling:false, reshuffleAt:null, turnJ:{}, multBar:-1, lastSwap:null, combo:0, comboMade:false, announceAt:-9, countShown:'', level:S.tut ? TUT_LEVEL : 0, levelFloor:0, timeUp:false, bonusTime:0, lastPlayBar:Infinity, overAt:0,
       barIndex:-1, beatIndex:-1, drag:null, sel:null,
   });
   S.tut = tut === true || tut === 'free';         // v0.1.82 클릭 이벤트가 인자로 들어와 튜토리얼로 오인되던 버그 방지
