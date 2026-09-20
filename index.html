@@ -626,7 +626,7 @@
    ========================================================================= */
 
 // 게임 버전 — 수정해서 배포할 때마다 끝 두 자리를 1씩 올린다(v0.1.01 → v0.1.02). 화면 오른쪽 아래에 보인다
-const GAME_VERSION = 'v0.2.08';   // 버전 표기 — 패치 자리는 두 자리 (v0.2.01, v0.2.02 …)
+const GAME_VERSION = 'v0.2.09';   // 버전 표기 — 패치 자리는 두 자리 (v0.2.01, v0.2.02 …)
 /*
  * 번쩍임 줄이기 (v0.1.22) — 광과민성 배려. 켜면 화면 전체 번쩍임·흔들림을 끄고, 발판 조명·테두리 박동을 약하게.
  * 폰의 '동작 줄이기'가 켜져 있으면 처음부터 켠다. 고른 값은 이 기기에 기억한다.
@@ -1222,7 +1222,7 @@ function pickSafeColor(g, r, c){
 function computeDrop(g){
   let next = computeDropOnce(g);
   // 튜토리얼 — 새로 떨어진 강아지끼리 바로 또 터지면 배우는 사람이 헷갈린다. 안 터지는 판이 나올 때까지 다시 뽑는다 (v0.1.97)
-  if(S.tut) for(let k=0; k<40 && findMatches(next).length; k++) next = computeDropOnce(g);
+  if(S.tut) for(let k=0; k<8 && findMatches(next).length; k++) next = computeDropOnce(g);
   return next;
 }
 
@@ -1316,13 +1316,36 @@ function newGrid(){
  * 그냥 findMatches().length 로 보면 안 된다 — 낙하로 이미 판에 서 있는 매치까지
  * 세어버려서, 아무 데나 밀어도 성공으로 인정된다.
  */
+/**
+ * 이 칸이 줄(3개 이상)이나 2×2 에 끼어 있는가 — 그 칸 둘레만 본다.
+ * v0.2.09 전에는 수 하나를 볼 때마다 `findMatches` 로 판 전체를 훑었다.
+ * 판에 둘 수가 있는지(`hasMove`) 한 번 보는 데 판 전체 스캔이 140번 넘게 돌아,
+ * 크게 터진 뒤 정리할 때마다 화면이 끊겼다.
+ */
+function matchAt(g, r, c){
+  const k = matchKey(g[r][c]);
+  if(k === null) return false;
+  for(const [dr,dc] of DIRS){
+    let n = 1;
+    for(let i=1;i<3;i++){ const rr=r-dr*i, cc=c-dc*i; if(inb(rr,cc) && matchKey(g[rr][cc])===k) n++; else break; }
+    for(let i=1;i<3;i++){ const rr=r+dr*i, cc=c+dc*i; if(inb(rr,cc) && matchKey(g[rr][cc])===k) n++; else break; }
+    if(n >= 3) return true;
+  }
+  for(const [dr,dc] of [[-1,-1],[-1,0],[0,-1],[0,0]]){   // 이 칸이 낄 수 있는 2×2 넷
+    const r0=r+dr, c0=c+dc;
+    if(!inb(r0,c0) || !inb(r0+1,c0+1)) continue;
+    if(matchKey(g[r0][c0])===k && matchKey(g[r0][c0+1])===k
+       && matchKey(g[r0+1][c0])===k && matchKey(g[r0+1][c0+1])===k) return true;
+  }
+  return false;
+}
+
 function swapMakesMatch(g, a, b){
   const [ar,ac]=a, [br,bc]=b;
   const ta=g[ar][ac], tb=g[br][bc];
   if(!ta || !tb) return false;
   g[ar][ac]=tb; g[br][bc]=ta;
-  const ok = findMatches(g).some(gr =>
-    gr.cells.some(([r,c]) => (r===ar&&c===ac) || (r===br&&c===bc)));
+  const ok = matchAt(g, ar, ac) || matchAt(g, br, bc);
   g[ar][ac]=ta; g[br][bc]=tb;
   return ok;
 }
@@ -1331,8 +1354,12 @@ function swapMakesMatch(g, a, b){
  * 둘 수 있는 수 하나 — 튜토리얼 시범·연습 과녁 (v0.1.82).
  * v0.1.86: 여럿이면 **판 가운데에 가장 가까운** 수를 고른다(아래쪽은 안내창에 가리므로 살짝 위쪽을 가운데로 본다).
  */
+/** 튜토리얼 과녁이 모이는 자리 — 오른손 엄지가 닿는 오른쪽 (v0.2.09) */
+const aimR = () => (CONFIG.rows - 1) * 0.42;
+const aimC = () => (CONFIG.cols - 1) * 0.72;
+
 function findMove(g, shape){
-  const midR = (CONFIG.rows - 1) * 0.42, midC = (CONFIG.cols - 1) / 2;
+  const midR = aimR(), midC = aimC();
   let best = null, bestD = Infinity, vert = null, vertD = Infinity, any = null, anyD = Infinity;
   for(let r=0;r<CONFIG.rows;r++) for(let c=0;c<CONFIG.cols;c++){
     for(const [dr,dc] of [[0,1],[1,0],[0,-1],[-1,0]]){
@@ -1344,9 +1371,11 @@ function findMove(g, shape){
       if(shape){
         if(swapShape(g, [r,c], [nr,nc]) !== shape) continue;
         if(CLEAN_SHAPE[shape] && !dropIsClean(g, [r,c], [nr,nc])) continue;
-      }
-      if(shape && dc === 0){                          // 세로 화살표는 손가락 그림에 가린다 — 가로를 먼저 (v0.1.97)
-        if(d < vertD){ vertD = d; vert = [[r,c],[nr,nc]]; }
+        const [f, t] = moverFirst(g, [r,c], [nr,nc]);
+        const dd = d + (t[1] < f[1] ? 0 : 1.6);       // v0.2.09 오른손 — 왼쪽으로 미는 수를 먼저
+        if(t[1] === f[1]){                            // 세로 화살표는 손가락 그림에 가린다 — 가로를 먼저 (v0.1.97)
+          if(dd < vertD){ vertD = dd; vert = [[r,c],[nr,nc]]; }
+        }else if(dd < bestD){ bestD = dd; best = [[r,c],[nr,nc]]; }
         continue;
       }
       if(d < bestD){ bestD = d; best = [[r,c],[nr,nc]]; }
@@ -1372,7 +1401,7 @@ function moverFirst(g, a, b){
   g[ar][ac]=ta; g[br][bc]=tb;
   if(inB && !inA) return [a, b];                    // a 에 있던 말이 b 자리로 가서 낀다
   if(inA && !inB) return [b, a];
-  return (a[1] < b[1] || (a[1] === b[1] && a[0] < b[0])) ? [a, b] : [b, a];
+  return (a[1] > b[1] || (a[1] === b[1] && a[0] < b[0])) ? [a, b] : [b, a];   // 둘 다면 오른쪽 말을 과녁으로
 }
 
 /** 연쇄까지 없어야 하는 모양 — 작은 것만. 큰 폭발은 연쇄가 나는 게 정상이다 */
@@ -3625,7 +3654,7 @@ const Tut = {
     const step = TUT[this.i];
     let mv = findMove(S.grid, step.shape);
     if(step.shape){                                   // 그 모양이 없거나 판 구석이면 가운데에 만들어 준다
-      const far = mv && Math.hypot(mv[0][0] - (CONFIG.rows-1)*0.42, mv[0][1] - (CONFIG.cols-1)/2) > 3.2;
+      const far = mv && Math.hypot(mv[0][0] - aimR(), mv[0][1] - aimC()) > 3.2;
       if((!mv || far) && this.plantShape(step.shape)) mv = findMove(S.grid, step.shape) || mv;
     }
     if(!mv) mv = findMove(S.grid);                    // 그래도 없으면 아무 수라도
@@ -3645,27 +3674,27 @@ const Tut = {
       line3: { same:[[-1,0],[1,0]],                       need:[[-1,0],[1,0]] },        // 세로 3 (가운데가 빈칸)
       line4: { same:[[-1,0],[1,0],[2,0]],                 need:[[-1,0],[2,0]] },        // 세로 4
       line5: { same:[[-2,0],[-1,0],[1,0],[2,0]],          need:[[-2,0],[2,0]] },        // 세로 5
-      cross: { same:[[0,1],[0,2],[1,0],[2,0]],            need:[[0,2],[2,0]] },         // ㄱ — 가로 3 + 세로 3
-      sq:    { same:[[-1,0],[-1,1],[0,1]],                need:[[-1,1],[0,1]] },        // 2×2
+      cross: { same:[[0,-1],[0,-2],[1,0],[2,0]],          need:[[0,-2],[2,0]] },        // ㄱ — 가로 3(왼쪽) + 세로 3
+      sq:    { same:[[-1,0],[-1,-1],[0,-1]],              need:[[-1,-1],[0,-1]] },      // 2×2 (왼쪽 위)
     }[kind];
     if(!FORM) return false;
-    const midR = (CONFIG.rows - 1) * 0.42, midC = (CONFIG.cols - 1) / 2;
+    const midR = aimR(), midC = aimC();
     const spots = [];
-    for(let r=0;r<CONFIG.rows;r++) for(let c=1;c<CONFIG.cols;c++){
+    for(let r=0;r<CONFIG.rows;r++) for(let c=0;c<CONFIG.cols-1;c++){
       if(FORM.need.some(([dr,dc]) => !inb(r+dr, c+dc))) continue;
       spots.push([r, c, Math.hypot(r - midR, c - midC)]);
     }
     spots.sort((a, b) => a[2] - b[2]);
     for(const [r, c] of spots.slice(0, 24)){
       for(const K of CONFIG.roster){                  // 판에 실제로 나오는 다섯 마리만 (PETS[0] 은 안 쓰는 자리)
-        const at = [[0,-1], [0,0], ...FORM.same].map(([dr,dc]) => [r+dr, c+dc]);
+        const at = [[0,1], [0,0], ...FORM.same].map(([dr,dc]) => [r+dr, c+dc]);
         const old = at.map(([rr,cc]) => S.grid[rr][cc]);
         const pool = CONFIG.roster.filter(v => v !== K);
-        S.grid[r][c-1] = makePet(K);                  // 밀어 넣을 말
+        S.grid[r][c+1] = makePet(K);                  // 밀어 넣을 말 — 빈칸 오른쪽(왼쪽으로 민다)
         S.grid[r][c] = makePet(pool[(Math.random()*pool.length)|0]);   // 빈칸 — 다른 색
         FORM.same.forEach(([dr,dc]) => { S.grid[r+dr][c+dc] = makePet(K); });
-        if(!findMatches(S.grid).length && swapShape(S.grid, [r,c-1], [r,c]) === kind
-           && (!CLEAN_SHAPE[kind] || dropIsClean(S.grid, [r,c-1], [r,c]))) return true;
+        if(!findMatches(S.grid).length && swapShape(S.grid, [r,c+1], [r,c]) === kind
+           && (!CLEAN_SHAPE[kind] || dropIsClean(S.grid, [r,c+1], [r,c]))) return true;
         at.forEach(([rr,cc], k) => { S.grid[rr][cc] = old[k]; });      // 안 되면 되돌린다
       }
     }
