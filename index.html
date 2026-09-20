@@ -98,7 +98,8 @@
   .timebar .fill{height:100%;width:100%;border-radius:999px;
                  background:linear-gradient(180deg,#FFE680 0%,#FFB627 45%,#FF7A1A 100%);
                  box-shadow:inset 0 3px 0 rgba(255,255,255,.55),inset 0 -2px 0 rgba(0,0,0,.18)}
-  .timebar .fill.low{background:linear-gradient(180deg,#FF9AA8 0%,#FF3860 55%,#C4163C 100%);animation:tick 0.5s steps(1) infinite}
+  /* v0.2.29 색은 남은 시간에 따라 자바스크립트가 노랑→빨강으로 이어서 넣는다. 여기선 깜빡임만 */
+  .timebar .fill.low{animation:tick 0.5s steps(1) infinite}
   .timebar .clock{flex:none;width:40px;height:40px;border-radius:50%;display:grid;place-items:center;
                   background:var(--panel);box-shadow:0 0 0 3px var(--edge),inset 0 -3px 0 rgba(0,0,0,.35);
                   font-size:18px;font-variant-numeric:tabular-nums;color:var(--cream)}
@@ -661,7 +662,7 @@
    ========================================================================= */
 
 // 게임 버전 — 수정해서 배포할 때마다 끝 두 자리를 1씩 올린다(v0.1.01 → v0.1.02). 화면 오른쪽 아래에 보인다
-const GAME_VERSION = 'v0.2.28';   // 버전 표기 — 패치 자리는 두 자리 (v0.2.01, v0.2.02 …)
+const GAME_VERSION = 'v0.2.29';   // 버전 표기 — 패치 자리는 두 자리 (v0.2.01, v0.2.02 …)
 /*
  * 번쩍임 줄이기 (v0.1.22) — 광과민성 배려. 켜면 화면 전체 번쩍임·흔들림을 끄고, 발판 조명·테두리 박동을 약하게.
  * 폰의 '동작 줄이기'가 켜져 있으면 처음부터 켠다. 고른 값은 이 기기에 기억한다.
@@ -2645,7 +2646,7 @@ function drawInnerGlow(w, h){
   const bp = BEAT_POP[V.pos % 4];
   const k = Math.max(0, Math.min(1, V.k));
   const turn = V.slot === 'T' || V.slot === 'D';
-  const A = (0.07 + 0.25 * k) * (turn ? 1.15 : 0.8) * (CALM.on ? 0.4 : 1);
+  const A = (0.16 + 0.5 * k) * (turn ? 1.2 : 0.85) * (CALM.on ? 0.4 : 1);   // v0.2.29 더 잘 보이게
   if(A < 0.02) return;
   const R = boardR(), lw = Math.max(3, cell * 0.1);
   ctx.save();
@@ -2653,7 +2654,7 @@ function drawInnerGlow(w, h){
   ctx.shadowColor = `rgba(${bp.rgb},${A.toFixed(3)})`;
   ctx.lineWidth = lw;
   ctx.strokeStyle = `rgba(${bp.rgb},${(A * 0.5).toFixed(3)})`;
-  for(const spread of [0.55, 1.35]){                // 가까운 띠 + 멀리 퍼지는 띠, 두 겹
+  for(const spread of [0.5, 1.15, 1.9]){            // 가까운 띠 · 중간 · 멀리 퍼지는 띠, 세 겹
     ctx.shadowBlur = cell * spread * (0.7 + 0.6 * k);
     roundRectPath(-lw, -lw, w + lw*2, h + lw*2, R + lw);
     ctx.stroke();
@@ -2846,6 +2847,24 @@ function warmJit(){
 function reheat(){ warmUp.done = false; warmUp(); }
 
 const THUMP = { k:-1, rgb:'' };                  // 우퍼에 마지막으로 써 넣은 값 (v0.2.16)
+/*
+ * 시간 막대 색 (v0.2.29) — 가득 찼을 땐 노랑, 줄어들수록 빨개진다.
+ * 매 프레임 쓰면 그때마다 다시 칠하므로 20눈금으로 끊어 바뀔 때만 쓴다.
+ */
+const T_FULL = [[255,230,128],[255,182,39],[255,122,26]];      // 노랑 → 주황
+const T_EMPTY = [[255,154,168],[255,56,96],[196,22,60]];       // 분홍 → 빨강
+let timeBarStep = -1;
+function timeBarColor(p){
+  const t = Math.pow(1 - Math.max(0, Math.min(1, p)), 1.3);    // 후반에 빠르게 붉어진다
+  const q = Math.round(t * 20);
+  if(q === timeBarStep) return;
+  timeBarStep = q;
+  const k = q / 20;
+  const rgb = i => T_FULL[i].map((v, j) => Math.round(v + (T_EMPTY[i][j] - v) * k)).join(',');
+  const tf = el('timeFill');
+  if(tf) tf.style.background = `linear-gradient(180deg,rgb(${rgb(0)}) 0%,rgb(${rgb(1)}) 48%,rgb(${rgb(2)}) 100%)`;
+}
+
 const TEXT_WAS = {};                             // 간판 글자 — 바뀐 것만 다시 쓴다 (v0.2.16)
 function setText(id, v){
   const t = String(v);
@@ -3393,6 +3412,7 @@ function frame(){
   tv.classList.toggle('low', low);
   const wpc = (Math.round(Math.min(100, left / CONFIG.timeLimit * 100) * 4) / 4).toFixed(2) + '%';   // 60초 넘게 모이면 꽉 찬 채로
   if(tf.style.width !== wpc) tf.style.width = wpc;
+  timeBarColor(Math.min(1, left / CONFIG.timeLimit));
   tf.classList.toggle('low', low);
   setText('score', S.score.toLocaleString());
   const m = el('mult');
