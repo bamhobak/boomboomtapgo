@@ -626,7 +626,7 @@
    ========================================================================= */
 
 // 게임 버전 — 수정해서 배포할 때마다 끝 두 자리를 1씩 올린다(v0.1.01 → v0.1.02). 화면 오른쪽 아래에 보인다
-const GAME_VERSION = 'v0.1.97';
+const GAME_VERSION = 'v0.1.98';
 /*
  * 번쩍임 줄이기 (v0.1.22) — 광과민성 배려. 켜면 화면 전체 번쩍임·흔들림을 끄고, 발판 조명·테두리 박동을 약하게.
  * 폰의 '동작 줄이기'가 켜져 있으면 처음부터 켠다. 고른 값은 이 기기에 기억한다.
@@ -3539,21 +3539,21 @@ el('go').addEventListener('click', () => start());
  * 단계마다 할 일이 있으면 그걸 해내야 '다음'이 켜진다(누르기·밀기는 직접 해 봐야 넘어간다).
  */
 const TUT = [
-  { say: '<b>둠칫딱숑</b>은 같은 강아지 <b>3마리</b>를 모아 터뜨리는 게임이에요.<br>먼저 <b>조작법</b>부터 익혀 볼게요. 지금은 박자 없이 편하게 해도 돼요.' },
-  { demo: 'move', pop3: true, say: '옮기고 싶은 강아지를 <b>누른 채</b> 옮길 쪽으로 <b>밀면</b> 자리가 바뀌어요.<br>제가 <b>표시된 강아지</b>를 <b>화살표 쪽으로</b> 밀어 볼게요.',
-    try: '이제 직접 <b>표시된 강아지를 누르고, 화살표 쪽으로 미세요</b>.', good: '잘했어요! 세 마리가 모여서 터졌어요.' },
+  { say: '먼저 <b>조작법</b>부터 익혀 볼게요.<br>지금은 박자 없이 편하게 해도 돼요.' },
+  { demo: 'move', pop3: true, say: '옮기고 싶은 강아지를 <b>누른 채</b> 옮길 쪽으로 <b>밀면</b> 자리가 바뀌어요.<br><b>표시된 강아지를 화살표 쪽으로 미세요.</b>',
+    good: '잘했어요! 세 마리가 모여서 터졌어요.' },
   { say: '같은 강아지가 <b>가로나 세로로 3마리</b> 모이면 터져요.<br><b>2×2 네모</b>로 모여도 터져요.' },
   { say: '더 크게 모으면 더 크게 터져요.<br><b>4마리 한 줄</b> — 그 줄과 <b>직각으로 만나는 줄</b>이 통째로,<br><b>ㄱ·ㄴ 모양</b> — 꺾이는 칸 둘레 <b>3×3</b>이 터져요.' },
   { say: '<b>5마리 한 줄</b>이면 판 위의 <b>그 강아지가 전부</b> 터져요.<br>가장 크게 터지는 수예요.' },
   { rhythm: true, say: '조작은 다 익혔어요!<br>이제 <b>리듬</b>을 얹어 볼게요. 음악이 시작돼요.' },
   { say: '한 마디(4박)가 <b>한 턴</b>이에요.<br><b>둠 · 칫</b> 두 박은 판을 읽는 시간,<br><b>딱</b>에 누르고 <b>숑</b>에 밀어요.' },
   { say: '판 바깥에서 <b>빛 고리</b>가 들어와요.<br><b>주황 원</b>에 닿으면 3박, <b>파랑 원</b>에 닿으면 4박이에요.', wait: 2 },
-  { demo: 'move', pop3: true, say: '이제 박자에 맞춰서 해 볼게요.<br><b>주황 원</b>에 닿을 때 누르고, <b>파랑 원</b>에 닿을 때 미는 거예요.',
-    try: '직접 해 보세요.<br><b>3박에 누르고 4박에 화살표 쪽으로 미세요</b>.', good: '잘했어요! 박자에 맞췄어요.' },
+  { demo: 'move', pop3: true, say: '이제 박자에 맞춰서 해 볼게요.<br><b>3박(주황 원)에 누르고, 4박(파랑 원)에 화살표 쪽으로 미세요.</b>',
+    good: '잘했어요! 박자에 맞췄어요.' },
   { say: '이제 시작해 볼까요?<br>박자에 맞춰 누르고 밀면서 많이 터뜨려 보세요.', last: true },
 ];
 const Tut = {
-  on: false, i: 0, t0: 0, done: false, phase: 'say', want: null, handT: null, demoDone: false, praiseAt: 0,
+  on: false, i: 0, t0: 0, done: false, phase: 'say', want: null, handT: null, praiseAt: 0,
   start(){
     this.on = true; this.i = 0; this.want = null; this.handT = null;
     el('tut').hidden = false;
@@ -3566,13 +3566,13 @@ const Tut = {
     if(step.rhythm && S.free){                       // 리듬 단계 — 여기서 음악과 박자를 켠다
       start(true);
     }
-    this.t0 = clock(); this.phase = 'say'; this.want = null; this.handT = null; this.demoDone = false;
+    this.t0 = clock(); this.phase = step.demo ? 'try' : 'say'; this.want = null; this.handT = null;
     this.done = !step.demo && !step.wait;
     el('tutText').innerHTML = step.say;
     el('tutNext').textContent = step.last ? '시작하기' : '다음';
     el('tutNext').disabled = !this.done;
     [...el('tutDots').children].forEach((d, k) => d.classList.toggle('on', k === this.i));
-    if(step.demo) this.pickTarget(true);
+    if(step.demo) this.pickTarget(true);             // 시범 없이 바로 직접 해 보는 차례
   },
   pickTarget(force){                                // 시범·연습에 쓸 수 한 개를 고른다
     // v0.1.96 findMove 는 판 전체를 훑는다 — 터지고 무너지는 동안 프레임마다 부르면 렉이 난다.
@@ -3607,65 +3607,10 @@ const Tut = {
     if(!this.on) return;
     const step = TUT[this.i];
     if(this.phase === 'say' && step.wait && !this.done && now - this.t0 >= step.wait * 4 * bpmBeat(0)) this.mark();
-    if(this.phase === 'say' && step.demo && S.free && !this.demoDone && now - this.t0 > 1.2) this.freeDemo(now);
     if(this.phase === 'good' && now - this.praiseAt > 1.6){ this.next(); return; }
-    if(!step.demo) return;
-    const V = BEATV;
+    if(!step.demo || this.phase !== 'try') return;
+    // 과녁으로 쓰던 칸이 사라졌으면 다른 수를 고른다(판이 가라앉은 뒤에만)
     if(!this.want || !S.grid[this.want.from[0]][this.want.from[1]]) this.pickTarget();
-    if(!this.want || !V) return;
-
-    if(this.phase === 'say'){                        // 시범 — 3박에 누르고(필요하면) 4박에 민다
-      if(V.slot === 'T' && !S.sel && !this.demoDone){
-        const [r, c] = this.want.from;
-        if(!trySelect(r, c, now, true)){                  // 시범은 판정에 막히더라도 반드시 눌러 보인다
-          const t = S.grid[r][c];
-          if(t) S.sel = { id:t.id, bar:S.barIndex };
-        }
-        this.handT = 0;
-        this.say('보세요 — <b>3박(주황 원)</b>에 눌렀어요.' + (step.demo === 'move' ? '<br>이어서 <b>4박</b>에 화살표 쪽으로 밀 거예요.' : ''));
-      }
-      if(V.slot === 'D' && S.sel && !this.demoDone){
-        if(step.demo === 'move'){
-          this.handT = 1;
-          autoMove(this.want.from, this.want.to, now);
-          this.say('이렇게 밀면 세 마리가 모여 <b>터져요</b>.');
-        }
-        this.demoDone = true;
-        setTimeout(() => this.toTry(), 900);
-      }
-      if(V.slot === 'D' && !S.sel && step.demo === 'press' && this.demoDone === false && this.handT !== null){
-        this.demoDone = true;
-        setTimeout(() => this.toTry(), 700);
-      }
-    }
-  },
-  freeDemo(now){                                    // 박자 없는 구간의 시범 — 누르고(필요하면) 민다
-    const step = TUT[this.i];
-    if(!this.want || !S.grid[this.want.from[0]][this.want.from[1]]) this.pickTarget();
-    if(!this.want) return;
-    const [r, c] = this.want.from;
-    if(!S.sel){
-      trySelect(r, c, now, true);
-      this.handT = 0;
-      this.say('보세요 — 이렇게 <b>눌러요</b>.' + (step.demo === 'move' ? '<br>이어서 <b>화살표 쪽으로</b> 밀 거예요.' : ''));
-      if(step.demo === 'press'){ this.demoDone = true; setTimeout(() => this.toTry(), 1100); }
-      return;
-    }
-    if(step.demo === 'move'){
-      this.handT = 1;
-      const from = this.want.from, to = this.want.to;
-      S.sel = null;
-      if(trySwap(from, to, now)){ freeSoon(); this.say('이렇게 밀면 세 마리가 모여 <b>터져요</b>.'); }
-      this.demoDone = true;
-      setTimeout(() => this.toTry(), 1100);
-    }
-  },
-  toTry(){                                          // 이제 직접 해 볼 차례
-    if(!this.on || this.phase !== 'say') return;
-    this.phase = 'try'; this.handT = null; this.done = false;
-    el('tutNext').disabled = true;
-    this.pickTarget(true);
-    this.say(TUT[this.i].try);
   },
   hit(kind){                                        // 사용자가 해냈다 — press · move
     if(!this.on || this.phase !== 'try') return;
@@ -3697,15 +3642,6 @@ const Tut = {
     setTimeout(menuStart, 300);
   },
 };
-/** 튜토리얼 시범 — 사람이 민 것과 똑같은 길로 판을 움직인다 */
-function autoMove(from, to, now){
-  const j = judgeFor(songTime() - CONFIG.offset, 'D');
-  resolveTurn(now, from, true);
-  if(S.pin){ S.pin = null; S.droppedBar = -1; }
-  S.sel = null;
-  if(!S.grid[from[0]][from[1]] || !S.grid[to[0]][to[1]]) return;
-  if(trySwap(from, to, now) && !j.blocked) applyJudge(j);   // 시범은 판정에 막혀도 판은 움직여 보인다
-}
 el('tutBtn').addEventListener('click', () => Tut.start());
 el('tutNext').addEventListener('click', () => Tut.next());
 el('tutSkip').addEventListener('click', () => Tut.quit());
