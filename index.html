@@ -665,7 +665,7 @@
    ========================================================================= */
 
 // 게임 버전 — 수정해서 배포할 때마다 끝 두 자리를 1씩 올린다(v0.1.01 → v0.1.02). 화면 오른쪽 아래에 보인다
-const GAME_VERSION = 'v0.2.44';   // 버전 표기 — 패치 자리는 두 자리 (v0.2.01, v0.2.02 …)
+const GAME_VERSION = 'v0.2.45';   // 버전 표기 — 패치 자리는 두 자리 (v0.2.01, v0.2.02 …)
 /*
  * 번쩍임 줄이기 (v0.1.22) — 광과민성 배려. 켜면 화면 전체 번쩍임·흔들림을 끄고, 발판 조명·테두리 박동을 약하게.
  * 폰의 '동작 줄이기'가 켜져 있으면 처음부터 켠다. 고른 값은 이 기기에 기억한다.
@@ -1011,6 +1011,7 @@ const bpmOfLevel = L => Math.min(CONFIG.level.maxBpm, Math.round(CONFIG.bpm * Ma
  * 마디 머리가 바로 결정 시점이다. 둘째 박부터는 정해진 뒤에만 예약한다(pump).
  */
 const TUT_LEVEL = 1;                                // 튜토리얼 빠르기 = 2단계(73 BPM) · 곡도 2단계 (v0.2.08)
+const PRACTICE_PER = 50;                            // 연습 모드 레벨 — 50콤보마다 한 단계 (v0.2.45, 실전은 7)
 function makeBar(startBeat, startTime, level){
   const pattern = CONFIG.pattern, bpm = bpmOfLevel(level);
   return { pattern, meter:pattern.length, startBeat, startTime, beatLen:60/bpm, bpm, level, final:false };
@@ -1053,7 +1054,7 @@ function finalizeBar(k){
   const bar = BARS[k];
   if(!bar || bar.final) return false;
   const level = S.tut ? TUT_LEVEL                          // 튜토리얼은 2단계 고정 — 콤보로 안 오른다
-              : S.practice ? 0                             // 연습은 1단계 고정 (v0.2.43)
+              : S.practice ? Math.min(CONFIG.level.max - 1, Math.floor(S.combo / PRACTICE_PER))   // 연습은 50콤보마다 한 단계 (v0.2.45)
               : Math.max(levelOfCombo(S.combo), floorLevel(bar.startTime), S.levelFloor || 0);
   const bpm = bpmOfLevel(level);
   Object.assign(bar, { level, bpm, beatLen:60/bpm, final:true });
