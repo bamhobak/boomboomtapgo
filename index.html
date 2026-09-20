@@ -626,7 +626,7 @@
    ========================================================================= */
 
 // 게임 버전 — 수정해서 배포할 때마다 끝 두 자리를 1씩 올린다(v0.1.01 → v0.1.02). 화면 오른쪽 아래에 보인다
-const GAME_VERSION = 'v0.2.14';   // 버전 표기 — 패치 자리는 두 자리 (v0.2.01, v0.2.02 …)
+const GAME_VERSION = 'v0.2.15';   // 버전 표기 — 패치 자리는 두 자리 (v0.2.01, v0.2.02 …)
 /*
  * 번쩍임 줄이기 (v0.1.22) — 광과민성 배려. 켜면 화면 전체 번쩍임·흔들림을 끄고, 발판 조명·테두리 박동을 약하게.
  * 폰의 '동작 줄이기'가 켜져 있으면 처음부터 켠다. 고른 값은 이 기기에 기억한다.
@@ -1616,6 +1616,7 @@ function applyJudge(j){
   else S.stats.miss++;
   // v0.1.75 4박을 민 그 순간 배율을 매긴다 — 다음 마디 1박까지 기다리지 않는다
   if(slotAt(j.beat) === 'D'){
+    S.lastTurnJ = Object.assign({}, S.turnJ);              // v0.2.15 settleMult 가 지우기 전에 복사 — 튜토리얼 합격 판정이 이걸 본다
     settleMult(S.comboMade || !!(S.dropPlan && S.popGroups && S.popGroups.length));
     S.multBar = barAtBeat(j.beat);
   }
@@ -1659,7 +1660,7 @@ function clearCells(cells, now, depth, label, noScore){
 
   const J = noScore ? 0 : juiceLevel();
   // 칸당 파편 수 — 흥이 오를수록 많게, 한 번에 터지는 칸이 많으면 칸당 줄여 총량을 묶는다
-  const perCell = Math.max(2, Math.min(4 + J, Math.ceil(130 / set.size)));   // v0.2.11 한 번에 뿌리는 총량 170→130
+  const perCell = Math.max(2, Math.min(4 + J, Math.ceil(90 / set.size)));    // v0.2.15 한 번에 뿌리는 총량 130→90
   let sx = 0, sy = 0;
   for(const [,[r,c]] of set){
     const t = S.grid[r][c];
@@ -1992,13 +1993,17 @@ function drawBit(name, x, y, size, col, rot){
   const k = Math.max(1.5, size);
   const sp = bitSprite(name, col, k > 3);
   const d = BIT_PX * k / BIT_UNIT;
+  if(k <= 3){                                      // v0.2.15 작은 파편은 돌려도 티가 안 난다 — 좌표만 옮겨 찍는다
+    ctx.drawImage(sp, x - d/2, y - d/2, d, d);
+    return;
+  }
   ctx.save();
   ctx.translate(x, y); ctx.rotate(rot || 0);
   ctx.drawImage(sp, -d/2, -d/2, d, d);
   ctx.restore();
 }
 
-const BITS_MAX = 300;                              // 폰이 버벅이지 않게 — 한 화면 파편 상한 (v0.2.11 520→300)
+const BITS_MAX = 200;                              // 폰이 버벅이지 않게 — 한 화면 파편 상한 (v0.2.15 300→200)
 function spawnBits(r,c,t,now,J,perCell){
   J = J || 0;
   const col = PETS[t.color].hex, shapes = shapesFor(J);
@@ -2018,14 +2023,14 @@ function spawnBits(r,c,t,now,J,perCell){
 /** 5콤보마다 — 판 위에서 폭죽이 쏟아진다 */
 function confetti(now, combo){
   if(REDUCED) return;
-  const n = Math.min(140, 50 + combo*4), shapes = shapesFor(12);
+  const n = Math.min(90, 40 + combo*3), shapes = shapesFor(12);   // v0.2.15 폭죽도 줄인다
   for(let i=0;i<n;i++){
     const col = i % 4 === 0 ? '#FFFFFF' : PETS[randColor()].hex;
     S.bits.push({ x:Math.random()*cell*CONFIG.cols, y:-cell*0.2 + Math.random()*cell*0.6,
       vx:(Math.random()-0.5)*160, vy:-40 - Math.random()*140, t0:now + Math.random()*0.15, col, rot0:Math.random()*6.28, spin:(Math.random()-0.5)*6,
       sz:3 + Math.random()*4, shape:shapes[(Math.random()*shapes.length)|0], life:1.5 + Math.random()*0.4, g:260 });
   }
-  if(S.bits.length > BITS_MAX + 140) S.bits.splice(0, S.bits.length - BITS_MAX - 140);
+  if(S.bits.length > BITS_MAX + 90) S.bits.splice(0, S.bits.length - BITS_MAX - 90);
   S.rings.push({ x:cell*CONFIG.cols/2, y:cell*CONFIG.rows/2, t0:now, R:cell*CONFIG.cols*0.7, col:'#FDE047', life:0.55, w:6, dia:false });
   S.flashAt = now; S.flashA = 0.3;
 }
@@ -3693,7 +3698,8 @@ const Tut = {
     // 판이 가라앉은 뒤에만, 그것도 0.25초에 한 번만 다시 고른다.
     const now = clock();
     if(!force){
-      if(S.dropPlan) return;                        // 무너지는 중 — 판이 가라앉은 뒤에
+      // 터진 것·내려오는 것이 다 끝난 뒤에 골라야 한다 — 안 그러면 곧 사라질 말을 가리킨다
+      if(S.dropPlan || !boardSettled(now)) return;
       if(now - (this.pickAt || 0) < 0.25) return;
     }
     this.pickAt = now;
@@ -3778,12 +3784,13 @@ const Tut = {
     const step = TUT[this.i];
     if(step.demo !== kind) return;
     if(step.strict){                                // v0.2.11 리듬 단계 — 3·4박 둘 다 퍼펙트/나이스여야 넘어간다
-      const t = S.turnJ || {}, okT = t.T === 'PERFECT' || t.T === 'NICE', okD = t.D === 'PERFECT' || t.D === 'NICE';
+      const t = S.lastTurnJ || {}, okT = t.T === 'PERFECT' || t.T === 'NICE', okD = t.D === 'PERFECT' || t.D === 'NICE';
       if(!okT || !okD){
         const bad = r => r === 'MISS' ? '놓쳤어요' : r === 'OK' ? '조금 늦었어요' : '아직이에요';
         this.say('<b>' + bad(!okT ? t.T : t.D) + '.</b> 박에 더 가깝게 해 볼까요?<br>'
                + '<b>3</b>박(주황 원)에 누르고 <b>4</b>박(파랑 원)에 미세요. 둘 다 <b>NICE</b> 이상이면 넘어가요.');
-        this.pickAt = 0; this.pickTarget(true);     // 판이 바뀌었으니 과녁을 다시
+        S.lastTurnJ = null;
+        this.want = null; this.pickAt = 0;          // 판이 가라앉은 뒤(tick)에 새 과녁을 고른다
         return;
       }
     }
