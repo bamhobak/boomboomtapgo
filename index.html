@@ -618,7 +618,7 @@
    ========================================================================= */
 
 // 게임 버전 — 수정해서 배포할 때마다 끝 두 자리를 1씩 올린다(v0.1.01 → v0.1.02). 화면 오른쪽 아래에 보인다
-const GAME_VERSION = 'v0.1.88';
+const GAME_VERSION = 'v0.1.89';
 /*
  * 번쩍임 줄이기 (v0.1.22) — 광과민성 배려. 켜면 화면 전체 번쩍임·흔들림을 끄고, 발판 조명·테두리 박동을 약하게.
  * 폰의 '동작 줄이기'가 켜져 있으면 처음부터 켠다. 고른 값은 이 기기에 기억한다.
@@ -1960,6 +1960,15 @@ function selLanding(){
  */
 function trySelect(r, c, now, quiet){
   if(S.reshuffling) return false;                  // 다시 까는 중 — 고를 말이 없다
+  if(S.free){                                      // v0.1.89 박자 없는 연습 — 아무 때나 고를 수 있다
+    if(!S.grid[r][c]) return false;
+    S.sel = { id:S.grid[r][c].id, bar:S.barIndex };
+    S.actSide = (c + 0.5) / CONFIG.cols * 2 - 1;
+    const I0 = heat(), vt0 = Audio_.startAC + now;
+    sfx('voice' + PETS[S.grid[r][c].color].voice, vt0, 0.55 + 0.35*I0, 1 + 0.12*I0);
+    if(Tut.on) Tut.hit('press');
+    return true;
+  }
   const j = judgeFor(songTime() - CONFIG.offset, 'T');
   if(j.blocked){ if(!quiet) blockedFeedback(now); return false; }
   // 말은 **지금 있는 자리**에서 잡는다. 빈 칸은 잡을 것이 없다.
@@ -1986,10 +1995,37 @@ function trySelect(r, c, now, quiet){
  * 아직 드래그 차례가 아니면 제스처를 죽이지 않고 기다린다.
  * 그래서 3박에 누른 채 방향을 잡아두면 4박이 오는 순간 알아서 나간다.
  */
+/** 자유 연습 — 터진 뒤 무너짐·연쇄를 스스로 이어서 정리한다 (v0.1.89) */
+function freeSettle(){
+  if(!S.live || !S.free) return;
+  const now = clock();
+  if(S.dropPlan){ S.droppedBar = -1; dropStep(now); }
+  const popped = popStep(now, 1);
+  if(popped || S.dropPlan) setTimeout(freeSettle, 280);
+  else reshuffleIfStuck(now);
+}
+
 function tryResolveDrag(now){
   const d = S.drag;
   if(!d || d.done || !S.live) return;
   if(Math.hypot(d.dx, d.dy) < cell*0.45) return;
+
+  if(S.free){                                      // 박자 없는 연습 — 판정도 차례도 없이 그냥 민다
+    d.done = true;
+    const from0 = selPos();
+    S.sel = null;
+    if(!from0) return;
+    const dir0 = Math.abs(d.dx) > Math.abs(d.dy) ? [0, d.dx>0 ? 1 : -1] : [d.dy>0 ? 1 : -1, 0];
+    const to0 = [from0[0]+dir0[0], from0[1]+dir0[1]];
+    if(!inb(to0[0], to0[1])) return;
+    S.actSide = (to0[1] + 0.5) / CONFIG.cols * 2 - 1;
+    if(trySwap(from0, to0, now)){
+      S.stats.turns++;
+      setTimeout(freeSettle, 280);
+      if(Tut.on) Tut.hit('move');
+    }
+    return;
+  }
 
   const j = judgeFor(songTime() - CONFIG.offset, 'D');
   if(j.blocked) return;                                  // 차례를 기다리는 중
@@ -2087,7 +2123,7 @@ function scheduleBeat(i){
 }
 
 function pump(){
-  if(!S.live) return;
+  if(!S.live || S.free) return;                   // 자유 연습 — 박자를 예약하지 않는다(곡도 안 흐른다)
   const ahead = Audio_.ac.currentTime + 0.12;   // 붙잡기 직전에 새 마디가 미리 울리지 않게 짧게
   const barLen = CONFIG.pattern.length;
   while(nextBeatToSchedule <= TOTAL_BEATS){
@@ -2132,7 +2168,7 @@ function fallHint(t, r, c){
  */
 let BEATV = null, BOB = 0, SWAY = 0;   // SWAY: v0.1.38 높은 레벨의 좌우 흔들기
 function beatVisual(now){
-  if(!CONFIG.visualBeat || !S.live || !BARS.length) return null;
+  if(!CONFIG.visualBeat || !S.live || S.free || !BARS.length) return null;   // 자유 연습 — 박자 표시 없음
   const song = now - S.hold;
   if(song < 0) return null;
   const bf = beatAt(song), ib = Math.floor(bf), ph = bf - ib;
@@ -2865,7 +2901,7 @@ function frame(){
 
   // 곡이 판을 기다리는 동안에는 BGM 도 같이 멈춘다 — 안 그러면 박자가 어긋난다
   if(S.holding){ if(Bgm.src) bgmStop(); }
-  else if(!Bgm.src && song >= 0 && Bank.buf[trackForLevel(BARS[barAtTime(song)].level).key]) bgmStart(song);
+  else if(!S.free && !Bgm.src && song >= 0 && Bank.buf[trackForLevel(BARS[barAtTime(song)].level).key]) bgmStart(song);
 
   const beat = beatAt(song);
   const bi = barAtBeat(Math.floor(beat));
@@ -3175,7 +3211,7 @@ function menuStop(fade){
   if(!S.live && (!el('start').hidden || !el('end').hidden)) menuStart();
 }, { passive:true }));
 
-async function start(tut){
+async function start(tut){        // tut: true = 튜토리얼(박자 켬) · 'free' = 튜토리얼(박자 끔)
   menuStop(0.3);
   Audio_.init();
   if(Audio_.ac.state==='suspended') Audio_.ac.resume();
@@ -3192,16 +3228,17 @@ async function start(tut){
     fx:[], bits:[], rings:[], flashAt:-9, flashA:0, swapAnim:null,
     stats:{perfect:0,good:0,miss:0,turns:0,blocked:0,blasts:0,maxCombo:0,maxLevel:1,overBars:0},
     actedBeats:{}, blockFlash:-9,
-    errors:[], shake:0, hold:0, tut:tut === true, holding:false, releasedBar:0, dropPlan:null, popGroups:null, planBar:0, pin:null, droppedBar:-1, reshuffling:false, reshuffleAt:null, turnJ:{}, multBar:-1, lastSwap:null, combo:0, comboMade:false, announceAt:-9, countShown:'', level:0, timeUp:false, bonusTime:0, lastPlayBar:Infinity, overAt:0,
+    errors:[], shake:0, hold:0, tut:tut === true || tut === 'free', free:tut === 'free', holding:false, releasedBar:0, dropPlan:null, popGroups:null, planBar:0, pin:null, droppedBar:-1, reshuffling:false, reshuffleAt:null, turnJ:{}, multBar:-1, lastSwap:null, combo:0, comboMade:false, announceAt:-9, countShown:'', level:0, timeUp:false, bonusTime:0, lastPlayBar:Infinity, overAt:0,
       barIndex:-1, beatIndex:-1, drag:null, sel:null,
   });
-  S.tut = tut === true;                           // v0.1.82 클릭 이벤트가 인자로 들어와 튜토리얼로 오인되던 버그 방지                                   // v0.1.79 튜토리얼 판 — 시간이 안 줄고, 미스도 없고, 끝나지도 않는다
+  S.tut = tut === true || tut === 'free';         // v0.1.82 클릭 이벤트가 인자로 들어와 튜토리얼로 오인되던 버그 방지
+  S.free = tut === 'free';                        // v0.1.89 박자 없이 아무 때나 눌러 옮기는 연습 구간                                   // v0.1.79 튜토리얼 판 — 시간이 안 줄고, 미스도 없고, 끝나지도 않는다
   el('start').hidden = true; el('end').hidden = true;
   cv.classList.remove('done');                     // 새 판 — 가라앉았던 판을 되살린다
   layout();
 
   // 바로 시작하지 않는다 — '둠! 칫! 딱! 숑!' 을 듣고 그 다음 박에 시작한다 (시간은 그때부터 흐른다)
-  const hasChant = Bank.buf && Bank.buf.countin;
+  const hasChant = !S.free && Bank.buf && Bank.buf.countin;   // 자유 연습에는 구호 카운트인도 없다
   const lead = hasChant ? COUNT_LEAD : COUNT_IN * bpmBeat(0);
   S.countLead = lead;
   Audio_.startAC = Audio_.ac.currentTime + 0.35 + lead;
@@ -3398,18 +3435,21 @@ el('go').addEventListener('click', () => start());
  * 단계마다 할 일이 있으면 그걸 해내야 '다음'이 켜진다(누르기·밀기는 직접 해 봐야 넘어간다).
  */
 const TUT = [
-  { say: '<b>둠칫딱숑</b>은 리듬에 맞춰 같은 강아지 <b>3마리</b>를 모으는 게임이에요.<br>제가 먼저 해 보일 테니 따라 해 보세요.' },
-  { say: '한 마디(4박)가 <b>한 턴</b>이에요.<br><b>둠 · 칫</b> 두 박은 판을 읽는 시간,<br><b>딱</b>에 누르고 <b>숑</b>에 밀어요.' },
-  { say: '판 바깥에서 <b>빛 고리</b>가 들어와요.<br><b>주황 원</b>에 닿으면 3박, <b>파랑 원</b>에 닿으면 4박이에요.', wait: 2 },
-  { demo: 'press', say: '먼저 <b>3박에 누르기</b>예요.<br>제가 <b>표시된 강아지</b>를 눌러 볼게요.',
-    try: '이제 직접 해 보세요.<br><b>주황 원에 고리가 닿는 순간</b> 표시된 강아지를 <b>누르세요</b>.',
-    good: '잘했어요!' },
-  { demo: 'move', say: '다음은 <b>4박에 밀기</b>예요.<br>누른 다음 <b>화살표 쪽으로</b> 밀어 볼게요.',
-    try: '이번엔 직접 해 보세요.<br><b>3박에 누르고</b>, 이어서 <b>4박에 화살표 쪽으로 미세요</b>.',
-    good: '잘했어요! 세 마리가 모여서 터졌어요.' },
+  { say: '<b>둠칫딱숑</b>은 같은 강아지 <b>3마리</b>를 모아 터뜨리는 게임이에요.<br>먼저 <b>조작법</b>부터 익혀 볼게요. 지금은 박자 없이 편하게 해도 돼요.' },
+  { demo: 'press', say: '옮기고 싶은 강아지를 <b>누르면</b> 골라져요.<br>제가 <b>표시된 강아지</b>를 눌러 볼게요.',
+    try: '이제 직접 <b>표시된 강아지를 누르세요</b>.', good: '잘했어요!' },
+  { demo: 'move', say: '고른 강아지를 옮기고 싶은 쪽으로 <b>밀면</b> 자리가 바뀌어요.<br><b>화살표 쪽으로</b> 밀어 볼게요.',
+    try: '이번엔 직접 <b>누르고, 화살표 쪽으로 미세요</b>.', good: '잘했어요! 세 마리가 모여서 터졌어요.' },
   { say: '같은 강아지가 <b>가로나 세로로 3마리</b> 모이면 터져요.<br><b>2×2 네모</b>로 모여도 터져요.' },
   { say: '더 크게 모으면 더 크게 터져요.<br><b>4마리 한 줄</b> — 그 줄과 <b>직각으로 만나는 줄</b>이 통째로,<br><b>ㄱ·ㄴ 모양</b> — 꺾이는 칸 둘레 <b>3×3</b>이 터져요.' },
   { say: '<b>5마리 한 줄</b>이면 판 위의 <b>그 강아지가 전부</b> 터져요.<br>가장 크게 터지는 수예요.' },
+  { rhythm: true, say: '조작은 다 익혔어요!<br>이제 <b>리듬</b>을 얹어 볼게요. 음악이 시작돼요.' },
+  { say: '한 마디(4박)가 <b>한 턴</b>이에요.<br><b>둠 · 칫</b> 두 박은 판을 읽는 시간,<br><b>딱</b>에 누르고 <b>숑</b>에 밀어요.' },
+  { say: '판 바깥에서 <b>빛 고리</b>가 들어와요.<br><b>주황 원</b>에 닿으면 3박, <b>파랑 원</b>에 닿으면 4박이에요.', wait: 2 },
+  { demo: 'press', say: '이제 박자에 맞춰서 해 볼게요.<br><b>주황 원에 고리가 닿는 순간</b> 누르는 거예요.',
+    try: '직접 해 보세요.<br><b>주황 원에 고리가 닿을 때</b> 표시된 강아지를 <b>누르세요</b>.', good: '잘했어요!' },
+  { demo: 'move', say: '이어서 <b>파랑 원에 닿는 순간(4박)</b> 미는 거예요.',
+    try: '직접 해 보세요.<br><b>3박에 누르고 4박에 화살표 쪽으로 미세요</b>.', good: '잘했어요! 박자에 맞췄어요.' },
   { say: '이제 시작해 볼까요?<br>박자에 맞춰 누르고 밀면서 많이 터뜨려 보세요.', last: true },
 ];
 const Tut = {
@@ -3418,11 +3458,14 @@ const Tut = {
     this.on = true; this.i = 0; this.want = null; this.handT = null;
     el('tut').hidden = false;
     el('tutDots').innerHTML = TUT.map(() => '<i></i>').join('');
-    start(true);
+    start('free');                                   // v0.1.89 앞부분은 박자 없이 조작만
     this.show();
   },
   show(){
     const step = TUT[this.i];
+    if(step.rhythm && S.free){                       // 리듬 단계 — 여기서 음악과 박자를 켠다
+      start(true);
+    }
     this.t0 = clock(); this.phase = 'say'; this.want = null; this.handT = null; this.demoDone = false;
     this.done = !step.demo && !step.wait;
     el('tutText').innerHTML = step.say;
@@ -3441,6 +3484,7 @@ const Tut = {
     if(!this.on) return;
     const step = TUT[this.i];
     if(this.phase === 'say' && step.wait && !this.done && now - this.t0 >= step.wait * 4 * bpmBeat(0)) this.mark();
+    if(this.phase === 'say' && step.demo && S.free && !this.demoDone && now - this.t0 > 1.2) this.freeDemo(now);
     if(this.phase === 'good' && now - this.praiseAt > 1.6){ this.next(); return; }
     if(!step.demo) return;
     const V = BEATV;
@@ -3470,6 +3514,27 @@ const Tut = {
         this.demoDone = true;
         setTimeout(() => this.toTry(), 700);
       }
+    }
+  },
+  freeDemo(now){                                    // 박자 없는 구간의 시범 — 누르고(필요하면) 민다
+    const step = TUT[this.i];
+    if(!this.want || !S.grid[this.want.from[0]][this.want.from[1]]) this.pickTarget();
+    if(!this.want) return;
+    const [r, c] = this.want.from;
+    if(!S.sel){
+      trySelect(r, c, now, true);
+      this.handT = 0;
+      this.say('보세요 — 이렇게 <b>눌러요</b>.' + (step.demo === 'move' ? '<br>이어서 <b>화살표 쪽으로</b> 밀 거예요.' : ''));
+      if(step.demo === 'press'){ this.demoDone = true; setTimeout(() => this.toTry(), 1100); }
+      return;
+    }
+    if(step.demo === 'move'){
+      this.handT = 1;
+      const from = this.want.from, to = this.want.to;
+      S.sel = null;
+      if(trySwap(from, to, now)){ setTimeout(freeSettle, 280); this.say('이렇게 밀면 세 마리가 모여 <b>터져요</b>.'); }
+      this.demoDone = true;
+      setTimeout(() => this.toTry(), 1100);
     }
   },
   toTry(){                                          // 이제 직접 해 볼 차례
