@@ -277,6 +277,22 @@
   /* 아래에서 고개를 내미는 강아지들 */
   #start .pack{display:flex;justify-content:center;gap:2px;margin:6px 0 10px;pointer-events:none}   /* v0.1.84 아래에 잘리지 않게 올렸다 */
   #start .pack img{width:64px;height:64px;display:block;--ps:1}
+  #start .pack img:last-child{pointer-events:auto;cursor:pointer}   /* v0.2.40 개발자 통계 문 */
+  /* 개발자 통계 */
+  #dev #devPw{text-align:center;letter-spacing:.3em}
+  .devwrap{width:min(360px,100%);display:flex;flex-direction:column;gap:10px}
+  .devgrid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:2px;background:var(--edge);box-shadow:0 0 0 3px var(--edge)}
+  .devgrid div{background:var(--panel);padding:7px 8px;text-align:center}
+  .devgrid dt{margin:0;font-size:10px;color:var(--cream-dim);white-space:nowrap}
+  .devgrid dd{margin:0;font-size:16px;font-variant-numeric:tabular-nums}
+  .devbars{display:flex;flex-direction:column;gap:3px}
+  .devbars .row{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--cream-dim)}
+  .devbars .row b{flex:none;width:34px;text-align:right;color:var(--cream)}
+  .devbars .bar{flex:1;height:10px;background:rgba(255,255,255,.08);border-radius:999px;overflow:hidden}
+  .devbars .bar i{display:block;height:100%;background:linear-gradient(90deg,#FFB627,#FF7A1A)}
+  .devlog{max-height:180px;overflow:auto;display:flex;flex-direction:column;gap:2px;font-size:12px}
+  .devlog span{display:flex;justify-content:space-between;gap:8px;background:var(--panel);padding:5px 8px}
+  .devlog em{font-style:normal;color:var(--cream-dim)}
   #start .pack img:nth-child(odd){transform:rotate(-7deg) scale(var(--ps))}
   #start .pack img:nth-child(even){transform:rotate(6deg) translateY(4px) scale(var(--ps))}
 
@@ -303,6 +319,7 @@
            justify-content:center;gap:20px;padding:26px;background:rgba(10,10,18,.94);
            text-align:center;overflow-y:auto}
   .overlay[hidden]{display:none}
+  [hidden]{display:none !important}   /* v0.2.40 .nameform 처럼 display 를 정한 요소는 hidden 이 안 먹었다 */
   /* 버전 — 오른쪽 아래 구석에 작게. 시작·게임·결과 화면 어디서나 보인다 */
   .ver{position:absolute;right:8px;bottom:6px;z-index:12;font-size:10px;letter-spacing:.06em;
        color:var(--cream-dim);opacity:.7;pointer-events:none;user-select:none;font-variant-numeric:tabular-nums}
@@ -591,6 +608,20 @@
 
   </div>
 
+  <!-- 개발자 통계 (v0.2.40) — 메뉴 맨 오른쪽 강아지를 눌러 2424 를 넣으면 열린다 -->
+  <div class="overlay" id="dev" hidden role="dialog" aria-modal="true" aria-labelledby="devTitle">
+    <h2 id="devTitle">개발자 통계</h2>
+    <form class="nameform" id="devPin">
+      <p>비밀번호를 넣으세요</p>
+      <div class="namerow">
+        <input id="devPw" inputmode="numeric" maxlength="8" autocomplete="off" placeholder="● ● ● ●">
+        <button id="devGo" type="submit">확인</button>
+      </div>
+    </form>
+    <div id="devBody" hidden></div>
+    <button id="devClose" type="button">닫기</button>
+  </div>
+
   <div class="overlay" id="help" hidden role="dialog" aria-modal="true" aria-labelledby="helpTitle">
     <h2 id="helpTitle">게임 설명</h2>
     <div class="turn">
@@ -662,7 +693,7 @@
    ========================================================================= */
 
 // 게임 버전 — 수정해서 배포할 때마다 끝 두 자리를 1씩 올린다(v0.1.01 → v0.1.02). 화면 오른쪽 아래에 보인다
-const GAME_VERSION = 'v0.2.39';   // 버전 표기 — 패치 자리는 두 자리 (v0.2.01, v0.2.02 …)
+const GAME_VERSION = 'v0.2.40';   // 버전 표기 — 패치 자리는 두 자리 (v0.2.01, v0.2.02 …)
 /*
  * 번쩍임 줄이기 (v0.1.22) — 광과민성 배려. 켜면 화면 전체 번쩍임·흔들림을 끄고, 발판 조명·테두리 박동을 약하게.
  * 폰의 '동작 줄이기'가 켜져 있으면 처음부터 켠다. 고른 값은 이 기기에 기억한다.
@@ -3932,7 +3963,15 @@ const Rank = (() => {
       f.hidden = false;
     }
   }
-  return { refresh, afterGame, name, setName, ensureName };
+  /** 개발자 통계용 원자료 — 읽기는 누구나 허용돼 있다 (v0.2.40) */
+  async function raw(lim){
+    const res = await fetch(URL_ + '/rest/v1/' + TABLE +
+      '?select=id,name,score,level,combo,device,created_at&order=created_at.desc&limit=' + (lim || 1000),
+      { headers: H() });
+    if(!res.ok) throw new Error('HTTP ' + res.status);
+    return res.json();
+  }
+  return { refresh, afterGame, name, setName, ensureName, raw };
 })();
 
 /* ------------------------------------------------------------ UI 바인딩 */
@@ -4158,6 +4197,79 @@ addEventListener('keydown', e => {
     box.appendChild(im);
   }
 })();
+/*
+ * 개발자 통계 (v0.2.40) — 메뉴 맨 오른쪽 강아지를 누르고 비밀번호(2424)를 넣으면 열린다.
+ * 랭킹 테이블을 그대로 읽어(읽기는 누구나 허용) 화면에서 집계한다.
+ */
+const DEV_PIN = '2424';
+function devOpen(){
+  el('dev').hidden = false;
+  el('devBody').hidden = true; el('devBody').innerHTML = '';
+  el('devPin').hidden = false;
+  el('devPw').value = '';
+  setTimeout(() => el('devPw').focus(), 50);
+}
+async function devLoad(){
+  const box = el('devBody');
+  box.hidden = false;
+  box.innerHTML = '<p class="note">불러오는 중…</p>';
+  let rows;
+  try{
+    rows = await Rank.raw(3000);
+  }catch(e){
+    box.innerHTML = '<p class="note">기록을 불러오지 못했습니다 (' + e.message + ')</p>';
+    return;
+  }
+  if(!rows.length){ box.innerHTML = '<p class="note">아직 기록이 없습니다</p>'; return; }
+  const now = Date.now(), DAY = 86400000;
+  const scores = rows.map(r => Number(r.score) || 0).sort((a,b) => a-b);
+  const sum = scores.reduce((a,b) => a+b, 0);
+  const mid = scores.length % 2 ? scores[(scores.length-1)/2]
+            : Math.round((scores[scores.length/2 - 1] + scores[scores.length/2]) / 2);
+  const devices = new Set(rows.map(r => r.device || ('id:' + r.id))).size;
+  const names = new Set(rows.map(r => r.name)).size;
+  const since = h => rows.filter(r => now - Date.parse(r.created_at) < h*3600000).length;
+  const lv = new Array(9).fill(0);
+  for(const r of rows){ const L = Math.max(1, Math.min(9, r.level || 1)); lv[L-1]++; }
+  const lvMax = Math.max(1, ...lv);
+  const bestCombo = Math.max(0, ...rows.map(r => r.combo || 0));
+  const avgLv = (rows.reduce((a,r) => a + (r.level || 1), 0) / rows.length).toFixed(1);
+  const N = v => Number(v).toLocaleString();
+  const cell = (k, v) => `<div><dt>${k}</dt><dd>${v}</dd></div>`;
+  box.innerHTML = `
+    <div class="devwrap">
+      <div class="devgrid">
+        ${cell('총 판수', N(rows.length))}${cell('기기 수', N(devices))}${cell('이름 수', N(names))}
+        ${cell('최근 24시간', N(since(24)))}${cell('최근 7일', N(since(24*7)))}${cell('최고 콤보', N(bestCombo))}
+        ${cell('최고 점수', N(scores[scores.length-1]))}${cell('평균 점수', N(Math.round(sum/scores.length)))}${cell('중앙값', N(mid))}
+      </div>
+      <p class="note" style="margin:2px 0 0">도달 레벨 분포 · 평균 Lv ${avgLv}</p>
+      <div class="devbars">
+        ${lv.map((n, i) => `<div class="row"><b>Lv${i+1}</b><span class="bar"><i style="width:${Math.round(n/lvMax*100)}%"></i></span><em>${N(n)}</em></div>`).join('')}
+      </div>
+      <p class="note" style="margin:2px 0 0">최근 기록</p>
+      <div class="devlog">
+        ${rows.slice(0, 40).map(r => {
+          const d = new Date(r.created_at);
+          const t = `${d.getMonth()+1}/${d.getDate()} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+          return `<span><em>${t}</em><b>${r.name}</b><em>Lv${r.level || 1}·${r.combo || 0}콤보</em><b>${N(r.score)}</b></span>`;
+        }).join('')}
+      </div>
+    </div>`;
+}
+el('devPin').addEventListener('submit', e => {
+  e.preventDefault();
+  if(el('devPw').value.trim() !== DEV_PIN){ el('devPw').value = ''; el('devPw').placeholder = '다시'; return; }
+  el('devPin').hidden = true;
+  devLoad();
+});
+el('devClose').addEventListener('click', () => { el('dev').hidden = true; });
+(function devDoor(){
+  const box = el('pack');
+  if(!box) return;
+  box.addEventListener('click', e => { if(e.target === box.lastElementChild) devOpen(); });
+})();
+
 const calmLabel = () => { el('calm').textContent = CALM.on ? '번쩍임 줄이기 켜짐' : '번쩍임 줄이기 꺼짐'; el('calm').classList.toggle('off', !CALM.on); };
 calmLabel();
 const vibLabel = () => { el('vib').textContent = VIB.on ? '진동 켜짐' : '진동 꺼짐'; el('vib').classList.toggle('off', !VIB.on); };
