@@ -662,7 +662,7 @@
    ========================================================================= */
 
 // 게임 버전 — 수정해서 배포할 때마다 끝 두 자리를 1씩 올린다(v0.1.01 → v0.1.02). 화면 오른쪽 아래에 보인다
-const GAME_VERSION = 'v0.2.36';   // 버전 표기 — 패치 자리는 두 자리 (v0.2.01, v0.2.02 …)
+const GAME_VERSION = 'v0.2.37';   // 버전 표기 — 패치 자리는 두 자리 (v0.2.01, v0.2.02 …)
 /*
  * 번쩍임 줄이기 (v0.1.22) — 광과민성 배려. 켜면 화면 전체 번쩍임·흔들림을 끄고, 발판 조명·테두리 박동을 약하게.
  * 폰의 '동작 줄이기'가 켜져 있으면 처음부터 켠다. 고른 값은 이 기기에 기억한다.
@@ -4052,14 +4052,15 @@ const Tut = {
   /** 튜토리얼이 지금 이 칸을 만지게 해 주는가 — 하라는 것만 되게 (v0.1.96) */
   allow(r, c){
     if(!this.on) return true;
-    if(!TUT[this.i].demo) return true;                // 설명만 하는 단계 — 판을 맘껏 만져 봐도 된다
+    // v0.2.37 설명 중에는 조작을 막는다 — 맘껏 해 보는 건 마지막 '이제 시작해 볼까요?' 단계뿐
+    if(!TUT[this.i].demo) return !!TUT[this.i].last;
     if(this.phase !== 'try' || !this.want) return false;
     return r === this.want.from[0] && c === this.want.from[1];
   },
   /** 미는 방향도 화살표 쪽만 */
   allowDir(dx, dy){
     if(!this.on) return true;
-    if(!TUT[this.i].demo) return true;                // 설명만 하는 단계 — 아무 쪽으로나
+    if(!TUT[this.i].demo) return !!TUT[this.i].last;   // v0.2.37 마지막 단계에서만 아무 쪽으로나
     if(this.phase !== 'try' || !this.want) return false;
     if(TUT[this.i].demo !== 'move') return false;
     const dr = Math.abs(dx) > Math.abs(dy) ? 0 : (dy > 0 ? 1 : -1);
