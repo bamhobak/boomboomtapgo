@@ -276,9 +276,9 @@
   #start input[type=range]::-moz-range-thumb{background:#FF8A1E;border-radius:6px}
   /* 아래에서 고개를 내미는 강아지들 */
   #start .pack{display:flex;justify-content:center;gap:2px;margin:6px 0 10px;pointer-events:none}   /* v0.1.84 아래에 잘리지 않게 올렸다 */
-  #start .pack img{width:64px;height:64px;display:block}
-  #start .pack img:nth-child(odd){transform:rotate(-7deg)}
-  #start .pack img:nth-child(even){transform:rotate(6deg) translateY(4px)}
+  #start .pack img{width:64px;height:64px;display:block;--ps:1}
+  #start .pack img:nth-child(odd){transform:rotate(-7deg) scale(var(--ps))}
+  #start .pack img:nth-child(even){transform:rotate(6deg) translateY(4px) scale(var(--ps))}
 
   /* 튜토리얼 안내 — 판 아래(우퍼 자리)에 크림색 말풍선으로 (v0.1.79) */
   .tut{position:absolute;left:0;right:0;bottom:0;z-index:9;padding:0 10px 10px;pointer-events:none}
@@ -580,8 +580,8 @@
     </div>
 
     <div class="menurow">
-      <button class="ghost" id="tutBtn" type="button">튜토리얼</button>
       <button class="ghost" id="helpBtn" type="button">게임 설명</button>
+      <button class="ghost" id="tutBtn" type="button">튜토리얼</button>
       <button class="ghost" id="setBtn" type="button">설정</button>
     </div>
 
@@ -662,7 +662,7 @@
    ========================================================================= */
 
 // 게임 버전 — 수정해서 배포할 때마다 끝 두 자리를 1씩 올린다(v0.1.01 → v0.1.02). 화면 오른쪽 아래에 보인다
-const GAME_VERSION = 'v0.2.38';   // 버전 표기 — 패치 자리는 두 자리 (v0.2.01, v0.2.02 …)
+const GAME_VERSION = 'v0.2.39';   // 버전 표기 — 패치 자리는 두 자리 (v0.2.01, v0.2.02 …)
 /*
  * 번쩍임 줄이기 (v0.1.22) — 광과민성 배려. 켜면 화면 전체 번쩍임·흔들림을 끄고, 발판 조명·테두리 박동을 약하게.
  * 폰의 '동작 줄이기'가 켜져 있으면 처음부터 켠다. 고른 값은 이 기기에 기억한다.
@@ -3870,9 +3870,9 @@ const Rank = (() => {
       li.className = (i < 3 ? 'p'+(i+1) : '') + (row ? '' : ' ghost') + (row && mine && row.name === mine.name && row.score === mine.score ? ' me' : '');
       const rk = document.createElement('span'); rk.className = 'rk'; rk.textContent = i < 3 ? medal[i] : i+1;
       const nm = document.createElement('span'); nm.className = 'nm'; nm.textContent = row ? row.name : '-';
-      if(row){
+      if(row && row.combo){                            // v0.2.39 도달 레벨은 안 보여준다(요청) — 콤보만
         const sm = document.createElement('small');
-        sm.textContent = 'Lv' + (row.level || 1) + (row.combo ? ' · ' + row.combo + '콤보' : '');
+        sm.textContent = row.combo + '콤보';
         nm.appendChild(sm);
       }
       const sc = document.createElement('span'); sc.className = 'sc'; sc.textContent = row ? Number(row.score).toLocaleString() : '';
@@ -4116,8 +4116,7 @@ const Tut = {
   quit(){
     this.on = false; this.want = null; this.handT = null;
     el('tut').hidden = true;
-    try{ localStorage.setItem('btg_tut_done', '1'); }catch(e){}
-    el('tutBtn').classList.add('off');
+    try{ localStorage.setItem('btg_tut_done', '1'); }catch(e){}   // v0.2.39 기록만 남기고 단추는 그대로 둔다
     S.live = false; S.tut = false;
     bgmStop(0.4); clearInterval(schedTimer); schedTimer = null;
     el('start').hidden = false;
@@ -4136,7 +4135,6 @@ const Tut = {
 el('tutBtn').addEventListener('click', () => Tut.start());
 el('tutNext').addEventListener('click', () => Tut.next());
 el('tutSkip').addEventListener('click', () => Tut.quit());
-try{ if(localStorage.getItem('btg_tut_done')) el('tutBtn').classList.add('off'); }catch(e){}
 
 el('helpBtn').addEventListener('click', () => { el('help').hidden = false; el('helpClose').focus(); });
 el('helpClose').addEventListener('click', () => { el('help').hidden = true; el('helpBtn').focus(); });
@@ -4154,6 +4152,9 @@ addEventListener('keydown', e => {
   for(const i of CONFIG.roster){
     const im = document.createElement('img');
     im.src = FACE_SRC[i]; im.alt = '';
+    // v0.2.39 그림마다 얼굴이 차지하는 넓이가 달라 그냥 늘어놓으면 크기가 들쭉날쭉하다 —
+    // 판에서 쓰는 품종별 보정(PET_SCALE)을 여기에도 먹인다
+    im.style.setProperty('--ps', (PET_SCALE[i] || 1).toFixed(3));
     box.appendChild(im);
   }
 })();
