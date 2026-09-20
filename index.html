@@ -437,7 +437,7 @@
          background-image:radial-gradient(ellipse 140% 55% at 50% 108%,rgba(255,138,30,.22),transparent 60%),
                           radial-gradient(circle,rgba(120,110,255,.16) 1px,transparent 1.5px);
          background-size:100% 100%,14px 14px}
-  #cv{box-shadow:0 0 26px rgba(255,138,30,.3),0 0 42px rgba(76,141,255,.22)}
+  #cv{transition:box-shadow 60ms linear}   /* 테두리 번짐은 박 색을 따라 자바스크립트가 넣는다 (v0.1.93) */
   #announce,#combo{-webkit-text-stroke:7px #1A1238;paint-order:stroke fill}   /* 흰 발판 위에서도 글자가 또렷하게 — 진한 남색 테두리 */
   .marquee{flex:0 0 auto;margin:8px 8px 0;border-radius:20px;border:3px solid var(--edge);background:var(--panel);
            box-shadow:0 0 0 1px var(--room),0 0 22px rgba(255,138,30,.18),inset 0 0 18px rgba(76,141,255,.12)}
@@ -2698,8 +2698,13 @@ function draw(now){
     roundRectPath(3,3,w-6,h-6,R-3); ctx.stroke();
   }
   // 이중 테두리 — 바깥 딱 주황 · 안쪽 숑 파랑 (v0.1.34 두껍게, 판 안쪽으로 들여서)
-  ctx.strokeStyle='#FF8A1E'; ctx.lineWidth=2; roundRectPath(1,1,w-2,h-2,R-1); ctx.stroke();
-  ctx.strokeStyle='#4C8DFF'; ctx.lineWidth=1.5; roundRectPath(3.2,3.2,w-6.4,h-6.4,Math.max(3,R-3.2)); ctx.stroke();
+  // 판 테두리 = 지금 박 색 (v0.1.93) — 1박 하양 · 2박 노랑 · 3박 주황 · 4박 파랑, 박 직후에 더 밝다
+  {
+    const bp = BEAT_POP[BEATV ? BEATV.pos % 4 : 0], bk = BEATV ? BEATV.k : 0;
+    ctx.strokeStyle = `rgba(${bp.rgb},${(0.5 + 0.45*bk).toFixed(3)})`;
+    ctx.lineWidth = 3;
+    roundRectPath(2, 2, w-4, h-4, R-2); ctx.stroke();
+  }
 
   ctx.save(); ctx.beginPath(); ctx.rect(PAD,PAD,w-PAD*2,h-PAD*2); ctx.clip();
   ctx.translate(PAD, PAD);
@@ -2923,7 +2928,7 @@ function frame(){
 
   // 곡이 판을 기다리는 동안에는 BGM 도 같이 멈춘다 — 안 그러면 박자가 어긋난다
   if(S.holding){ if(Bgm.src) bgmStop(); }
-  else if(!S.free && !Bgm.src && song >= 0 && Bank.buf[trackForLevel(BARS[barAtTime(song)].level).key]) bgmStart(song);
+  else if(!Bgm.src && song >= 0 && Bank.buf[trackForLevel(BARS[barAtTime(song)].level).key]) bgmStart(song);   // v0.1.93 자유 연습에도 1레벨 곡은 흐른다(박자 예약만 없다)
 
   const beat = beatAt(song);
   const bi = barAtBeat(Math.floor(beat));
@@ -3011,6 +3016,7 @@ function frame(){
       th.style.setProperty('--tc', bp.rgb);
       th.style.setProperty('--tk', k.toFixed(3));
     }
+    cv.style.boxShadow = `0 0 ${Math.round(16 + 30*k)}px rgba(${bp.rgb},${(0.2 + 0.45*k).toFixed(3)})`;   // 판 둘레 번짐도 박 색
   }
   el('callout').classList.toggle('waiting', S.holding);
 
