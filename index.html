@@ -108,7 +108,7 @@
   @media (prefers-reduced-motion:reduce){ .timebar .fill.low{animation:none} }
   #mult.hot{color:var(--gold);text-shadow:0 0 16px rgba(253,224,71,.7)}
 
-  .boardwrap{flex:1 1 auto;position:relative;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;min-height:0;padding:26px 4px 0}   /* v0.1.95 판을 조금 아래로 */   /* v0.1.87 판·구호·우퍼를 한 덩어리로 위에 붙인다 */
+  .boardwrap{flex:1 1 auto;position:relative;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;min-height:0;padding:44px 4px 0}   /* v0.2.11 판을 더 아래로 */   /* v0.1.87 판·구호·우퍼를 한 덩어리로 위에 붙인다 */
 
   /* 박자 구호 — 판 바로 위. 박마다 그 박 글자가 커지며 켜진다: 둠 · 칫 · 딱(누르기) · 숑(드래그) */
   .callout{display:flex;gap:30px;align-items:flex-end;justify-content:center;height:54px;margin-bottom:8px;
@@ -164,11 +164,11 @@
   .thump{position:relative;align-self:stretch;width:auto;height:0;margin:0 -16px;display:flex;justify-content:center;pointer-events:none;z-index:0;--tc:255,255,255;--tk:0}   /* v0.1.92 자리를 안 차지한다 — 판 크기를 깎지 않게 */
   /* v0.1.93 판 모서리와 우퍼 사이의 어두운 틈을 없앤다 — 판 뒤로 파고들어 메운다 */
   .thump .cone{position:absolute;top:-20px;display:block;width:calc(96% + 4% * var(--tk));height:42px;border-radius:0 0 90px 90px;
-               background:linear-gradient(180deg,rgba(var(--tc),calc(.3 + .7 * var(--tk))),rgba(var(--tc),calc(.06 + .4 * var(--tk))));
-               box-shadow:0 0 calc(12px + 34px * var(--tk)) rgba(var(--tc),calc(.2 + .7 * var(--tk)));
+               background:linear-gradient(180deg,rgba(var(--tc),calc(.4 + .6 * var(--tk))),rgba(var(--tc),calc(.12 + .45 * var(--tk))));
+               box-shadow:0 0 calc(16px + 36px * var(--tk)) rgba(var(--tc),calc(.26 + .64 * var(--tk)));
                transform:scaleY(calc(1 + 0.75 * var(--tk)));transform-origin:50% 0}
   .thump .glow{position:absolute;left:-4%;right:-4%;top:-14px;height:70px;border-radius:50%;
-               background:radial-gradient(ellipse at 50% 0%,rgba(var(--tc),calc(.55 * var(--tk))),transparent 74%);
+               background:radial-gradient(ellipse at 50% 0%,rgba(var(--tc),calc(.12 + .5 * var(--tk))),transparent 74%);
                filter:blur(4px)}
   /* 3·4박 판정 글자 — 우퍼 위에 뜬다 (v0.1.60) */
   /*
@@ -626,7 +626,7 @@
    ========================================================================= */
 
 // 게임 버전 — 수정해서 배포할 때마다 끝 두 자리를 1씩 올린다(v0.1.01 → v0.1.02). 화면 오른쪽 아래에 보인다
-const GAME_VERSION = 'v0.2.10';   // 버전 표기 — 패치 자리는 두 자리 (v0.2.01, v0.2.02 …)
+const GAME_VERSION = 'v0.2.11';   // 버전 표기 — 패치 자리는 두 자리 (v0.2.01, v0.2.02 …)
 /*
  * 번쩍임 줄이기 (v0.1.22) — 광과민성 배려. 켜면 화면 전체 번쩍임·흔들림을 끄고, 발판 조명·테두리 박동을 약하게.
  * 폰의 '동작 줄이기'가 켜져 있으면 처음부터 켠다. 고른 값은 이 기기에 기억한다.
@@ -1013,7 +1013,9 @@ function floorLevel(t){
 function finalizeBar(k){
   const bar = BARS[k];
   if(!bar || bar.final) return false;
-  const level = Math.max(S.tut ? TUT_LEVEL : 0, levelOfCombo(S.combo), floorLevel(bar.startTime)), bpm = bpmOfLevel(level);
+  const level = S.tut ? TUT_LEVEL                          // 튜토리얼은 2단계 고정 — 콤보로 안 오른다
+                      : Math.max(levelOfCombo(S.combo), floorLevel(bar.startTime));
+  const bpm = bpmOfLevel(level);
   Object.assign(bar, { level, bpm, beatLen:60/bpm, final:true });
   BARS.length = k + 1;
   appendBar();
@@ -1503,6 +1505,7 @@ function layout(){
   const padV = (parseFloat(cs.paddingTop) || 0) + (parseFloat(cs.paddingBottom) || 0);
   const w = wrap.clientWidth, h = wrap.clientHeight - callH - thumpH - padV;
   cell = Math.max(8, Math.floor(Math.min((w-PAD*2)/CONFIG.cols, (h-PAD*2)/CONFIG.rows)));
+  POP_RING_CACHE.clear();                            // 칸 크기가 바뀌면 만들어 둔 고리는 버린다 (v0.2.11)
   const cw = cell*CONFIG.cols + PAD*2, ch = cell*CONFIG.rows + PAD*2;
   const dpr = Math.min(devicePixelRatio||1, 2);   // 2를 넘겨도 화질 차이는 거의 없고 발열만 커진다
   cv.style.width = cw+'px'; cv.style.height = ch+'px';
@@ -1619,6 +1622,7 @@ function applyJudge(j){
 }
 /** 마디 끝 — 이 턴의 두 판정을 합쳐 배율을 한 번 움직인다 */
 function settleMult(turnPops){
+  if(S.tut){ S.turnJ = {}; return; }                       // v0.2.11 튜토리얼은 배율을 올리지도 깎지도 않는다
   const t = S.turnJ || {};
   const a = t.T, b = t.D;
   S.turnJ = {};
@@ -1655,7 +1659,7 @@ function clearCells(cells, now, depth, label, noScore){
 
   const J = noScore ? 0 : juiceLevel();
   // 칸당 파편 수 — 흥이 오를수록 많게, 한 번에 터지는 칸이 많으면 칸당 줄여 총량을 묶는다
-  const perCell = Math.max(2, Math.min(4 + J, Math.ceil(170 / set.size)));
+  const perCell = Math.max(2, Math.min(4 + J, Math.ceil(130 / set.size)));   // v0.2.11 한 번에 뿌리는 총량 170→130
   let sx = 0, sy = 0;
   for(const [,[r,c]] of set){
     const t = S.grid[r][c];
@@ -1675,7 +1679,7 @@ function clearCells(cells, now, depth, label, noScore){
     if(J >= 2) S.shake = Math.max(S.shake, Math.min(14, J*1.1));
   }
 
-  if(!noScore){
+  if(!noScore && !S.tut){                            // v0.2.11 튜토리얼은 점수를 매기지 않는다
     const SC = CONFIG.score;
     const shapeMul = (label && SC.shape[label]) || 1;                       // 4줄 · ㄱㄴ+ · 5줄은 한 단계씩 더
     const comboMul = Math.min(SC.comboMax, 1 + Math.max(0, S.combo - 1) * SC.comboStep);   // 콤보가 쌓일수록 같은 것도 더 준다
@@ -1956,23 +1960,45 @@ function shapesFor(J){
   return sh;
 }
 /** 파편 하나 — 외곽선 → 채우기 → 하이라이트. size 는 반지름(px) */
-function drawBit(name, x, y, size, col, rot){
+/*
+ * 파편 그리기 (v0.2.11).
+ * 예전에는 파편 하나마다 외곽선 stroke + fill + 하이라이트를 새로 그렸다.
+ * 크게 터지면 한 화면에 파편이 400개 넘게 살아 있어 초당 1만 5천 번씩 경로를 그렸고, 그게 끊김의 주범이었다.
+ * 이제 모양·색 조합마다 작은 그림을 한 번만 만들어 두고(스프라이트) 그걸 돌려 찍는다.
+ */
+const BIT_PX = 32;                                 // 스프라이트 한 변
+const BIT_UNIT = BIT_PX/2 * 0.82;                  // 경로 1 = 몇 픽셀인가
+const BIT_CACHE = new Map();
+function bitSprite(name, col, hi){
+  const k = name + '|' + col + (hi ? '|H' : '');
+  let sp = BIT_CACHE.get(k);
+  if(sp) return sp;
+  sp = document.createElement('canvas'); sp.width = sp.height = BIT_PX;
+  const g = sp.getContext('2d');
   const path = BIT_PATH[name] || BIT_PATH.dot;
-  const k = Math.max(1.5, size);
-  ctx.save();
-  ctx.translate(x, y); ctx.rotate(rot || 0); ctx.scale(k, k);
-  ctx.lineJoin = 'round';
-  ctx.lineWidth = 0.42;                            // 스티커처럼 굵은 외곽선(크기에 비례)
-  ctx.strokeStyle = BIT_EDGE; ctx.stroke(path);
-  ctx.fillStyle = col; ctx.fill(path, name === 'ring' ? 'evenodd' : 'nonzero');
-  if(k > 3){                                       // 작은 하이라이트 하나
-    ctx.fillStyle = 'rgba(255,255,255,0.55)';
-    ctx.beginPath(); ctx.ellipse(-0.28, -0.32, 0.2, 0.13, -0.6, 0, Math.PI*2); ctx.fill();
+  g.translate(BIT_PX/2, BIT_PX/2); g.scale(BIT_UNIT, BIT_UNIT);
+  g.lineJoin = 'round';
+  g.lineWidth = 0.42;                              // 스티커처럼 굵은 외곽선(크기에 비례)
+  g.strokeStyle = BIT_EDGE; g.stroke(path);
+  g.fillStyle = col; g.fill(path, name === 'ring' ? 'evenodd' : 'nonzero');
+  if(hi){                                          // 작은 하이라이트 하나
+    g.fillStyle = 'rgba(255,255,255,0.55)';
+    g.beginPath(); g.ellipse(-0.28, -0.32, 0.2, 0.13, -0.6, 0, Math.PI*2); g.fill();
   }
+  BIT_CACHE.set(k, sp);
+  return sp;
+}
+function drawBit(name, x, y, size, col, rot){
+  const k = Math.max(1.5, size);
+  const sp = bitSprite(name, col, k > 3);
+  const d = BIT_PX * k / BIT_UNIT;
+  ctx.save();
+  ctx.translate(x, y); ctx.rotate(rot || 0);
+  ctx.drawImage(sp, -d/2, -d/2, d, d);
   ctx.restore();
 }
 
-const BITS_MAX = 520;                              // 폰이 버벅이지 않게 — 한 화면 파편 상한
+const BITS_MAX = 300;                              // 폰이 버벅이지 않게 — 한 화면 파편 상한 (v0.2.11 520→300)
 function spawnBits(r,c,t,now,J,perCell){
   J = J || 0;
   const col = PETS[t.color].hex, shapes = shapesFor(J);
@@ -2578,25 +2604,43 @@ function selMark(x, y, now, color){
   }
   ctx.restore();
 }
-function popMark(x, y, now, color, alpha){
-  // v0.1.33 진분홍 + 바깥 진갈색 한 겹. v0.1.35 가운데를 비운 '고리'로 — 반투명한 말(곧 채워질 빈 칸·내려오는 말) 뒤가 분홍 덩어리로 비치지 않게
-  const p = 0.5 + 0.5*Math.sin(now*16);
+/*
+ * 곧 터질 말 고리 — 미리 만들어 두고 돌려 쓴다 (v0.2.11).
+ * 예전에는 부를 때마다 작업판 크기를 다시 매기고 drawImage 를 34번 돌려 고리를 새로 만들었다(한 번에 0.8ms).
+ * 크게 터져 곧 터질 말이 여럿이면 매 프레임 그걸 예닐곱 번씩 해서, 그리기 시간의 3/4을 여기서 썼다.
+ * 이제 색 × 숨결 단계(6칸)로 나눠 캐시한다 — 5×6 = 서른 장.
+ */
+const POP_STEPS = 6;
+const POP_RING_CACHE = new Map();
+function popRing(color, step){
+  const ck = color + '|' + step + '|' + Math.round(cell);
+  const hit = POP_RING_CACHE.get(ck);
+  if(hit) return hit;
   const sil = silhouette(color, POP_MARK), edge = silhouette(color, '#3B2314'), base = silhouette(color);
+  if(!sil || !edge || !base) return null;              // 그림이 아직 안 왔다 — 캐시에 넣지 않는다
+  const p = step/(POP_STEPS - 1);
+  const k = cell*PET_FILL*1.04*(PET_SCALE[color] || 1), r = Math.max(3, cell*(0.09 + 0.03*p));
+  const S2 = Math.ceil(k + (r + 3)*2), o = S2/2 - k/2;
+  const cv2 = document.createElement('canvas');
+  cv2.width = S2; cv2.height = S2;
+  const g = cv2.getContext('2d');
+  for(let i=0;i<16;i++){ const a = i*Math.PI/8; g.drawImage(edge, o + Math.cos(a)*(r + 2), o + Math.sin(a)*(r + 2), k, k); }
+  g.globalAlpha = 0.7 + 0.3*p;
+  for(let i=0;i<16;i++){ const a = i*Math.PI/8; g.drawImage(sil, o + Math.cos(a)*r, o + Math.sin(a)*r, k, k); }
+  g.globalAlpha = 1;
+  g.globalCompositeOperation = 'destination-out';      // 말 모양만큼 속을 파낸다 → 테두리 고리만 남는다
+  g.drawImage(base, o, o, k, k);
+  POP_RING_CACHE.set(ck, cv2);
+  return cv2;
+}
+function popMark(x, y, now, color, alpha){
+  // v0.1.33 진분홍 + 바깥 진갈색 한 겹. v0.1.35 가운데를 비운 '고리'로 — 반투명한 말 뒤가 분홍 덩어리로 비치지 않게
+  const p = 0.5 + 0.5*Math.sin(now*16);
+  const ring = popRing(color, Math.min(POP_STEPS - 1, Math.round(p*(POP_STEPS - 1))));
   const A = alpha == null ? 1 : alpha;
-  if(sil && edge && base){
-    const k = cell*PET_FILL*1.04*(PET_SCALE[color] || 1), r = Math.max(3, cell*(0.09 + 0.03*p));
-    const S2 = Math.ceil(k + (r + 3)*2), o = S2/2 - k/2;
-    RING.width = S2; RING.height = S2;                 // 크기를 다시 매기면 지워진다
-    const g = RING.getContext('2d');
-    for(let i=0;i<16;i++){ const a = i*Math.PI/8; g.drawImage(edge, o + Math.cos(a)*(r + 2), o + Math.sin(a)*(r + 2), k, k); }
-    g.globalAlpha = 0.7 + 0.3*p;
-    for(let i=0;i<16;i++){ const a = i*Math.PI/8; g.drawImage(sil, o + Math.cos(a)*r, o + Math.sin(a)*r, k, k); }
-    g.globalAlpha = 1;
-    g.globalCompositeOperation = 'destination-out';     // 말 모양만큼 속을 파낸다 → 테두리 고리만 남는다
-    g.drawImage(base, o, o, k, k);
-    g.globalCompositeOperation = 'source-over';
+  if(ring){
     ctx.save(); ctx.globalAlpha = A;
-    ctx.drawImage(RING, Math.round(x - S2/2), Math.round(y - S2/2));
+    ctx.drawImage(ring, Math.round(x - ring.width/2), Math.round(y - ring.height/2));
     ctx.restore();
   } else {                                           // 그림이 아직 없으면 예전 네모
     const sz = cell*PET_FILL, lw = Math.max(2, Math.round(cell*0.07));
@@ -3618,7 +3662,7 @@ const TUT = [
   { rhythm: true, say: '조작은 다 익혔어요!<br>이제 <b>리듬</b>을 얹어 볼게요. 음악이 시작돼요.' },
   { say: '한 마디(4박)가 <b>한 턴</b>이에요.<br><b>1 · 2</b>박은 판을 읽는 시간,<br><b>3</b>박에 누르고 <b>4</b>박에 밀어요.' },
   { say: '판 바깥에서 <b>빛 고리</b>가 들어와요.<br><b>주황 원</b>에 닿으면 <b>3</b>박, <b>파랑 원</b>에 닿으면 <b>4</b>박이에요.', wait: 2 },
-  { demo: 'move', shape: 'line3', say: '이제 박자에 맞춰서 해 볼게요.<br><b>3</b>박(주황 원)에 누르고, <b>4</b>박(파랑 원)에 화살표 쪽으로 미세요.',
+  { demo: 'move', shape: 'line3', strict: true, say: '이제 박자에 맞춰서 해 볼게요.<br><b>3</b>박(주황 원)에 누르고, <b>4</b>박(파랑 원)에 화살표 쪽으로 미세요.<br>둘 다 <b>NICE</b> 이상이어야 넘어가요.',
     good: '잘했어요! 박자에 맞췄어요.' },
   { say: '이제 시작해 볼까요?<br>박자에 맞춰 누르고 밀면서 많이 터뜨려 보세요.', last: true },
 ];
@@ -3705,12 +3749,14 @@ const Tut = {
   /** 튜토리얼이 지금 이 칸을 만지게 해 주는가 — 하라는 것만 되게 (v0.1.96) */
   allow(r, c){
     if(!this.on) return true;
+    if(!TUT[this.i].demo) return true;                // 설명만 하는 단계 — 판을 맘껏 만져 봐도 된다
     if(this.phase !== 'try' || !this.want) return false;
     return r === this.want.from[0] && c === this.want.from[1];
   },
   /** 미는 방향도 화살표 쪽만 */
   allowDir(dx, dy){
     if(!this.on) return true;
+    if(!TUT[this.i].demo) return true;                // 설명만 하는 단계 — 아무 쪽으로나
     if(this.phase !== 'try' || !this.want) return false;
     if(TUT[this.i].demo !== 'move') return false;
     const dr = Math.abs(dx) > Math.abs(dy) ? 0 : (dy > 0 ? 1 : -1);
@@ -3731,6 +3777,16 @@ const Tut = {
     if(!this.on || this.phase !== 'try') return;
     const step = TUT[this.i];
     if(step.demo !== kind) return;
+    if(step.strict){                                // v0.2.11 리듬 단계 — 3·4박 둘 다 퍼펙트/나이스여야 넘어간다
+      const t = S.turnJ || {}, okT = t.T === 'PERFECT' || t.T === 'NICE', okD = t.D === 'PERFECT' || t.D === 'NICE';
+      if(!okT || !okD){
+        const bad = r => r === 'MISS' ? '놓쳤어요' : r === 'OK' ? '조금 늦었어요' : '아직이에요';
+        this.say('<b>' + bad(!okT ? t.T : t.D) + '.</b> 박에 더 가깝게 해 볼까요?<br>'
+               + '<b>3</b>박(주황 원)에 누르고 <b>4</b>박(파랑 원)에 미세요. 둘 다 <b>NICE</b> 이상이면 넘어가요.');
+        this.pickAt = 0; this.pickTarget(true);     // 판이 바뀌었으니 과녁을 다시
+        return;
+      }
+    }
     this.phase = 'good'; this.praiseAt = clock(); this.want = null; this.handT = null;
     this.say(step.good);
     el('tutNext').disabled = false;
