@@ -665,7 +665,7 @@
    ========================================================================= */
 
 // 게임 버전 — 수정해서 배포할 때마다 끝 두 자리를 1씩 올린다(v0.1.01 → v0.1.02). 화면 오른쪽 아래에 보인다
-const GAME_VERSION = 'v0.2.50';   // 버전 표기 — 패치 자리는 두 자리 (v0.2.01, v0.2.02 …)
+const GAME_VERSION = 'v0.2.51';   // 버전 표기 — 패치 자리는 두 자리 (v0.2.01, v0.2.02 …)
 /*
  * 번쩍임 줄이기 (v0.1.22) — 광과민성 배려. 켜면 화면 전체 번쩍임·흔들림을 끄고, 발판 조명·테두리 박동을 약하게.
  * 폰의 '동작 줄이기'가 켜져 있으면 처음부터 켠다. 고른 값은 이 기기에 기억한다.
@@ -2636,13 +2636,48 @@ function drawWhy(w, h, now){
 }
 
 /*
+ * 힌트를 어느 판에서 고를까 (v0.2.51).
+ * 이 게임은 **4박에 낙하가 적용된 뒤** 내 수가 처리된다(`slotAt(ib)==='D'` 에서 resolveTurn).
+ * 그래서 내려올 말이 밀린 상태에서 '지금 판'으로 고르면, 막상 4박에 무너진 뒤에는 그 수가 안 맞는다
+ * — 이것이 "추천대로 했는데 안 터진다"의 진짜 원인이었다.
+ * 낙하가 이번 턴에 적용될 참이면 **무너진 뒤의 판**(dropPlan)에서 고른다.
+ */
+function hintSrc(){
+  const due = S.dropPlan && S.barIndex >= S.planBar + (S.reshuffling ? 1 : DROP_WAIT_BARS);
+  return due ? S.dropPlan : S.grid;
+}
+/** 그 칸의 말이 **지금도 그 자리에 있는가** — 3박에 누를 때 엉뚱한 말이 잡히지 않게 */
+function hintStable([r, c]){
+  const src = hintSrc();
+  return src === S.grid || src[r][c] === S.grid[r][c];
+}
+/** 힌트로 쓸 수 — 두 칸 모두 지금 자리에 있는 말이어야 한다 */
+function findHintMove(src){
+  const midR = aimR(), midC = aimC();
+  let best = null, bestD = Infinity;
+  for(let r=0;r<CONFIG.rows;r++) for(let c=0;c<CONFIG.cols;c++){
+    for(const [dr, dc] of [[0,1],[1,0]]){
+      const nr = r+dr, nc = c+dc;
+      if(!inb(nr,nc) || !src[r][c] || !src[nr][nc]) continue;
+      if(!hintStable([r,c]) || !hintStable([nr,nc])) continue;
+      if(!swapMakesMatch(src, [r,c], [nr,nc])) continue;
+      const d = Math.hypot(r - midR, c - midC) + Math.hypot(nr - midR, nc - midC)*0.5;
+      if(d < bestD){ bestD = d; best = [[r,c],[nr,nc]]; }
+    }
+  }
+  if(!best) return null;
+  const [a, b] = moverFirst(src, best[0], best[1]);         // 줄에 끼어드는 말 하나만 짚는다
+  return { from:a, to:b };
+}
+
+/*
  * 힌트 (v0.2.42) — 한 턴을 통째로 놓치면 **다음 턴 1박부터** 옮길 수 있는 말 한 쌍을 짚어 준다.
  * 판이 빨라지면 어디를 봐야 할지 놓치기 쉬운데, 콤보가 끊긴 직후가 특히 그렇다.
  * 두 칸을 환하게 띄우고(lighter 합성) 숨쉬는 고리를 둘러, 그 말만 도드라져 보이게 한다.
  * 누르는 순간 사라지고, 그 턴이 지나가도 사라진다.
  */
 function drawHint(w, h, now){
-  if(!S.live || S.tut || S.sel || S.holding) return;
+  if(!S.live || S.tut || S.holding) return;               // v0.2.51 3박에 잡아도 화살표는 안 없앤다
   if(!S.practice && S.barIndex !== S.hintBar) return;     // 연습에서는 늘 짚어 준다 (v0.2.43)
   if(locked()) return;
   // v0.2.47 연습에서는 **턴마다 새로** 짚는다 — 콤보가 이어져도 매 턴 하나씩 보여 준다
@@ -2660,30 +2695,28 @@ function drawHint(w, h, now){
    * 어긋나면 바로 다시 고른다. 지금 둘 수 있는 수가 없으면(내려앉아야 생기는 경우)
    * 아무것도 안 짚는다 — 안 되는 수를 가리키느니 잠깐 비우는 게 낫다.
    */
-  const good = h => h && S.grid[h.from[0]][h.from[1]] && S.grid[h.to[0]][h.to[1]]
-                    && swapMakesMatch(S.grid, h.from, h.to);
+  const src = hintSrc();                                   // v0.2.51 4박에 무너진 **그 판**에서 고른다
+  const good = h => h && src[h.from[0]][h.from[1]] && src[h.to[0]][h.to[1]]
+                    && hintStable(h.from) && hintStable(h.to)
+                    && swapMakesMatch(src, h.from, h.to);
   if(!good(S.hint) && now - (S.hintAt || 0) > 0.05){
     S.hintAt = now;
-    S.hint = null;
-    const mv = findMove(S.grid);                           // 반드시 **지금 판**에서
-    if(mv){
-      const [a, b] = moverFirst(S.grid, mv[0], mv[1]);     // 줄에 끼어드는 말 하나만 짚는다
-      S.hint = { from:a, to:b };
-    }
+    S.hint = findHintMove(src);
   }
   if(!good(S.hint)) return;
   const { from, to } = S.hint;
   const t = S.grid[from[0]][from[1]];
   // v0.2.46 박마다 숨쉰다 — 박이 들어오는 순간 선명하고, 다음 박까지 절반쯤으로 흐려진다
+  // v0.2.51 색도 박을 따라간다 — 1박 흰 · 2박 노랑 · 3박 주황 · 4박 파랑 (우퍼·테두리와 같은 색)
   const p = BEATV ? Math.max(0, Math.min(1, BEATV.k)) : 0.5;
-  const step = Math.min(POP_STEPS - 1, Math.round(p*(POP_STEPS - 1)));
+  const bp = BEAT_POP[BEATV ? BEATV.pos % 4 : 0];
   const A = (0.5 + 0.5*p) * (CALM.on ? 0.7 : 1);
   const x = (from[1]+0.5)*cell, y = (from[0]+0.5)*cell;
   ctx.save();
   roundRectPath(0, 0, w, h, boardR()); ctx.clip();
   ctx.translate(PAD, PAD);
   // ① 옮길 말 — 그 말 모양 그대로 초록 테두리 (v0.2.44)
-  const ring = popRing(t.color, step, HINT_MARK);
+  const ring = popRing(t.color, HINT_STEP, bp.col);        // 색만 바뀌게 — 고리 모양은 한 단계로 고정(캐시 절약)
   if(ring){
     ctx.globalAlpha = A;
     ctx.drawImage(ring, Math.round(x - ring.width/2), Math.round(y - ring.height/2));
@@ -2699,8 +2732,8 @@ function drawHint(w, h, now){
   pts.forEach(([px, py], n) => n ? ctx.lineTo(px, py) : ctx.moveTo(px, py));
   ctx.closePath();
   ctx.lineJoin = 'round';
-  ctx.strokeStyle = '#0B3D1E'; ctx.lineWidth = Math.max(3, cell*0.075); ctx.stroke();
-  ctx.fillStyle = HINT_MARK; ctx.fill();
+  ctx.strokeStyle = 'rgba(10,7,24,0.8)'; ctx.lineWidth = Math.max(3, cell*0.075); ctx.stroke();
+  ctx.fillStyle = bp.col; ctx.fill();
   ctx.globalAlpha = 1;
   ctx.restore();
 }
@@ -2955,6 +2988,7 @@ function warmUp(){
   for(const c of CONFIG.roster){
     silhouette(c); silhouette(c, PETS[c].hex); silhouette(c, POP_MARK); silhouette(c, '#3B2314');
     for(let k=0;k<POP_STEPS;k++){ const r = popRing(c, k); if(r) sprites.push(r); }
+    for(const bp of BEAT_POP){ const r = popRing(c, HINT_STEP, bp.col); if(r) sprites.push(r); }   // v0.2.51 힌트 고리(박자색)
   }
   /*
    * v0.2.25 만들어만 두면 부족하다 — **실제로 보이는 판(ctx)에 한 번씩 그려 봐야** 그림이 화면 쪽으로 올라간다.
@@ -3048,7 +3082,7 @@ function setText(id, v){
 }
 const VEIL = document.createElement('canvas');   // 튜토리얼 어둠막 작업판 (v0.1.96)
 const POP_MARK = '#FF2E93';   // 곧 터질 말 테두리 색
-const HINT_MARK = '#22E06A';  // 힌트로 짚어 주는 말 테두리 색 (v0.2.44) — 분홍·주황·파랑 어디에도 안 겹치는 초록
+const HINT_STEP = 3;          // 힌트 고리는 한 단계 모양만 쓴다 (v0.2.51) — 색이 박을 따라가므로 캐시를 아낀다
 
 /*
  * 내려간다 표시 (v0.1.52) — 다음 턴에 자리를 옮길 말 중 **안 터지는** 말 아래에 작은 꺾쇠(∨) 두 개.
