@@ -615,7 +615,7 @@
    ========================================================================= */
 
 // 게임 버전 — 수정해서 배포할 때마다 끝 두 자리를 1씩 올린다(v0.1.01 → v0.1.02). 화면 오른쪽 아래에 보인다
-const GAME_VERSION = 'v0.1.84';
+const GAME_VERSION = 'v0.1.85';
 /*
  * 번쩍임 줄이기 (v0.1.22) — 광과민성 배려. 켜면 화면 전체 번쩍임·흔들림을 끄고, 발판 조명·테두리 박동을 약하게.
  * 폰의 '동작 줄이기'가 켜져 있으면 처음부터 켠다. 고른 값은 이 기기에 기억한다.
@@ -2265,35 +2265,51 @@ function drawTutMark(w, h, now){
   const x2 = PAD + (tc + 0.5)*cell, y2 = PAD + (tr + 0.5)*cell;
   const p = 0.5 + 0.5*Math.sin(now*7);
   ctx.save();
-  // 누를 칸 — 굵은 고리
-  ctx.strokeStyle = 'rgba(59,35,20,0.85)'; ctx.lineWidth = Math.max(5, cell*0.13);
-  ctx.beginPath(); ctx.arc(x, y, cell*(0.44 + 0.05*p), 0, Math.PI*2); ctx.stroke();
-  ctx.strokeStyle = 'rgba(255,192,46,0.95)'; ctx.lineWidth = Math.max(2, cell*0.07);
-  ctx.beginPath(); ctx.arc(x, y, cell*(0.44 + 0.05*p), 0, Math.PI*2); ctx.stroke();
-  // 밀 방향 — 화살표
+  roundRectPath(0, 0, w, h, boardR()); ctx.clip();
+  // 판 전체를 어둡게 덮고 그 칸만 환하게 뚫는다 — 어디를 눌러야 하는지 한눈에
+  ctx.fillStyle = 'rgba(12,8,30,0.38)';
+  ctx.fillRect(0, 0, w, h);
+  ctx.globalCompositeOperation = 'destination-out';
+  const hole = cell*(0.62 + 0.04*p);
+  const g = ctx.createRadialGradient(x, y, hole*0.55, x, y, hole);
+  g.addColorStop(0, 'rgba(0,0,0,1)'); g.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, hole, 0, Math.PI*2); ctx.fill();
+  if(Tut.want.arrow !== false){                       // 미는 쪽 칸도 살짝 밝게
+    const g2 = ctx.createRadialGradient(x2, y2, cell*0.28, x2, y2, cell*0.6);
+    g2.addColorStop(0, 'rgba(0,0,0,0.75)'); g2.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = g2; ctx.beginPath(); ctx.arc(x2, y2, cell*0.6, 0, Math.PI*2); ctx.fill();
+  }
+  ctx.globalCompositeOperation = 'source-over';
+  // 누를 칸 — 굵은 이중 고리
+  ctx.strokeStyle = 'rgba(59,35,20,0.9)'; ctx.lineWidth = Math.max(7, cell*0.19);
+  ctx.beginPath(); ctx.arc(x, y, cell*(0.46 + 0.05*p), 0, Math.PI*2); ctx.stroke();
+  ctx.strokeStyle = 'rgba(255,192,46,1)'; ctx.lineWidth = Math.max(4, cell*0.11);
+  ctx.beginPath(); ctx.arc(x, y, cell*(0.46 + 0.05*p), 0, Math.PI*2); ctx.stroke();
+  // 밀 방향 화살표
   if(Tut.want.arrow !== false){
-    const ang = Math.atan2(y2 - y, x2 - x), L = cell*0.86;
-    const ax = x + Math.cos(ang)*cell*0.42, ay = y + Math.sin(ang)*cell*0.42;
+    const ang = Math.atan2(y2 - y, x2 - x), L = cell*0.92;
+    const ax = x + Math.cos(ang)*cell*0.5, ay = y + Math.sin(ang)*cell*0.5;
     const bx = x + Math.cos(ang)*L, by = y + Math.sin(ang)*L;
     ctx.lineCap = 'round'; ctx.lineJoin = 'round';
-    for(const [col, wd] of [['rgba(59,35,20,0.85)', cell*0.2], ['rgba(255,192,46,0.95)', cell*0.11]]){
+    for(const [col, wd] of [['rgba(59,35,20,0.9)', cell*0.24], ['rgba(255,192,46,1)', cell*0.13]]){
       ctx.strokeStyle = col; ctx.fillStyle = col; ctx.lineWidth = wd;
       ctx.beginPath(); ctx.moveTo(ax, ay); ctx.lineTo(bx, by); ctx.stroke();
       ctx.beginPath();
-      ctx.moveTo(bx + Math.cos(ang)*cell*0.16, by + Math.sin(ang)*cell*0.16);
-      ctx.lineTo(bx + Math.cos(ang + 2.5)*cell*0.22, by + Math.sin(ang + 2.5)*cell*0.22);
-      ctx.lineTo(bx + Math.cos(ang - 2.5)*cell*0.22, by + Math.sin(ang - 2.5)*cell*0.22);
+      ctx.moveTo(bx + Math.cos(ang)*cell*0.18, by + Math.sin(ang)*cell*0.18);
+      ctx.lineTo(bx + Math.cos(ang + 2.5)*cell*0.26, by + Math.sin(ang + 2.5)*cell*0.26);
+      ctx.lineTo(bx + Math.cos(ang - 2.5)*cell*0.26, by + Math.sin(ang - 2.5)*cell*0.26);
       ctx.closePath(); ctx.fill();
     }
   }
-  // 시범 중 — 손 자국이 누르는 칸에서 미는 칸으로 간다
-  if(Tut.handT !== null){
-    const u = Math.max(0, Math.min(1, Tut.handT));
-    const hx = x + (x2 - x)*u, hy = y + (y2 - y)*u;
-    ctx.globalAlpha = 0.9;
-    ctx.fillStyle = 'rgba(255,255,255,0.9)'; ctx.strokeStyle = '#3B2314'; ctx.lineWidth = Math.max(2, cell*0.05);
-    ctx.beginPath(); ctx.arc(hx, hy, cell*0.2, 0, Math.PI*2); ctx.fill(); ctx.stroke();
-  }
+  // 손가락 — 시범 때는 누른 칸에서 미는 칸으로, 연습 때는 그 칸 위에서 통통
+  const hx = Tut.handT !== null ? x + (x2 - x)*Math.max(0, Math.min(1, Tut.handT)) : x;
+  const hy = (Tut.handT !== null ? y + (y2 - y)*Math.max(0, Math.min(1, Tut.handT)) : y) + cell*(0.62 + 0.12*p);
+  ctx.fillStyle = 'rgba(255,255,255,0.96)'; ctx.strokeStyle = '#3B2314'; ctx.lineWidth = Math.max(3, cell*0.07);
+  ctx.beginPath();
+  ctx.moveTo(hx, hy - cell*0.26);                      // 위를 가리키는 물방울 모양
+  ctx.bezierCurveTo(hx + cell*0.2, hy - cell*0.02, hx + cell*0.19, hy + cell*0.22, hx, hy + cell*0.22);
+  ctx.bezierCurveTo(hx - cell*0.19, hy + cell*0.22, hx - cell*0.2, hy - cell*0.02, hx, hy - cell*0.26);
+  ctx.closePath(); ctx.fill(); ctx.stroke();
   ctx.restore();
 }
 
