@@ -665,7 +665,7 @@
    ========================================================================= */
 
 // 게임 버전 — 수정해서 배포할 때마다 끝 두 자리를 1씩 올린다(v0.1.01 → v0.1.02). 화면 오른쪽 아래에 보인다
-const GAME_VERSION = 'v0.2.57';   // 버전 표기 — 패치 자리는 두 자리 (v0.2.01, v0.2.02 …)
+const GAME_VERSION = 'v0.2.58';   // 버전 표기 — 패치 자리는 두 자리 (v0.2.01, v0.2.02 …)
 /*
  * 번쩍임 줄이기 (v0.1.22) — 광과민성 배려. 켜면 화면 전체 번쩍임·흔들림을 끄고, 발판 조명·테두리 박동을 약하게.
  * 폰의 '동작 줄이기'가 켜져 있으면 처음부터 켠다. 고른 값은 이 기기에 기억한다.
@@ -1511,7 +1511,7 @@ const S = {
   fx:[], bits:[], rings:[], flashAt:-9, flashA:0, swapAnim:null,
   stats:{perfect:0,good:0,miss:0,turns:0,blocked:0,blasts:0,maxCombo:0,maxLevel:1,overBars:0},
   actedBeats:{}, blockFlash:-9,
-  errors:[], shake:0, hold:0, holding:false, releasedBar:0, dropPlan:null, popGroups:null, planBar:0, pin:null, droppedBar:-1, reshuffling:false, lastSwap:null, combo:0, comboMade:false, announceAt:-9, countShown:'', level:0, levelFloor:0, hintBar:-1, hint:null, hintFor:-2, hintAt:0, why:[], paused:false, pauseBar:0, pauseLockBar:-2, timeUp:false, bonusTime:0, lastPlayBar:Infinity, overAt:0,
+  errors:[], shake:0, hold:0, holding:false, releasedBar:0, dropPlan:null, popGroups:null, planBar:0, pin:null, droppedBar:-1, reshuffling:false, lastSwap:null, combo:0, comboMade:false, announceAt:-9, countShown:'', level:0, levelFloor:0, hintBar:-1, hint:null, hintFor:-2, hintAt:0, zonePos:-1, zoneAt:0, why:[], paused:false, pauseBar:0, pauseLockBar:-2, timeUp:false, bonusTime:0, lastPlayBar:Infinity, overAt:0,
   barIndex:-1, beatIndex:-1, drag:null, sel:null,
 };
 
@@ -2503,7 +2503,15 @@ function drawBarRing(w, h){
   ctx.save();
   roundRectPath(0, 0, w, h, boardR()); ctx.clip();
   // v0.2.57 과녁은 **다가오는 차례 하나만** — 누르기 전엔 3박, 누른 뒤엔 4박
+  /*
+   * v0.2.58 과녁이 바뀔 때 **나타나는 쪽만** 스르르 — 사라지는 쪽은 그대로 툭 꺼진다.
+   * 3박 과녁 → (누름) → 4박 과녁으로 갈아탈 때 새 고리가 팍 튀어나와 눈에 걸렸다.
+   */
   const showPos = S.sel ? 3 : 2;
+  const tnow = clock();
+  if(S.zonePos !== showPos){ S.zonePos = showPos; S.zoneAt = tnow; }
+  const u = Math.max(0, Math.min(1, (tnow - (S.zoneAt || 0)) / 0.22));
+  const zoneIn = u*u*(3 - 2*u);                                     // 부드러운 S자로 떠오른다
   for(const [pos, zr] of [[2, '255,45,135'], [3, '0,140,255']]){      // v0.1.88 더 밝고 쨍한 색
     if(pos !== showPos) continue;
     // v0.1.39 선이 아니라 '영역' — 정박 반지름 앞뒤로 고르게 칠한 고리 띠
@@ -2512,7 +2520,7 @@ function drawBarRing(w, h){
     // v0.1.78 움직이는 빛 고리의 선과 같은 굵기로 아주 얇게 — 대신 진하게
     const zb = Math.max(1.2, cell * 0.024) + 0.5;   // v0.1.94 더 얇게 · v0.2.34 지름 기준 1px 두껍게
     const on = V.pos === pos ? 1 : V.pos === pos - 1 ? 0.5 + 0.5*V.ph : 0.35;   // 다가올수록 조금 진하게
-    ctx.fillStyle = `rgba(${zr},${(CALM.on ? 0.36 : 0.55) * on + 0.34})`;  // v0.2.35 두꺼워진 만큼 아주 약간 투명하게
+    ctx.fillStyle = `rgba(${zr},${(((CALM.on ? 0.36 : 0.55) * on + 0.34) * zoneIn).toFixed(3)})`;  // v0.2.58 나타날 땐 스르르
     ctx.beginPath();
     ctx.arc(cx, cy, R0 + zb, 0, Math.PI*2);
     ctx.arc(cx, cy, Math.max(0, R0 - zb), 0, Math.PI*2, true);
@@ -3904,7 +3912,7 @@ async function start(tut){        // tut: true = 튜토리얼(박자 켬) · 'fr
     fx:[], bits:[], rings:[], flashAt:-9, flashA:0, swapAnim:null,
     stats:{perfect:0,good:0,miss:0,turns:0,blocked:0,blasts:0,maxCombo:0,maxLevel:S.tut ? TUT_LEVEL+1 : 1,overBars:0},
     actedBeats:{}, blockFlash:-9,
-    errors:[], shake:0, hold:0, tut:tut === true || tut === 'free', free:tut === 'free', practice:tut === 'practice', holding:false, releasedBar:0, dropPlan:null, popGroups:null, planBar:0, pin:null, droppedBar:-1, reshuffling:false, reshuffleAt:null, turnJ:{}, multBar:-1, lastSwap:null, combo:0, comboMade:false, announceAt:-9, countShown:'', level:S.tut ? TUT_LEVEL : 0, levelFloor:0, hintBar:-1, hint:null, hintFor:-2, hintAt:0, why:[], paused:false, pauseBar:0, pauseLockBar:-2, timeUp:false, bonusTime:0, lastPlayBar:Infinity, overAt:0,
+    errors:[], shake:0, hold:0, tut:tut === true || tut === 'free', free:tut === 'free', practice:tut === 'practice', holding:false, releasedBar:0, dropPlan:null, popGroups:null, planBar:0, pin:null, droppedBar:-1, reshuffling:false, reshuffleAt:null, turnJ:{}, multBar:-1, lastSwap:null, combo:0, comboMade:false, announceAt:-9, countShown:'', level:S.tut ? TUT_LEVEL : 0, levelFloor:0, hintBar:-1, hint:null, hintFor:-2, hintAt:0, zonePos:-1, zoneAt:0, why:[], paused:false, pauseBar:0, pauseLockBar:-2, timeUp:false, bonusTime:0, lastPlayBar:Infinity, overAt:0,
       barIndex:-1, beatIndex:-1, drag:null, sel:null,
   });
   S.tut = tut === true || tut === 'free';         // v0.1.82 클릭 이벤트가 인자로 들어와 튜토리얼로 오인되던 버그 방지
