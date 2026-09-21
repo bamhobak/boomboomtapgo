@@ -450,6 +450,13 @@
    */
   .cvglow{position:absolute;z-index:0;pointer-events:none;transition:box-shadow 60ms linear}
   /* 일시정지 (v0.2.43) — 단추는 판 오른쪽 위 모서리에, 멈춤 판은 판을 통째로 덮는다 */
+  /* 테스트 모드 레벨 손잡이 (v0.2.61) */
+  .testbar{position:absolute;z-index:8;display:flex;align-items:center;gap:10px;
+           background:var(--panel);border:3px solid var(--edge);border-radius:14px;padding:5px 10px;
+           box-shadow:0 4px 0 rgba(0,0,0,.4)}
+  .testbar button{font-family:Jua;font-size:20px;line-height:1;width:38px;height:34px;padding:0;border-radius:10px;
+                  background:var(--room);color:var(--cream);border:2px solid var(--edge);box-shadow:none}
+  .testbar b{min-width:62px;text-align:center;font-family:Jua;font-size:17px;color:var(--cream)}
   /*
    * A2 타이밍 과녁판 (v0.2.59) — 가운데가 정박, 왼쪽이 빠름, 오른쪽이 늦음.
    * 누를 때마다 점이 하나 찍히고 최근 여덟 개가 흐려지며 남는다. 점이 한쪽으로 쏠리면 스스로 당긴다.
@@ -528,6 +535,11 @@
     <div id="combo"><span id="combov">4</span><em>combo</em></div>
   <div class="thump" id="thump" aria-hidden="true"><i class="glow"></i><i class="cone"></i></div>
     <div class="aimbar" id="aim" aria-hidden="true" hidden><i class="mid"></i></div>
+    <div class="testbar" id="testBar" hidden>
+      <button id="lvDown" type="button" aria-label="레벨 내리기">−</button>
+      <b id="lvNow">Lv 1</b>
+      <button id="lvUp" type="button" aria-label="레벨 올리기">+</button>
+    </div>
     <button id="pauseBtn" type="button" hidden>❚❚ 일시정지</button>
     <!-- v0.2.18 판정 글자는 우퍼(z-index 0) 안에 있으면 판 캔버스(z-index 1) 뒤로 깔려 안 보인다 — 밖으로 꺼냈다 -->
     <b class="judge" id="judgeTxt" aria-hidden="true"></b>
@@ -676,7 +688,7 @@
    ========================================================================= */
 
 // 게임 버전 — 수정해서 배포할 때마다 끝 두 자리를 1씩 올린다(v0.1.01 → v0.1.02). 화면 오른쪽 아래에 보인다
-const GAME_VERSION = 'v0.2.60';   // 버전 표기 — 패치 자리는 두 자리 (v0.2.01, v0.2.02 …)
+const GAME_VERSION = 'v0.2.61';   // 버전 표기 — 패치 자리는 두 자리 (v0.2.01, v0.2.02 …)
 /*
  * 번쩍임 줄이기 (v0.1.22) — 광과민성 배려. 켜면 화면 전체 번쩍임·흔들림을 끄고, 발판 조명·테두리 박동을 약하게.
  * 폰의 '동작 줄이기'가 켜져 있으면 처음부터 켠다. 고른 값은 이 기기에 기억한다.
@@ -1064,7 +1076,8 @@ function floorLevel(t){
 function finalizeBar(k){
   const bar = BARS[k];
   if(!bar || bar.final) return false;
-  const level = S.tut ? TUT_LEVEL                          // 튜토리얼은 2단계 고정 — 콤보로 안 오른다
+  const level = S.test ? (S.testLevel || 0)               // 테스트는 손으로 고른 단계 그대로 (v0.2.61)
+              : S.tut ? TUT_LEVEL                          // 튜토리얼은 2단계 고정 — 콤보로 안 오른다
               : S.practice ? Math.min(CONFIG.level.max - 1, Math.floor(S.combo / PRACTICE_PER))   // 연습은 50콤보마다 한 단계 (v0.2.45)
               : Math.max(levelOfCombo(S.combo), floorLevel(bar.startTime), S.levelFloor || 0);
   const bpm = bpmOfLevel(level);
@@ -1581,20 +1594,7 @@ function layout(){
   ctx.setTransform(dpr,0,0,dpr,0,0);
   const jt = el('judgeTxt');                       // v0.2.18 판정 글자는 판 바로 아래에서 튀어오른다
   if(jt) jt.style.top = (cv.offsetTop + ch + 12) + 'px';
-  const ab = el('aim');                            // A2 과녁판 — 판 바로 아래
-  if(ab){
-    const aw = Math.min(280, Math.round(cw * 0.7));
-    ab.style.width = aw + 'px';
-    ab.style.left = Math.round(cv.offsetLeft + (cw - aw)/2) + 'px';
-    ab.style.top = Math.round(cv.offsetTop + ch + 18) + 'px';
-  }
-  const pb = el('pauseBtn');                       // v0.2.44 판 밖 아래 가운데
-  if(pb){
-    const bw = Math.min(240, Math.round(cw * 0.62)), bh = 52;
-    pb.style.width = bw + 'px'; pb.style.height = bh + 'px';
-    pb.style.left = Math.round(cv.offsetLeft + (cw - bw)/2) + 'px';
-    pb.style.top = Math.round(cv.offsetTop + ch + 58) + 'px';
-  }
+  placeBottom(cw, ch);                             // 과녁판·레벨 손잡이·일시정지 자리
   const pz = el('pause');                          // 멈춤 판은 판을 통째로 덮는다(블럭이 안 보이게)
   if(pz){
     pz.style.left = cv.offsetLeft + 'px'; pz.style.top = cv.offsetTop + 'px';
@@ -3739,7 +3739,7 @@ function frame(){
 
 
   // 1분 타임어택 — 시간이 다 되면 그 마디(턴)의 4박까지만 손을 쓸 수 있다
-  if(S.tut || S.practice) S.bonusTime = Math.max(S.bonusTime, song);   // 튜토리얼·연습은 시계가 안 준다(v0.2.43)
+  if(S.tut || S.practice || S.test) S.bonusTime = Math.max(S.bonusTime, song);   // 튜토리얼·연습·테스트는 시계가 안 준다
   if(!S.timeUp && song >= CONFIG.timeLimit + S.bonusTime){
     S.timeUp = true;
     S.lastPlayBar = bi;
@@ -3787,10 +3787,10 @@ function frame(){
   // v0.2.16 간판 글자·시간 막대는 값이 바뀔 때만 쓴다 — 프레임마다 쓰면 그때마다 다시 재고 다시 칠한다
   setText('lvl', bar.level + 1);
   setText('hudSub', bar.bpm + ' BPM');
-  const left = (S.tut || S.practice) ? CONFIG.timeLimit
+  const left = (S.tut || S.practice || S.test) ? CONFIG.timeLimit
                      : Math.max(0, CONFIG.timeLimit + S.bonusTime - Math.max(0, song));
   const tv = el('time'), tf = el('timeFill'), low = left <= 10;
-  setText('time', S.practice ? '∞' : (S.timeUp ? '0' : Math.ceil(left)));
+  setText('time', (S.practice || S.test) ? '∞' : (S.timeUp ? '0' : Math.ceil(left)));
   tv.classList.toggle('low', low);
   const wpc = (Math.round(Math.min(100, left / CONFIG.timeLimit * 100) * 4) / 4).toFixed(2) + '%';   // 60초 넘게 모이면 꽉 찬 채로
   if(tf.style.width !== wpc) tf.style.width = wpc;
@@ -4033,6 +4033,7 @@ async function start(tut){        // tut: true = 튜토리얼(박자 켬) · 'fr
   warmSfx();                                       // v0.2.25 소리도 한 번씩 무음으로
   S.tut = tut === true || tut === 'free';          // 마디를 짜기 전에 정해야 튜토리얼 빠르기가 먹는다 (v0.2.08)
   S.practice = tut === 'practice';                 // v0.2.43 연습 — 시간 없음·레벨 1 고정·늘 힌트
+  S.test = tut === 'test';                         // v0.2.61 테스트 — 시간·콤보레벨 안 흐르고 레벨을 손으로 고른다
   buildTimeline();
   Bgm.run = null; Bgm.resume = {};                 // 판마다 곡은 처음부터
 
@@ -4049,7 +4050,8 @@ async function start(tut){        // tut: true = 튜토리얼(박자 켬) · 'fr
     fx:[], bits:[], rings:[], flashAt:-9, flashA:0, swapAnim:null,
     stats:{perfect:0,good:0,miss:0,turns:0,blocked:0,blasts:0,maxCombo:0,maxLevel:S.tut ? TUT_LEVEL+1 : 1,overBars:0},
     actedBeats:{}, blockFlash:-9,
-    errors:[], shake:0, hold:0, tut:tut === true || tut === 'free', free:tut === 'free', practice:tut === 'practice', holding:false, releasedBar:0, dropPlan:null, popGroups:null, planBar:0, pin:null, droppedBar:-1, reshuffling:false, reshuffleAt:null, turnJ:{}, multBar:-1, lastSwap:null, combo:0, comboMade:false, announceAt:-9, countShown:'', level:S.tut ? TUT_LEVEL : 0, levelFloor:0, hintBar:-1, hint:null, hintFor:-2, hintAt:0, zonePos:-1, zoneAt:0, taps:[], errs8:[], countBar:-1, missRun:0, blockRun:0, why:[], paused:false, pauseBar:0, pauseLockBar:-2, timeUp:false, bonusTime:0, lastPlayBar:Infinity, overAt:0,
+    errors:[], shake:0, hold:0, tut:tut === true || tut === 'free', free:tut === 'free', practice:tut === 'practice',
+    test:tut === 'test', testLevel:0, holding:false, releasedBar:0, dropPlan:null, popGroups:null, planBar:0, pin:null, droppedBar:-1, reshuffling:false, reshuffleAt:null, turnJ:{}, multBar:-1, lastSwap:null, combo:0, comboMade:false, announceAt:-9, countShown:'', level:S.tut ? TUT_LEVEL : 0, levelFloor:0, hintBar:-1, hint:null, hintFor:-2, hintAt:0, zonePos:-1, zoneAt:0, taps:[], errs8:[], countBar:-1, missRun:0, blockRun:0, why:[], paused:false, pauseBar:0, pauseLockBar:-2, timeUp:false, bonusTime:0, lastPlayBar:Infinity, overAt:0,
       barIndex:-1, beatIndex:-1, drag:null, sel:null,
   });
   S.tut = tut === true || tut === 'free';         // v0.1.82 클릭 이벤트가 인자로 들어와 튜토리얼로 오인되던 버그 방지
@@ -4093,7 +4095,38 @@ async function start(tut){        // tut: true = 튜토리얼(박자 켬) · 'fr
  * 곡 시계를 그 마디 머리로 되돌리고(`S.hold`), 그 마디에 한 일도 지운다.
  * 같은 턴에 다시 멈추지는 못한다(멈춤으로 박을 넘기는 일이 없게). 다음 턴부터 다시 눌린다.
  */
+/*
+ * 판 아래 세 가지 자리 (v0.2.61) — 과녁판 · (테스트 모드면) 레벨 손잡이 · 일시정지.
+ * 손잡이가 뜨면 일시정지를 그만큼 내려 겹치지 않게 한다.
+ */
+function placeBottom(cw, ch){
+  const w = cw != null ? cw : cv.clientWidth, h = ch != null ? ch : cv.clientHeight;
+  const ab = el('aim');
+  if(ab){
+    const aw = Math.min(280, Math.round(w * 0.7));
+    ab.style.width = aw + 'px';
+    ab.style.left = Math.round(cv.offsetLeft + (w - aw)/2) + 'px';
+    ab.style.top = Math.round(cv.offsetTop + h + 14) + 'px';
+  }
+  const on = S.test && S.live;
+  const tb = el('testBar');
+  if(tb){
+    tb.style.left = Math.round(cv.offsetLeft + w/2 - 80) + 'px';
+    tb.style.top = Math.round(cv.offsetTop + h + 38) + 'px';
+  }
+  const pb = el('pauseBtn');
+  if(pb){
+    const bw = Math.min(240, Math.round(w * 0.62)), bh = 50;
+    pb.style.width = bw + 'px'; pb.style.height = bh + 'px';
+    pb.style.left = Math.round(cv.offsetLeft + (w - bw)/2) + 'px';
+    pb.style.top = Math.round(cv.offsetTop + h + (on ? 84 : 46)) + 'px';
+  }
+}
+
 function pauseBtnSync(){
+  const tb = el('testBar');
+  if(tb){ tb.hidden = !(S.live && S.test); el('lvNow').textContent = 'Lv ' + ((S.testLevel || 0) + 1); }
+  placeBottom();
   const b = el('pauseBtn');
   if(!b) return;
   b.hidden = !S.live;
@@ -4141,6 +4174,17 @@ function resumeGame(){
     pauseBtnSync();
   }, Math.max(0, (at - Audio_.ac.currentTime) * 1000));
 }
+/* 테스트 모드 — 레벨을 손으로 올리고 내린다. 다음 마디부터 그 템포·그 곡으로 (v0.2.61) */
+function testLevelShift(d){
+  if(!S.test) return;
+  S.testLevel = Math.max(0, Math.min(CONFIG.level.max - 1, (S.testLevel || 0) + d));
+  el('lvNow').textContent = 'Lv ' + (S.testLevel + 1);
+  const k = S.barIndex + 1;                                  // 다음 마디를 다시 정한다
+  if(BARS[k]){ BARS.length = k; BARS[k - 1] && (BARS[k - 1].final = true); appendBar(); }
+  if(!sfx('select', Audio_.startAC + clock(), 0.4)) buzz(10);
+}
+el('lvDown').addEventListener('click', () => testLevelShift(-1));
+el('lvUp').addEventListener('click', () => testLevelShift(1));
 el('pauseBtn').addEventListener('click', pauseGame);
 el('pResume').addEventListener('click', resumeGame);
 el('pRestart').addEventListener('click', () => {
@@ -4206,7 +4250,7 @@ function finish(){
     e.hidden = false;
     e.classList.remove('fadein'); void e.offsetWidth; e.classList.add('fadein');
   }, 900);
-  if(!S.practice) Rank.afterGame(S.score, S.stats.maxLevel, S.stats.maxCombo);   // 연습 기록은 안 남긴다
+  if(!S.practice && !S.test) Rank.afterGame(S.score, S.stats.maxLevel, S.stats.maxCombo);   // 연습·테스트 기록은 안 남긴다
 }
 
 /* ---------------------------------------------------------------- 랭킹 */
@@ -4577,7 +4621,10 @@ addEventListener('keydown', e => {
  * 랭킹 테이블을 그대로 읽어(읽기는 누구나 허용) 화면에서 집계한다.
  */
 const DEV_PIN = '2424';
-function devOpen(){
+let devMode = 'stats';                                   // 'stats' 개발자 통계 · 'test' 테스트 모드 (v0.2.61)
+function devOpen(mode){
+  devMode = mode || 'stats';
+  el('devTitle').textContent = devMode === 'test' ? '테스트 모드' : '개발자 통계';
   el('dev').hidden = false;
   el('devBody').hidden = true; el('devBody').innerHTML = '';
   el('devPin').hidden = false;
@@ -4636,13 +4683,23 @@ el('devPin').addEventListener('submit', e => {
   e.preventDefault();
   if(el('devPw').value.trim() !== DEV_PIN){ el('devPw').value = ''; el('devPw').placeholder = '다시'; return; }   // 자릿수는 안 알려 준다
   el('devPin').hidden = true;
+  if(devMode === 'test'){                                // 테스트 모드로 바로 들어간다
+    el('dev').hidden = true;
+    const nin = el('menuName');
+    if(nin) nin.value = Rank.setName(nin.value) || Rank.ensureName();
+    start('test');
+    return;
+  }
   devLoad();
 });
 el('devClose').addEventListener('click', () => { el('dev').hidden = true; });
 (function devDoor(){
   const box = el('pack');
   if(!box) return;
-  box.addEventListener('click', e => { if(e.target === box.lastElementChild) devOpen(); });
+  box.addEventListener('click', e => {
+    if(e.target === box.lastElementChild) devOpen('stats');        // 맨 오른쪽 — 개발자 통계
+    else if(e.target === box.firstElementChild) devOpen('test');   // 맨 왼쪽 — 테스트 모드 (v0.2.61)
+  });
 })();
 
 const calmLabel = () => { el('calm').textContent = CALM.on ? '번쩍임 줄이기 켜짐' : '번쩍임 줄이기 꺼짐'; el('calm').classList.toggle('off', !CALM.on); };
