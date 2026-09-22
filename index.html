@@ -443,6 +443,19 @@
   .mine{width:min(360px,100%);background:#FFF4E6;border:3px solid #3B2314;border-radius:16px;
         box-shadow:0 5px 0 #3B2314;padding:7px 10px 8px;color:#3B2314}
   .mine[hidden]{display:none}
+  /* v0.2.97 처음 온 사람 환영 창 */
+  #welcome{justify-content:center;background:rgba(20,14,48,.72)}
+  .welcard{width:min(330px,88%);background:#FFF4E6;color:#3B2314;border:4px solid #3B2314;border-radius:24px;
+           box-shadow:0 8px 0 #3B2314;padding:18px 18px 16px;display:flex;flex-direction:column;align-items:center;gap:10px;text-align:center}
+  .welcard h2{margin:0;font-family:Jua;font-size:28px;line-height:1.2;color:#3B2314}
+  .welcard p{margin:0;font-size:15px;line-height:1.6;color:#6B4A2B}
+  .weldogs{display:flex;gap:2px;justify-content:center}
+  .weldogs img{width:46px;height:46px}
+  .weldogs img:nth-child(odd){transform:rotate(-7deg)} .weldogs img:nth-child(even){transform:rotate(6deg) translateY(3px)}
+  #welGo{width:100%;background:#FFC02E;color:#3B2314;border:4px solid #3B2314;border-radius:16px;box-shadow:0 6px 0 #3B2314;
+         font-family:Jua;font-size:21px;padding:11px 0;margin-top:4px}
+  #welGo:active{transform:translate(0,3px);box-shadow:0 3px 0 #3B2314}
+  #welSkip{background:none;box-shadow:none;border:none;color:#8B5A2B;font-size:13px;padding:4px 10px;text-decoration:underline}
   /* v0.2.72 결과 화면·레벨업 그림 */
   .endArt{display:block;width:min(240px,62%);height:auto;margin:-4px auto 0;filter:drop-shadow(0 4px 0 rgba(0,0,0,.22))}
   .lvupArt{position:absolute;left:50%;top:14%;width:min(30%,140px);height:auto;pointer-events:none;z-index:6;
@@ -735,6 +748,17 @@
   </div>
 
   <!-- 설정 (v0.1.75) — 오프셋·소리·번쩍임·진동을 메뉴에서 빼 여기 모았다 -->
+  <!-- v0.2.97 처음 온 사람 — 환영하고 곧장 튜토리얼로(누르는 손이 있어야 소리가 켜지므로 단추를 둔다) -->
+  <div class="overlay" id="welcome" hidden role="dialog" aria-modal="true" aria-labelledby="welTitle">
+    <div class="welcard">
+      <div class="weldogs" id="welDogs" aria-hidden="true"></div>
+      <h2 id="welTitle">둠칫딱숑이<br>처음이시네요!</h2>
+      <p>박자에 맞춰 강아지를 옮기는 게임이에요.<br>튜토리얼로 차근차근 배워 볼까요?</p>
+      <button id="welGo" type="button">튜토리얼 시작</button>
+      <button id="welSkip" type="button">나중에 할게요</button>
+    </div>
+  </div>
+
   <!-- v0.2.70 나의 최근 기록 — 시작 왼쪽 '기록' 단추로 여는 창 -->
   <div class="overlay" id="mineBox" hidden role="dialog" aria-modal="true" aria-labelledby="mineTitle">
     <h2 id="mineTitle">나의 최근 기록</h2>
@@ -789,7 +813,7 @@
    ========================================================================= */
 
 // 게임 버전 — 수정해서 배포할 때마다 끝 두 자리를 1씩 올린다(v0.1.01 → v0.1.02). 화면 오른쪽 아래에 보인다
-const GAME_VERSION = 'v0.2.96';   // 버전 표기 — 패치 자리는 두 자리 (v0.2.01, v0.2.02 …)
+const GAME_VERSION = 'v0.2.97';   // 버전 표기 — 패치 자리는 두 자리 (v0.2.01, v0.2.02 …)
 /*
  * 번쩍임 줄이기 (v0.1.22) — 광과민성 배려. 켜면 화면 전체 번쩍임·흔들림을 끄고, 발판 조명·테두리 박동을 약하게.
  * 폰의 '동작 줄이기'가 켜져 있으면 처음부터 켠다. 고른 값은 이 기기에 기억한다.
@@ -5166,7 +5190,15 @@ const Tut = {
   }
 }
 /* 튜토리얼을 한 번도 안 봤으면 단추가 깜빡여 눈에 띈다 (v0.2.41) */
-try{ if(!localStorage.getItem('btg_tut_done')) el('tutBtn').classList.add('callme'); }catch(e){}
+let firstVisit = false;
+try{ firstVisit = !localStorage.getItem('btg_tut_done'); }catch(e){}
+if(firstVisit){
+  el('tutBtn').classList.add('callme');
+  el('welcome').hidden = false;                            // v0.2.97 처음 온 사람은 환영 창 → 튜토리얼
+  el('welDogs').innerHTML = CONFIG.roster.map(i => '<img alt="" src="' + FACE_SRC[i] + '">').join('');
+}
+el('welGo').addEventListener('click', () => { el('welcome').hidden = true; el('tutBtn').classList.remove('callme'); Tut.start(); });
+el('welSkip').addEventListener('click', () => { el('welcome').hidden = true; });   // 튜토리얼 단추는 계속 깜빡인다
 el('tutBtn').addEventListener('click', () => { el('tutBtn').classList.remove('callme'); Tut.start(); });
 el('practiceBtn').addEventListener('click', () => {      // v0.2.43 연습 — 시간 없음·레벨 1·늘 힌트
   const nin = el('menuName');
