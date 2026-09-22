@@ -139,9 +139,9 @@
    */
   .sweep{position:relative;align-self:stretch;width:auto;height:0;margin:0 -16px;pointer-events:none;z-index:0;
          --tc:255,255,255;--tk:0;--sx:0}
-  .sweep .rail{position:absolute;left:16px;right:16px;top:-21px;height:14px;border-radius:8px;   /* v0.2.73 두 배로 넓게 */
+  .sweep .rail{position:absolute;left:16px;right:16px;top:-38px;height:28px;border-radius:15px;   /* v0.2.73 두 배 · v0.2.81 또 두 배 */
                background:rgba(26,18,56,.42);box-shadow:inset 0 1px 0 rgba(255,255,255,.10)}
-  .sweep .head{position:absolute;left:16px;right:16px;top:-24px;height:20px;border-radius:11px;
+  .sweep .head{position:absolute;left:16px;right:16px;top:-44px;height:40px;border-radius:21px;
                background:linear-gradient(90deg,
                    transparent calc(var(--sx) * 100% - 26%),
                    rgba(var(--tc),calc(.18 + .30 * var(--tk))) calc(var(--sx) * 100% - 13%),
@@ -149,6 +149,18 @@
                    rgba(var(--tc),calc(.14 + .26 * var(--tk))) calc(var(--sx) * 100% + 8%),
                    transparent calc(var(--sx) * 100% + 18%));
                filter:drop-shadow(0 0 calc(5px + 10px * var(--tk)) rgba(var(--tc),calc(.35 + .4 * var(--tk))))}
+  /*
+   * v0.2.81 튀는 공이 판 윗변이 아니라 **흐름 바 안**에서 뛴다. 네 눈금 = 1·2·3·4박 자리(발판 가운데).
+   *   --sx 가로 자리(바와 같은 값) · --bh 뛰는 높이 0~1 · --bc 지금 박 색
+   */
+  .sweep .tick{position:absolute;top:-28px;width:6px;height:8px;margin-left:-3px;border-radius:3px;opacity:.55}
+  .sweep .tick:nth-of-type(1){left:calc(16px + (100% - 32px) * .125);background:#FFFFFF}
+  .sweep .tick:nth-of-type(2){left:calc(16px + (100% - 32px) * .375);background:#FDE047}
+  .sweep .tick:nth-of-type(3){left:calc(16px + (100% - 32px) * .625);background:#FF2D87}
+  .sweep .tick:nth-of-type(4){left:calc(16px + (100% - 32px) * .875);background:#4C8DFF}
+  .sweep .ball{position:absolute;width:20px;height:20px;margin:-10px 0 0 -10px;border-radius:50%;
+               left:calc(16px + (100% - 32px) * var(--sx));top:calc(-24px - 9px * var(--bh, 0));
+               background:rgb(var(--bc, 255,255,255));box-shadow:0 0 0 2.5px rgba(26,18,56,.65), 0 2px 6px rgba(0,0,0,.35)}
   /* 자유 연습(튜토리얼 앞부분) — 박자가 없으니 구호는 숨기고 우퍼·바도 조용히 (v0.1.90) */
   #stage.freeplay .thump,#stage.freeplay .sweep{opacity:.25}
   .thump{position:relative;align-self:stretch;width:auto;height:0;margin:0 -16px;display:flex;justify-content:center;pointer-events:none;z-index:0;--tc:255,255,255;--tk:0}   /* v0.1.92 자리를 안 차지한다 — 판 크기를 깎지 않게 */
@@ -583,7 +595,7 @@
   <div class="boardwrap">
     <!-- v0.2.69 위쪽 우퍼를 걷어내고 그 줄에 **좌 → 우로 흐르는 그라데이션 바**를 둔다.
          빛 고리가 '안으로 들어오는' 것과 같은 진행도를 '옆으로 가는' 움직임으로 한 번 더 보여 준다 -->
-    <div class="sweep" id="sweep" aria-hidden="true"><i class="rail"></i><i class="head"></i></div>
+    <div class="sweep" id="sweep" aria-hidden="true"><i class="rail"></i><i class="head"></i><b class="tick"></b><b class="tick"></b><b class="tick"></b><b class="tick"></b><i class="ball"></i></div>
     <i class="cvglow" id="cvGlow" aria-hidden="true"></i>
     <canvas id="cv"></canvas>
     <!-- v0.2.72 레벨업 그림 — 오를 때 판 위쪽에 톡 튀어 올랐다 사라진다(판을 오래 가리지 않게 1.1초) -->
@@ -767,7 +779,7 @@
    ========================================================================= */
 
 // 게임 버전 — 수정해서 배포할 때마다 끝 두 자리를 1씩 올린다(v0.1.01 → v0.1.02). 화면 오른쪽 아래에 보인다
-const GAME_VERSION = 'v0.2.80';   // 버전 표기 — 패치 자리는 두 자리 (v0.2.01, v0.2.02 …)
+const GAME_VERSION = 'v0.2.81';   // 버전 표기 — 패치 자리는 두 자리 (v0.2.01, v0.2.02 …)
 /*
  * 번쩍임 줄이기 (v0.1.22) — 광과민성 배려. 켜면 화면 전체 번쩍임·흔들림을 끄고, 발판 조명·테두리 박동을 약하게.
  * 폰의 '동작 줄이기'가 켜져 있으면 처음부터 켠다. 고른 값은 이 기기에 기억한다.
@@ -1788,7 +1800,7 @@ const S = {
   fx:[], bits:[], rings:[], flashAt:-9, flashA:0, swapAnim:null,
   stats:{perfect:0,nice:0,ok:0,miss:0,turns:0,blocked:0,blasts:0,maxCombo:0,maxLevel:1,overBars:0},
   actedBeats:{}, blockFlash:-9,
-  errors:[], shake:0, hold:0, holding:false, releasedBar:0, dropPlan:null, popGroups:null, planBar:0, pin:null, droppedBar:-1, reshuffling:false, reshuffledBar:-1, lastSwap:null, combo:0, comboMade:false, announceAt:-9, countShown:'', level:0, lvGauge:0, levelBar:0, fillBar:-1, hintBar:-1, hint:null, hintFor:-2, hintAt:0, zonePos:-1, zoneAt:0, taps:[], errs8:[], countBar:-1, missRun:0, blockRun:0, why:[], paused:false, pauseBar:0, pauseLockBar:-2, timeUp:false, bonusTime:0, lastPlayBar:Infinity, overAt:0,
+  errors:[], shake:0, hold:0, holding:false, releasedBar:0, dropPlan:null, popGroups:null, planBar:0, pin:null, droppedBar:-1, reshuffling:false, reshuffledBar:-1, ringDoneBar:-2, lastSwap:null, combo:0, comboMade:false, announceAt:-9, countShown:'', level:0, lvGauge:0, levelBar:0, fillBar:-1, hintBar:-1, hint:null, hintFor:-2, hintAt:0, zonePos:-1, zoneAt:0, taps:[], errs8:[], countBar:-1, missRun:0, blockRun:0, why:[], paused:false, pauseBar:0, pauseLockBar:-2, timeUp:false, bonusTime:0, lastPlayBar:Infinity, overAt:0,
   barIndex:-1, beatIndex:-1, drag:null, sel:null,
 };
 
@@ -2665,6 +2677,7 @@ function tryResolveDrag(now){
 
   S.stats.turns++;
   applyJudge(j);
+  if(j.rank !== 'miss') S.ringDoneBar = barAtBeat(j.beat);   // v0.2.81 제대로 밀었다 — 이 마디는 4박 과녁·다가오는 띠를 걷는다
   if(Tut.on) Tut.hit('move');
 }
 
@@ -2881,6 +2894,7 @@ function drawBarRing(w, h){
   const V = BEATV;
   if(!V || S.holding) return;
   if(locked()) return;      // v0.1.80 시간이 끝나 더 못 두는 동안에는 고리·과녁을 아예 안 그린다
+  if(S.ringDoneBar === S.barIndex) return;   // v0.2.81 4박에 제대로 밀었으면 그 마디는 고리·과녁을 걷는다(할 일이 끝났다)
   const prog = Math.min(1, (V.pos + V.ph) / (V.meter || 4));
   /*
    * v0.2.77 출발점을 판 **모서리**(대각선 절반)에서 판 **긴 변 가장자리**로 옮겼다.
@@ -3548,7 +3562,7 @@ function warmJit(){
   warmJit.ms = +(performance.now() - t0).toFixed(1);
 }
 
-const THUMP = { k:-1, rgb:'', sx:-1 };           // 우퍼·흐름 바에 마지막으로 써 넣은 값 (v0.2.16 · sx 는 v0.2.69)
+const THUMP = { k:-1, rgb:'', sx:-1, bh:-1, bc:'' };   // 우퍼·흐름 바·바 안 공에 마지막으로 써 넣은 값 (v0.2.16 · sx v0.2.69 · 공 v0.2.81)
 /*
  * 시간 막대 색 (v0.2.29) — 가득 찼을 땐 노랑, 줄어들수록 빨개진다.
  * 매 프레임 쓰면 그때마다 다시 칠하므로 20눈금으로 끊어 바뀔 때만 쓴다.
@@ -3957,7 +3971,7 @@ function draw(now){
     ctx.fillRect(0, 0, w, h);
     ctx.globalAlpha = 1;
   }
-  drawBounceBall(w, h);                             // A6 노래방 공 — 판 윗변을 박마다 건넌다 (v0.2.59)
+  // drawBounceBall(w, h);   // v0.2.81 공은 흐름 바 안으로 옮겼다(DOM) — 판 위에는 안 그린다
   drawTaps(w, h, now);                              // A1 1·2박 빈 두드림 잔물결 (v0.2.59)
   drawWhy(w, h, now);                               // 왜 안 됐는지 — 누른 말 옆 작은 표시 (v0.2.42)
   drawHint(w, h, now);                              // 한 턴 놓쳤을 때 — 옮길 수 있는 말 짚어 주기 (v0.2.42)
@@ -4180,6 +4194,14 @@ function frame(){
       THUMP.sx = sq;
       const sw = el('sweep');
       if(sw) sw.style.setProperty('--sx', sq.toFixed(3));
+    }
+    // v0.2.81 바 안의 공 — 박에 닿고 다음 박에 닿는 포물선, 색은 지금 박
+    const bh = (V && !S.holding && !locked()) ? Math.round(Math.sin(Math.max(0, Math.min(1, V.ph)) * Math.PI) * 20) / 20 : 0;
+    const bc = BEAT_POP[V ? V.pos % 4 : 0].rgb;
+    if(bh !== THUMP.bh || bc !== THUMP.bc){
+      THUMP.bh = bh; THUMP.bc = bc;
+      const sw = el('sweep');
+      if(sw){ sw.style.setProperty('--bh', bh.toFixed(2)); sw.style.setProperty('--bc', bc); }
     }
   }
 
@@ -4461,7 +4483,7 @@ async function start(tut){        // tut: true = 튜토리얼(박자 켬) · 'fr
     stats:{perfect:0,nice:0,ok:0,miss:0,turns:0,blocked:0,blasts:0,maxCombo:0,maxLevel:S.tut ? TUT_LEVEL+1 : 1,overBars:0},
     actedBeats:{}, blockFlash:-9,
     errors:[], shake:0, hold:0, tut:tut === true || tut === 'free', free:tut === 'free', practice:tut === 'practice',
-    test:tut === 'test', testLevel:0, holding:false, releasedBar:0, dropPlan:null, popGroups:null, planBar:0, pin:null, droppedBar:-1, reshuffling:false, reshuffledBar:-1, reshuffleAt:null, turnJ:{}, multBar:-1, lastSwap:null, combo:0, comboMade:false, announceAt:-9, countShown:'', level:S.tut ? TUT_LEVEL : 0, lvGauge:0, levelBar:0, fillBar:-1, hintBar:-1, hint:null, hintFor:-2, hintAt:0, zonePos:-1, zoneAt:0, taps:[], errs8:[], countBar:-1, missRun:0, blockRun:0, why:[], paused:false, pauseBar:0, pauseLockBar:-2, timeUp:false, bonusTime:0, lastPlayBar:Infinity, overAt:0,
+    test:tut === 'test', testLevel:0, holding:false, releasedBar:0, dropPlan:null, popGroups:null, planBar:0, pin:null, droppedBar:-1, reshuffling:false, reshuffledBar:-1, ringDoneBar:-2, reshuffleAt:null, turnJ:{}, multBar:-1, lastSwap:null, combo:0, comboMade:false, announceAt:-9, countShown:'', level:S.tut ? TUT_LEVEL : 0, lvGauge:0, levelBar:0, fillBar:-1, hintBar:-1, hint:null, hintFor:-2, hintAt:0, zonePos:-1, zoneAt:0, taps:[], errs8:[], countBar:-1, missRun:0, blockRun:0, why:[], paused:false, pauseBar:0, pauseLockBar:-2, timeUp:false, bonusTime:0, lastPlayBar:Infinity, overAt:0,
       barIndex:-1, beatIndex:-1, drag:null, sel:null,
   });
   S.tut = tut === true || tut === 'free';         // v0.1.82 클릭 이벤트가 인자로 들어와 튜토리얼로 오인되던 버그 방지
