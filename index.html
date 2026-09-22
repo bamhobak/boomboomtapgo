@@ -327,6 +327,9 @@
   .tutdots i.on{background:#FF8A1E}
   .tutbox #tutSkip{background:#FFF4E6;color:#8B5A2B;border:3px solid rgba(59,35,20,.35);border-radius:12px;
                    box-shadow:0 3px 0 rgba(59,35,20,.35);font-size:12px;padding:8px 12px}
+  .tutbox #tutPrev{background:#FFF4E6;color:#3B2314;border:3px solid #3B2314;border-radius:12px;   /* v0.2.93 이전 */
+                   box-shadow:0 3px 0 #3B2314;font-family:Jua;font-size:15px;padding:7px 14px}
+  .tutbox #tutPrev[disabled]{opacity:.35}
   .tutbox #tutNext{background:#FFC02E;color:#3B2314;border:4px solid #3B2314;border-radius:14px;box-shadow:0 5px 0 #3B2314;
                    font-family:Jua;font-size:17px;padding:8px 22px}
   .tutbox #tutNext:active{transform:translate(0,3px);box-shadow:0 2px 0 #3B2314}
@@ -630,6 +633,7 @@
       <div class="tutrow">
         <span class="tutdots" id="tutDots"></span>
         <button class="ghost" id="tutSkip" type="button">그만두기</button>
+        <button class="ghost" id="tutPrev" type="button">이전</button>
         <button id="tutNext" type="button">다음</button>
       </div>
     </div>
@@ -785,7 +789,7 @@
    ========================================================================= */
 
 // 게임 버전 — 수정해서 배포할 때마다 끝 두 자리를 1씩 올린다(v0.1.01 → v0.1.02). 화면 오른쪽 아래에 보인다
-const GAME_VERSION = 'v0.2.92';   // 버전 표기 — 패치 자리는 두 자리 (v0.2.01, v0.2.02 …)
+const GAME_VERSION = 'v0.2.93';   // 버전 표기 — 패치 자리는 두 자리 (v0.2.01, v0.2.02 …)
 /*
  * 번쩍임 줄이기 (v0.1.22) — 광과민성 배려. 켜면 화면 전체 번쩍임·흔들림을 끄고, 발판 조명·테두리 박동을 약하게.
  * 폰의 '동작 줄이기'가 켜져 있으면 처음부터 켠다. 고른 값은 이 기기에 기억한다.
@@ -4951,8 +4955,7 @@ const TUT = [
        + '<b>ㄱ·ㄴ 모양</b> → 꺾이는 칸 둘레 <b>3×3</b>이 사라져요<br>'
        + '<b>5마리 한 줄</b> → 판 위의 <b>그 강아지가 전부</b> 사라져요' },
   { say: '조작은 다 익혔어요!<br>이제 <b>리듬</b>을 얹어 볼게요.' },                 // v0.2.92 음악은 다음 화면부터
-  { rhythm: true, beats: true, say: '한 마디(4박)가 <b>한 턴</b>이에요.<br><b>1 · 2</b>박은 판을 읽는 시간,<br><b>3</b>박에 누르고 <b>4</b>박에 밀어요.' },
-  { beats: true, say: '판 바깥에서 <b>빛 고리</b>가 들어와요.<br><b>분홍 원</b>에 닿으면 <b>3</b>박, <b>파랑 원</b>에 닿으면 <b>4</b>박이에요.', wait: 2 },
+  { rhythm: true, beats: true, waitBars: 3, say: '한 마디(4박)가 <b>한 턴</b>이에요.<br><b>1 · 2</b>박은 판을 읽는 시간,<br><b>3</b>박에 누르고 <b>4</b>박에 밀어요.' },
   { demo: 'move', shape: 'line3', strict: true, say: '이제 박자에 맞춰서 해 볼게요.<br><b>3</b>박(분홍 원)에 누르고, <b>4</b>박(파랑 원)에 화살표 쪽으로 미세요.<br>둘 다 <b>NICE</b> 이상이어야 넘어가요.',
     good: '잘했어요! 박자에 맞췄어요.' },
   { say: '익숙해질 때까지 편하게 연습해 보세요.', last: true },
@@ -4972,10 +4975,12 @@ const Tut = {
       start(true);
     }
     this.t0 = clock(); this.phase = step.demo ? 'try' : 'say'; this.want = null; this.handT = null;
-    this.done = !step.demo && !step.wait;
+    this.done = !step.demo && !step.wait && !step.waitBars;
+    this.bar0 = null;                                // v0.2.93 waitBars — 박이 흐르기 시작한 마디부터 센다
     el('tutText').innerHTML = step.say;
     el('tutNext').textContent = step.last ? '튜토리얼 완료' : '다음';
     el('tutNext').disabled = !this.done;
+    el('tutPrev').disabled = this.i === 0;
     [...el('tutDots').children].forEach((d, k) => d.classList.toggle('on', k === this.i));
     if(step.demo) this.pickTarget(true);             // 시범 없이 바로 직접 해 보는 차례
   },
@@ -5061,6 +5066,11 @@ const Tut = {
     if(!this.on) return;
     const step = TUT[this.i];
     if(this.phase === 'say' && step.wait && !this.done && now - this.t0 >= step.wait * 4 * bpmBeat(0)) this.mark();
+    // v0.2.93 세 턴(마디) 동안은 '다음'을 못 누른다 — 카운트다운이 끝나 박이 흐른 뒤부터 센다
+    if(this.phase === 'say' && step.waitBars && !this.done && S.live && !S.free && songTime() >= 0){
+      if(this.bar0 == null) this.bar0 = S.barIndex;
+      if(S.barIndex - this.bar0 >= step.waitBars) this.mark();
+    }
     if(this.phase === 'good' && now - this.praiseAt > 2.5){ this.next(); return; }   // v0.2.07 칭찬은 2.5초 — 너무 빨리 지나갔다
     if(!step.demo || this.phase !== 'try') return;
     // 과녁으로 쓰던 칸이 사라졌으면 다른 수를 고른다(판이 가라앉은 뒤에만)
@@ -5102,6 +5112,21 @@ const Tut = {
     if(this.i >= TUT.length - 1) return;
     this.i++; this.show();
   },
+  /*
+   * v0.2.93 이전으로 — 한 칸 앞 단계를 다시 보여 준다. 리듬 단계에서 조작 단계로 돌아가면
+   * 곡·박자를 끄고 박자 없는 연습(free)으로 되돌린다.
+   */
+  async prev(){
+    if(this.i <= 0 || this.busy) return;
+    this.busy = true;
+    this.clickSfx();
+    this.i--;
+    const firstRhythm = TUT.findIndex(t => t.rhythm);
+    if(this.i < firstRhythm && !S.free){ bgmStop(0.2); await start('free'); }
+    else if(TUT[this.i].rhythm && !S.free){ await start(true); }     // 리듬 첫 화면을 다시 — 카운트다운부터
+    this.busy = false;
+    this.show();
+  },
   quit(){
     this.on = false; this.want = null; this.handT = null;
     el('tut').hidden = true;
@@ -5132,6 +5157,7 @@ el('practiceBtn').addEventListener('click', () => {      // v0.2.43 연습 — �
 });
 el('tutNext').addEventListener('click', () => Tut.next());
 el('tutSkip').addEventListener('click', () => Tut.quit());
+el('tutPrev').addEventListener('click', () => Tut.prev());
 
 // v0.2.86 '게임 설명' 단추는 메뉴에서 뺐다 — 강아지 줄 가운데(노란 래브라도)를 누르면 열리는 숨은 문(devDoor)
 el('helpClose').addEventListener('click', () => { el('help').hidden = true; });
