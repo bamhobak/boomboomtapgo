@@ -813,7 +813,7 @@
    ========================================================================= */
 
 // 게임 버전 — 수정해서 배포할 때마다 끝 두 자리를 1씩 올린다(v0.1.01 → v0.1.02). 화면 오른쪽 아래에 보인다
-const GAME_VERSION = 'v0.3.06';   // 버전 표기 — 패치 자리는 두 자리 (v0.2.01, v0.2.02 …)
+const GAME_VERSION = 'v0.3.08';   // 버전 표기 — 패치 자리는 두 자리 (v0.2.01, v0.2.02 …)
 /*
  * 번쩍임 줄이기 (v0.1.22) — 광과민성 배려. 켜면 화면 전체 번쩍임·흔들림을 끄고, 발판 조명·테두리 박동을 약하게.
  * 폰의 '동작 줄이기'가 켜져 있으면 처음부터 켠다. 고른 값은 이 기기에 기억한다.
@@ -3498,6 +3498,7 @@ function selMark(x, y, now, color){
   if(!sil) return;
   const k = cell*PET_FILL*1.04*(PET_SCALE[color] || 1), r = Math.max(3, cell*0.1);
   ctx.save();
+  if(TILT){ ctx.translate(x, y); ctx.rotate(TILT); ctx.translate(-x, -y); }   // v0.3.08 강아지와 같이 좌우로 까딱
   ctx.globalAlpha = 0.85 + 0.15*Math.sin(now*10);
   const edge = silhouette(color, '#3B2314');                 // 바깥에 진갈색 한 겹 — 흰 비숑도 파스텔 칸 위에서 보이게
   if(edge) for(let i=0;i<16;i++){
@@ -3548,6 +3549,7 @@ function popMark(x, y, now, color, alpha){
   const A = alpha == null ? 1 : alpha;
   if(ring){
     ctx.save(); ctx.globalAlpha = A;
+    if(TILT){ ctx.translate(x, y); ctx.rotate(TILT); ctx.translate(-x, -y); }   // v0.3.08 강아지와 같이 좌우로 까딱
     ctx.drawImage(ring, Math.round(x - ring.width/2), Math.round(y - ring.height/2));
     ctx.restore();
   } else {                                           // 그림이 아직 없으면 예전 네모
@@ -3720,7 +3722,7 @@ function drawTile(t, r, c, now, dx, dy){
   const hint = t.fromRow===null ? fallHint(t,r,c) : 0;
   const x = (c+0.5)*cell + dx + SWAY, y = (dr+0.5)*cell + dy + hint + BOB;
   if(POPSET.has(t.id)) popMark(x, y, now, t.color, hint > 0 ? 0.9 : 1);    // 떨어지면 곧바로 터질 말 — 말 뒤에 모양 테두리
-  if(S.sel && S.sel.id === t.id) selMark(x, y, now, t.color);   // 3박에 고른 말 — 캐릭터 색 모양 테두리
+  if(S.sel && S.sel.id === t.id && S.drag) selMark(x, y, now, t.color);   // 3박에 고른 말 — 캐릭터 색 모양 테두리 (v0.3.07 누르고 있는 동안만)
   if(hint > 0) ctx.globalAlpha = 0.9;              // 곧 내려올 말 (v0.1.59 0.5→0.72 · v0.2.84 더 잘 보이게 0.72→0.9)
   // 곧 터질 말 · 3박에 고른 말은 '오!' 표정 (v0.1.24). v0.3.06 고른 말은 **누르고 있는 동안만** — 손을 떼면 표정도 풀린다
   const pressing = !!(S.sel && S.sel.id === t.id && S.drag);
