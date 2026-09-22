@@ -784,7 +784,7 @@
    ========================================================================= */
 
 // 게임 버전 — 수정해서 배포할 때마다 끝 두 자리를 1씩 올린다(v0.1.01 → v0.1.02). 화면 오른쪽 아래에 보인다
-const GAME_VERSION = 'v0.2.83';   // 버전 표기 — 패치 자리는 두 자리 (v0.2.01, v0.2.02 …)
+const GAME_VERSION = 'v0.2.84';   // 버전 표기 — 패치 자리는 두 자리 (v0.2.01, v0.2.02 …)
 /*
  * 번쩍임 줄이기 (v0.1.22) — 광과민성 배려. 켜면 화면 전체 번쩍임·흔들림을 끄고, 발판 조명·테두리 박동을 약하게.
  * 폰의 '동작 줄이기'가 켜져 있으면 처음부터 켠다. 고른 값은 이 기기에 기억한다.
@@ -1805,7 +1805,7 @@ const S = {
   fx:[], bits:[], rings:[], flashAt:-9, flashA:0, swapAnim:null,
   stats:{perfect:0,nice:0,ok:0,miss:0,turns:0,blocked:0,blasts:0,maxCombo:0,maxLevel:1,overBars:0},
   actedBeats:{}, blockFlash:-9,
-  errors:[], shake:0, hold:0, holding:false, releasedBar:0, dropPlan:null, popGroups:null, planBar:0, pin:null, droppedBar:-1, reshuffling:false, reshuffledBar:-1, ringDoneBar:-2, lastSwap:null, combo:0, comboMade:false, announceAt:-9, countShown:'', level:0, lvGauge:0, levelBar:0, fillBar:-1, hintBar:-1, hint:null, hintFor:-2, hintAt:0, zonePos:-1, zoneAt:0, taps:[], errs8:[], countBar:-1, missRun:0, blockRun:0, why:[], paused:false, pauseBar:0, pauseLockBar:-2, timeUp:false, bonusTime:0, lastPlayBar:Infinity, overAt:0,
+  errors:[], shake:0, hold:0, holding:false, releasedBar:0, dropPlan:null, popGroups:null, planBar:0, pin:null, droppedBar:-1, reshuffling:false, reshuffledBar:-1, ringDoneBar:-2, lastSwap:null, combo:0, comboMade:false, announceAt:-9, countShown:'', level:0, lvGauge:0, levelBar:0, fillBar:-1, hintBar:-1, dryTurns:0, hint:null, hintFor:-2, hintAt:0, zonePos:-1, zoneAt:0, taps:[], errs8:[], countBar:-1, missRun:0, blockRun:0, why:[], paused:false, pauseBar:0, pauseLockBar:-2, timeUp:false, bonusTime:0, lastPlayBar:Infinity, overAt:0,
   barIndex:-1, beatIndex:-1, drag:null, sel:null,
 };
 
@@ -3634,9 +3634,9 @@ function drawTile(t, r, c, now, dx, dy){
   }
   const hint = t.fromRow===null ? fallHint(t,r,c) : 0;
   const x = (c+0.5)*cell + dx + SWAY, y = (dr+0.5)*cell + dy + hint + BOB;
-  if(POPSET.has(t.id)) popMark(x, y, now, t.color, hint > 0 ? 0.72 : 1);   // 떨어지면 곧바로 터질 말 — 말 뒤에 모양 테두리
+  if(POPSET.has(t.id)) popMark(x, y, now, t.color, hint > 0 ? 0.9 : 1);    // 떨어지면 곧바로 터질 말 — 말 뒤에 모양 테두리
   if(S.sel && S.sel.id === t.id) selMark(x, y, now, t.color);   // 3박에 고른 말 — 캐릭터 색 모양 테두리
-  if(hint > 0) ctx.globalAlpha = 0.72;             // 곧 내려올 말 (v0.1.59 흐리기 되돌림 0.5→0.72)
+  if(hint > 0) ctx.globalAlpha = 0.9;              // 곧 내려올 말 (v0.1.59 0.5→0.72 · v0.2.84 더 잘 보이게 0.72→0.9)
   drawPet(x, y, cell*PET_FILL, t.color, 1, POPSET.has(t.id) || (S.sel && S.sel.id === t.id));   // 곧 터질 말 · 3박에 고른 말은 '오!' 표정 (v0.1.24)
   // 다음 턴에 내려갈 말(안 터지는 말)은 아래로 간다는 표시.
   // 내가 3박에 고른 말·붙잡은 말은 내려가지 않으니 표시도 지운다 (v0.1.53)
@@ -3869,8 +3869,8 @@ function draw(now){
         if(t && t.dropFrom === -1){ next = t; break; }   // 그 열에 맨 먼저 들어올 말
       }
       if(!next) continue;
-      if(POPSET.has(next.id)) popMark((c+0.5)*cell, -0.5*cell + cell*FALL_HINT, now, next.color, 0.72);
-      ctx.globalAlpha = 0.72;                      // 판 위에 걸친 다음 말 미리보기 (v0.1.59 되돌림)
+      if(POPSET.has(next.id)) popMark((c+0.5)*cell, -0.5*cell + cell*FALL_HINT, now, next.color, 0.9);
+      ctx.globalAlpha = 0.9;                       // 판 위에 걸친 다음 말 미리보기 (v0.2.84 0.72→0.9)
       drawPet((c+0.5)*cell, -0.5*cell + cell*FALL_HINT, cell*PET_FILL, next.color, 1, POPSET.has(next.id));
       ctx.globalAlpha = 1;
     }
@@ -3887,8 +3887,8 @@ function draw(now){
 
       if(cur) continue;                              // 말이 있는 칸은 건드리지 않는다
 
-      if(POPSET.has(t.id)) popMark(x, y, now, t.color, 0.32);   // 곧 채워질 빈 칸 — 연한 실루엣 고리만
-      ctx.globalAlpha = 0.23;                                   // v0.2.52 10%p 더 잘 보이게(0.13→0.23)
+      if(POPSET.has(t.id)) popMark(x, y, now, t.color, 0.5);    // 곧 채워질 빈 칸 — 실루엣 고리 (v0.2.84 0.32→0.5)
+      ctx.globalAlpha = 0.45;                                   // v0.2.52 0.13→0.23 · v0.2.84 더 잘 보이게 0.23→0.45
       drawPet(x, y, cell*PET_FILL, t.color, 1, POPSET.has(t.id));
       ctx.globalAlpha = 1;
     }
@@ -4273,7 +4273,10 @@ function bgmRemember(atSong){
  */
 function settleCombo(now){
   if(!S.comboMade){
-    S.hintBar = S.barIndex + 1;                            // v0.2.42 놓친 턴 다음 턴에는 옮길 수 있는 말을 짚어 준다
+    // v0.2.42 놓친 턴 다음 턴에 옮길 수 있는 말을 짚어 준다.
+    // v0.2.84 한 번 놓쳤다고 바로 짚으면 잘하던 사람도 힌트를 본다('잘하고 있는데 왜 힌트?') — **두 턴 내리** 못 터뜨렸을 때만
+    S.dryTurns = (S.dryTurns || 0) + 1;
+    if(S.dryTurns >= 2) S.hintBar = S.barIndex + 1;
     S.hint = null;
     // v0.2.33 콤보는 0 으로 돌아가지만 **레벨은 절반까지만** 내려간다.
     // 한 번 놓쳤다고 곡이 1단계로 곤두박질치면 흐름이 끊겨서, 반씩만 깎고 다시 올라가게 했다.
@@ -4289,6 +4292,7 @@ function settleCombo(now){
     S.lvGauge = Math.max(Math.floor(S.lvGauge / 2), LEVEL_AT[Math.max(0, L - drop)]);
     S.combo = 0;
   }
+  else S.dryTurns = 0;                                   // v0.2.84 무언가 터졌다 — 힌트 셈을 처음부터
   S.comboMade = false;
 }
 
@@ -4489,7 +4493,7 @@ async function start(tut){        // tut: true = 튜토리얼(박자 켬) · 'fr
     stats:{perfect:0,nice:0,ok:0,miss:0,turns:0,blocked:0,blasts:0,maxCombo:0,maxLevel:S.tut ? TUT_LEVEL+1 : 1,overBars:0},
     actedBeats:{}, blockFlash:-9,
     errors:[], shake:0, hold:0, tut:tut === true || tut === 'free', free:tut === 'free', practice:tut === 'practice',
-    test:tut === 'test', testLevel:0, holding:false, releasedBar:0, dropPlan:null, popGroups:null, planBar:0, pin:null, droppedBar:-1, reshuffling:false, reshuffledBar:-1, ringDoneBar:-2, reshuffleAt:null, turnJ:{}, multBar:-1, lastSwap:null, combo:0, comboMade:false, announceAt:-9, countShown:'', level:S.tut ? TUT_LEVEL : 0, lvGauge:0, levelBar:0, fillBar:-1, hintBar:-1, hint:null, hintFor:-2, hintAt:0, zonePos:-1, zoneAt:0, taps:[], errs8:[], countBar:-1, missRun:0, blockRun:0, why:[], paused:false, pauseBar:0, pauseLockBar:-2, timeUp:false, bonusTime:0, lastPlayBar:Infinity, overAt:0,
+    test:tut === 'test', testLevel:0, holding:false, releasedBar:0, dropPlan:null, popGroups:null, planBar:0, pin:null, droppedBar:-1, reshuffling:false, reshuffledBar:-1, ringDoneBar:-2, reshuffleAt:null, turnJ:{}, multBar:-1, lastSwap:null, combo:0, comboMade:false, announceAt:-9, countShown:'', level:S.tut ? TUT_LEVEL : 0, lvGauge:0, levelBar:0, fillBar:-1, hintBar:-1, dryTurns:0, hint:null, hintFor:-2, hintAt:0, zonePos:-1, zoneAt:0, taps:[], errs8:[], countBar:-1, missRun:0, blockRun:0, why:[], paused:false, pauseBar:0, pauseLockBar:-2, timeUp:false, bonusTime:0, lastPlayBar:Infinity, overAt:0,
       barIndex:-1, beatIndex:-1, drag:null, sel:null,
   });
   S.tut = tut === true || tut === 'free';         // v0.1.82 클릭 이벤트가 인자로 들어와 튜토리얼로 오인되던 버그 방지
