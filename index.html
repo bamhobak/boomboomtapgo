@@ -813,7 +813,7 @@
    ========================================================================= */
 
 // 게임 버전 — 수정해서 배포할 때마다 끝 두 자리를 1씩 올린다(v0.1.01 → v0.1.02). 화면 오른쪽 아래에 보인다
-const GAME_VERSION = 'v0.3.03';   // 버전 표기 — 패치 자리는 두 자리 (v0.2.01, v0.2.02 …)
+const GAME_VERSION = 'v0.3.04';   // 버전 표기 — 패치 자리는 두 자리 (v0.2.01, v0.2.02 …)
 /*
  * 번쩍임 줄이기 (v0.1.22) — 광과민성 배려. 켜면 화면 전체 번쩍임·흔들림을 끄고, 발판 조명·테두리 박동을 약하게.
  * 폰의 '동작 줄이기'가 켜져 있으면 처음부터 켠다. 고른 값은 이 기기에 기억한다.
@@ -3847,6 +3847,9 @@ function drawFloor(now){
       ctx.fillStyle = 'rgba(59,35,20,0.10)';                                 // 아래쪽 살짝 그늘 — 스티커 두께
       roundRectPath(x, y + sz*0.84, sz, sz*0.16, rr*0.5); ctx.fill();
       // 박 반짝 — 1박 옅은 하양 · 2박 중간 하양 · 3박 주황 · 4박 파랑 (v0.1.55)
+      // v0.3.04 판 전체가 **지금 박 색**(1 흰 · 2 노랑 · 3 분홍 · 4 파랑)으로 은은하게 물든다 — 박 내내 깔리고, 박 직후에 더 진하다
+      const wash = (CALM.on ? 0.07 : 0.13) + 0.12 * k;
+      ctx.globalAlpha = wash; ctx.fillStyle = BP.col; roundRectPath(x, y, sz, sz, rr); ctx.fill(); ctx.globalAlpha = 1;
       const lit = ((r + c + ib) & 1) === 0;
       const a = k*BP.a*(lit ? 1 : 0.35);
       if(a > 0.01){ ctx.globalAlpha = Math.min(0.6, a); ctx.fillStyle = BP.col; roundRectPath(x, y, sz, sz, rr); ctx.fill(); }
@@ -3903,9 +3906,9 @@ function draw(now){
   // 판 테두리 = 지금 박 색 (v0.1.93) — 1박 하양 · 2박 노랑 · 3박 주황 · 4박 파랑, 박 직후에 더 밝다
   {
     const bp = BEAT_POP[BEATV ? BEATV.pos % 4 : 0], bk = BEATV ? BEATV.k : 0;
-    ctx.strokeStyle = `rgba(${bp.rgb},${(0.5 + 0.45*bk).toFixed(3)})`;
-    ctx.lineWidth = 3;
-    roundRectPath(2, 2, w-4, h-4, R-2); ctx.stroke();
+    ctx.strokeStyle = `rgba(${bp.rgb},${(0.75 + 0.25*bk).toFixed(3)})`;
+    ctx.lineWidth = Math.max(5, cell*0.08);                         // v0.3.04 3px → 칸의 0.08 — 박 색이 판 둘레에서 또렷이
+    roundRectPath(ctx.lineWidth/2, ctx.lineWidth/2, w-ctx.lineWidth, h-ctx.lineWidth, R-ctx.lineWidth/2); ctx.stroke();
   }
 
   ctx.save(); ctx.beginPath(); ctx.rect(PAD,PAD,w-PAD*2,h-PAD*2); ctx.clip();
