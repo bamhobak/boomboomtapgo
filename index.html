@@ -794,7 +794,7 @@
       </div>
       <button class="ghost" id="snd" type="button">소리 켜짐</button>
     </div>
-    <div class="toggles"><button class="ghost" id="calm" type="button">번쩍임 줄이기 꺼짐</button><button class="ghost" id="vib" type="button">진동 켜짐</button><button class="ghost" id="light" type="button">가벼운 화면 꺼짐</button></div>
+    <div class="toggles"><button class="ghost" id="calm" type="button">번쩍임 줄이기 꺼짐</button><button class="ghost" id="vib" type="button">진동 켜짐</button></div>
     <button id="setClose" type="button">닫기</button>
   </div>
 
@@ -829,7 +829,7 @@
    ========================================================================= */
 
 // 게임 버전 — 수정해서 배포할 때마다 끝 두 자리를 1씩 올린다(v0.1.01 → v0.1.02). 화면 오른쪽 아래에 보인다
-const GAME_VERSION = 'v0.3.15';   // 버전 표기 — 패치 자리는 두 자리 (v0.2.01, v0.2.02 …)
+const GAME_VERSION = 'v0.3.16';   // 버전 표기 — 패치 자리는 두 자리 (v0.2.01, v0.2.02 …)
 /*
  * 번쩍임 줄이기 (v0.1.22) — 광과민성 배려. 켜면 화면 전체 번쩍임·흔들림을 끄고, 발판 조명·테두리 박동을 약하게.
  * 폰의 '동작 줄이기'가 켜져 있으면 처음부터 켠다. 고른 값은 이 기기에 기억한다.
@@ -1901,21 +1901,20 @@ function layout(){
    *   앱 속 브라우저 · 모바일 웹 → 2배
    * PC 는 화면 배율이 1이어도 2.5배로 그린 뒤 줄여 보여 준다(그만큼 가장자리가 곱게 나온다).
    * 끊김의 원인은 화소 수가 아니라 처음 쓸 때 만들던 그림이었다(v0.2.22 미리 데우기).
-   * 그래도 밀리면 아래 자동 저하(1.25배)와 '가벼운 화면'(1배)이 받쳐 준다.
+   * v0.3.16 저화질로 그리는 길('가벼운 화면'·자동 저하)은 전부 없앴다 — 늘 곱게(요청).
    */
   const installed = (matchMedia('(display-mode: standalone)').matches
                      || matchMedia('(display-mode: fullscreen)').matches
                      || navigator.standalone === true);
   const desktop = matchMedia('(hover: hover) and (pointer: fine)').matches;
   const dev = devicePixelRatio || 1;
-  // v0.3.10 느린 폰이라고 배율을 저절로 내리지 않는다(요청 — 흐려 보였다). 폰은 늘 2배, 손으로 켜는 '가벼운 화면'만 1배
+  // v0.3.10 느린 폰이라고 배율을 저절로 내리지 않는다(요청 — 흐려 보였다)
   // v0.3.15 폰은 **화면 배율대로 2~3배**. 2배 고정일 때 3배 화면(요즘 폰 대부분)에서는 판이 1.5배로 늘어나 계단이 보였다(요청)
-  let dpr = LIGHT.on ? 1
-          : desktop ? 2.5                                  // 화면 배율이 1이어도 2.5배로 그려 곱게
+  let dpr = desktop ? 2.5                                  // 화면 배율이 1이어도 2.5배로 그려 곱게
           : Math.max(2, Math.min(dev, 3));
   // v0.3.15 손가락으로 확대(핀치)해 보고 있으면 그만큼 더 곱게 — 글자는 다시 그려 또렷한데 캔버스만 늘어나 계단졌다
   const vz = window.visualViewport ? Math.min(3, Math.max(1, visualViewport.scale || 1)) : 1;
-  if(!LIGHT.on) dpr *= vz;
+  dpr *= vz;
   /*
    * v0.2.63 **화소 예산** — PC 는 판이 훨씬 커서 같은 배율이라도 그릴 넓이가 폭발한다.
    * (폰 430×530 을 2배 = 0.9백만 화소, PC 544×612 을 2.5배 = 2.15백만 — 2.4배 더 칠한다.
@@ -1925,7 +1924,7 @@ function layout(){
    */
   const BUDGET = 1.8e6;
   const area = cw * ch;
-  if(!LIGHT.on && area * dpr * dpr > BUDGET) dpr = Math.sqrt(BUDGET / area);
+  if(area * dpr * dpr > BUDGET) dpr = Math.sqrt(BUDGET / area);
   dpr = Math.max(1, dpr);
   cv.style.width = cw+'px'; cv.style.height = ch+'px';
   cv.width = Math.round(cw*dpr); cv.height = Math.round(ch*dpr);
@@ -4180,8 +4179,8 @@ addEventListener('visibilitychange', () => {
  * 기기·브라우저마다 그릴 수 있는 양이 달라서, 프레임 간격을 재서 밀리면 상한을 내리고
  * 다시 여유가 생기면 올린다. 크게 터질 때만 버거운 기기에서 그때만 조용히 가벼워진다.
  */
-const LIGHT = { on: false };                       // '가벼운 화면' — 손으로 켜는 저화질 (v0.2.19)
-try{ LIGHT.on = localStorage.getItem('btg_light') === '1'; }catch(e){}
+// v0.3.16 '가벼운 화면'(1배 저화질)은 없앴다(요청 — 가벼운 건 없다). 예전에 켜 둔 기기의 기억도 지운다
+try{ localStorage.removeItem('btg_light'); }catch(e){}
 const PERF = { ema: 16.7, last: 0, cap: BITS_MAX, low: false, slow: 0, fast: 0 };
 function bitsCap(){ return PERF.cap; }
 function perfTick(){
@@ -5428,14 +5427,6 @@ el('vib').addEventListener('click', () => {
 el('calm').addEventListener('click', () => {
   CALM.on = !CALM.on; calmLabel();
   try{ localStorage.setItem('btg_calm', CALM.on ? '1' : '0'); }catch(e){}
-});
-/* 가벼운 화면 (v0.2.19) — 판을 낮은 해상도로 그린다. 오래된 폰·앱 속 브라우저에서 끊기면 이걸 켠다 */
-const lightLabel = () => { el('light').textContent = LIGHT.on ? '가벼운 화면 켜짐' : '가벼운 화면 꺼짐'; el('light').classList.toggle('off', !LIGHT.on); };
-lightLabel();
-el('light').addEventListener('click', () => {
-  LIGHT.on = !LIGHT.on; lightLabel();
-  try{ localStorage.setItem('btg_light', LIGHT.on ? '1' : '0'); }catch(e){}
-  layout();
 });
 el('snd').addEventListener('click', () => {
   CONFIG.sound = !CONFIG.sound;
