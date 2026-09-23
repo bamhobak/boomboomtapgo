@@ -813,7 +813,7 @@
    ========================================================================= */
 
 // 게임 버전 — 수정해서 배포할 때마다 끝 두 자리를 1씩 올린다(v0.1.01 → v0.1.02). 화면 오른쪽 아래에 보인다
-const GAME_VERSION = 'v0.3.11';   // 버전 표기 — 패치 자리는 두 자리 (v0.2.01, v0.2.02 …)
+const GAME_VERSION = 'v0.3.12';   // 버전 표기 — 패치 자리는 두 자리 (v0.2.01, v0.2.02 …)
 /*
  * 번쩍임 줄이기 (v0.1.22) — 광과민성 배려. 켜면 화면 전체 번쩍임·흔들림을 끄고, 발판 조명·테두리 박동을 약하게.
  * 폰의 '동작 줄이기'가 켜져 있으면 처음부터 켠다. 고른 값은 이 기기에 기억한다.
@@ -1177,7 +1177,9 @@ const TRACK_SETS = [
 ];
 let BGM_SET = 0;
 try{ const v = +localStorage.getItem('btg_bgmset'); if(v >= 0 && v < TRACK_SETS.length) BGM_SET = v | 0; }catch(e){}
-const sfxPfx = () => TRACK_SETS[BGM_SET].sfx ? 'S' + (BGM_SET + 1) + '_' : '';
+// v0.3.12 효과음 이름표는 세트 번호가 아니라 **효과음 파일**에서 — sfx3 → 'S3_'. 베이스 그루브로 더한 세트(5번~)가
+// 다른 세트의 효과음(sfx2~4)을 빌려 쓸 수 있게
+const sfxPfx = () => { const f = TRACK_SETS[BGM_SET].sfx; return f ? 'S' + f.slice(3) + '_' : ''; };
 const sfxJobs = {};
 /** 그 세트의 효과음 묶음을 받는다(한 번만) */
 function loadSfxSet(i){
