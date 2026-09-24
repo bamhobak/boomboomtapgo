@@ -873,7 +873,7 @@
    ========================================================================= */
 
 // 게임 버전 — 수정해서 배포할 때마다 끝 두 자리를 1씩 올린다(v0.1.01 → v0.1.02). 화면 오른쪽 아래에 보인다
-const GAME_VERSION = 'v0.3.31';   // 버전 표기 — 패치 자리는 두 자리 (v0.2.01, v0.2.02 …)
+const GAME_VERSION = 'v0.3.32';   // 버전 표기 — 패치 자리는 두 자리 (v0.2.01, v0.2.02 …)
 /*
  * 번쩍임 줄이기 (v0.1.22) — 광과민성 배려. 켜면 화면 전체 번쩍임·흔들림을 끄고, 발판 조명·테두리 박동을 약하게.
  * 폰의 '동작 줄이기'가 켜져 있으면 처음부터 켠다. 고른 값은 이 기기에 기억한다.
@@ -1926,7 +1926,7 @@ const S = {
   fx:[], bits:[], rings:[], flashAt:-9, flashA:0, swapAnim:null,
   stats:{perfect:0,nice:0,ok:0,miss:0,turns:0,blocked:0,blasts:0,maxCombo:0,maxLevel:1,overBars:0},
   actedBeats:{}, blockFlash:-9,
-  errors:[], shake:0, hold:0, holding:false, releasedBar:0, dropPlan:null, popGroups:null, planBar:0, pin:null, droppedBar:-1, reshuffling:false, reshuffledBar:-1, ringDoneBar:-2, lastSwap:null, combo:0, comboMade:false, announceAt:-9, countShown:'', level:0, lvGauge:0, levelBar:0, fillBar:-1, hintBar:-1, dryTurns:0, hint:null, hintFor:-2, hintAt:0, zonePos:-1, zoneAt:0, taps:[], errs8:[], countBar:-1, missRun:0, blockRun:0, why:[], paused:false, pauseBar:0, pauseLockBar:-2, timeUp:false, bonusTime:0, lastPlayBar:Infinity, overAt:0,
+  errors:[], shake:0, hold:0, holding:false, releasedBar:0, dropPlan:null, popGroups:null, planBar:0, pin:null, droppedBar:-1, reshuffling:false, reshuffledBar:-1, ringDoneBar:-2, lastSwap:null, combo:0, comboMade:false, announceAt:-9, countShown:'', level:0, lvGauge:0, levelBar:0, fillBar:-1, hintBar:-1, dryTurns:0, ghost:false, sparks:[], hitStop:0, hint:null, hintFor:-2, hintAt:0, zonePos:-1, zoneAt:0, taps:[], errs8:[], countBar:-1, missRun:0, blockRun:0, why:[], paused:false, pauseBar:0, pauseLockBar:-2, timeUp:false, bonusTime:0, lastPlayBar:Infinity, overAt:0,
   barIndex:-1, beatIndex:-1, drag:null, sel:null,
 };
 
@@ -2117,7 +2117,7 @@ function showJudge(kind){
   e.textContent = kind;
   e.style.color = L.col;
   e.classList.remove('go', 'flat'); void e.offsetWidth;
-  if(kind === 'MISS'){                                       // v0.1.71 미스는 안 튄다 — 그 자리에서 떴다 사라진다
+  if(kind === 'MISS' || kind === 'OK'){                      // v0.3.32 OK 도 안 튄다(조용히) · v0.1.71 미스는 안 튄다 — 그 자리에서 떴다 사라진다
     e.style.setProperty('--jd', L.ms + 'ms');
     e.classList.add('flat');
     return;
@@ -2169,12 +2169,13 @@ function applyJudge(j){
   // v0.2.65 통계도 화면에 뜬 글자(judgeLabel)와 **같은 기준**으로 센다.
   // 예전엔 화면은 퍼펙트 창의 55% 안쪽만 PERFECT 라 했는데 통계는 창 전체를 퍼펙트로 세어,
   // 판 내내 NICE 만 봤는데 결과에는 퍼펙트가 수십 개로 찍혔다.
-  if(tier === 'PERFECT'){ S.stats.perfect++; buzz(14); }
+  if(tier === 'PERFECT'){ S.stats.perfect++; perfectPop(); }   // v0.3.32 작은 폭죽 + 멈칫 + 강한 진동
   else if(tier === 'NICE'){ S.stats.nice++; buzz(10); }
-  else if(tier === 'OK'){ S.stats.ok++; buzz(8); }
+  else if(tier === 'OK'){ S.stats.ok++; }                  // v0.3.32 OK 는 조용히 — 진동 없음
   else S.stats.miss++;
   // v0.1.75 4박을 민 그 순간 배율을 매긴다 — 다음 마디 1박까지 기다리지 않는다
   if(slotAt(j.beat) === 'D'){
+    { const t = S.turnJ || {}; if(S.ghost && t.T && t.T !== 'MISS' && t.D && t.D !== 'MISS') S.ghost = false; }   // v0.3.32 박에 맞추기 시작 — 유령 손가락 걷기
     S.lastTurnJ = Object.assign({}, S.turnJ);              // v0.2.15 settleMult 가 지우기 전에 복사 — 튜토리얼 합격 판정이 이걸 본다
     settleMult(S.comboMade || !!(S.dropPlan && S.popGroups && S.popGroups.length));
     S.multBar = barAtBeat(j.beat);
@@ -2955,9 +2956,10 @@ function drawPet(x, y, s, color, scale, wow){
   const face = (wow && FACES_WOW[color] && FACES_WOW[color].complete && FACES_WOW[color].naturalWidth) ? FACES_WOW[color] : FACES[color];
   if(face && face.complete && face.naturalWidth){
     const kk = Math.round(k), img = scale === 1 ? bakedFace(face, Math.max(1, Math.round(kk * DPR))) : face;
-    if(TILT){                                        // A5 진자 기울기 — 자리는 그대로, 고개만
+    if(TILT || SQ !== 1){                            // A5 진자 기울기 — 자리는 그대로, 고개만
       ctx.save();
-      ctx.translate(x, y); ctx.rotate(TILT); ctx.translate(-x, -y);
+      if(SQ !== 1){ const yb = y + kk/2; ctx.translate(x, yb); ctx.scale(1, SQ); ctx.translate(-x, -yb); }   // v0.3.32 웅크림 — 바닥 기준 세로로만
+      if(TILT){ ctx.translate(x, y); ctx.rotate(TILT); ctx.translate(-x, -y); }
       ctx.drawImage(img, Math.round(x - kk/2), Math.round(y - kk/2), kk, kk);
       ctx.restore();
     } else ctx.drawImage(img, Math.round(x - kk/2), Math.round(y - kk/2), kk, kk);
@@ -2965,6 +2967,7 @@ function drawPet(x, y, s, color, scale, wow){
   else { ctx.fillStyle = PETS[color].hex; ctx.fillRect(Math.round(x - k*0.4), Math.round(y - k*0.4), Math.round(k*0.8), Math.round(k*0.8)); }
 }
 const easeOut = p => 1 - Math.pow(1-p,3);
+const smooth01 = t => { const u = Math.max(0, Math.min(1, t)); return u*u*(3 - 2*u); };   // v0.3.32 양 끝이 평평한 S자
 
 // 곧 내려올 말은 한 칸의 1/6 만큼 미리 내려 그린다.
 // 붙잡고 있는 말(과 그 위)은 안 떨어지므로 빼준다.
@@ -2983,7 +2986,7 @@ function fallHint(t, r, c){
  * 번쩍이는 것만으로는 "쳤다"를 알려줄 뿐 언제 칠지는 못 알려준다. 리듬게임은 예비가 있어야 맞춰 친다.
  * 곡 시계 기준이라 판을 기다리며 멈출 때는 같이 멈춘다.
  */
-let BEATV = null, BOB = 0, SWAY = 0, TILT = 0;   // SWAY: v0.1.38 높은 레벨의 좌우 흔들기 · TILT: A5 진자 기울기
+let BEATV = null, BOB = 0, SWAY = 0, TILT = 0, SQ = 1;   // SQ: v0.3.32 3박 직전 웅크림(세로 배율, 바닥 기준)   // SWAY: v0.1.38 높은 레벨의 좌우 흔들기 · TILT: A5 진자 기울기
 
 /*
  * A6 노래방 공 (v0.2.59) — 판 윗변을 따라 네 자리를 포물선으로 통통 건넌다.
@@ -3140,9 +3143,18 @@ function drawBarRing(w, h){
      * 예전엔 나오자마자 0.53 으로 또렷했고 정박에서 0.89 — 늘 잘 보여 '언제'가 안 읽혔다.
      */
     const bt = V.pos + V.ph;                                          // 마디 안 박 위치(0~4) — pos 에서 고리가 과녁에 닿는다
-    const sm = t => { const x = Math.max(0, Math.min(1, t)); return x*x*(3 - 2*x); };
-    const on = bt <= pos ? sm((bt - (pos - ZONE_RISE)) / ZONE_RISE)   // 1.6박에 걸쳐 차오르고
-                         : 1 - sm((bt - pos) / ZONE_FALL);             // 0.6박에 걸쳐 사그라든다
+    /*
+     * v0.3.32 과녁 = **판정 창 동안 켜진 불**(신호등). 정박 한 순간을 가리키던 차오름을 버리고,
+     * 이른 쪽(느린 레벨 320ms)부터 늦은 쪽(260ms)까지 **켜져 있다가 꺼진다**. "불 켜졌을 때 눌러".
+     * 레벨이 올라 창이 좁아지면 켜진 시간이 짧아지는 게 그대로 보인다. 꺼진 동안은 옅은 전구 자국만.
+     */
+    const bl = V.beatLen || bpmBeat(0);
+    const jw = judgeWin(V.ib - V.pos + pos);
+    const early = (jw.ge || jw.g) / bl, late = jw.g / bl, edge = 0.045 / bl;   // 박 단위 · 켜지고 꺼지는 가장자리 45ms
+    const d = bt - pos;
+    const lit = Math.min(smooth01((d + early + edge) / edge), 1 - smooth01((d - late) / edge));
+    const bulb = d < 0 ? 0.16 * smooth01((bt - (pos - ZONE_RISE)) / 0.5) : 0.16 * (1 - smooth01((d - late) / 0.25));   // 꺼진 전구 자국
+    const on = Math.max(lit, bulb);
     ctx.fillStyle = `rgba(${zr},${((CALM.on ? 0.70 : 0.89) * on * zoneIn).toFixed(3)})`;  // v0.2.58 나타날 땐 스르르
     ctx.beginPath();
     ctx.arc(cx, cy, R0 + zb, 0, Math.PI*2);
@@ -3400,7 +3412,7 @@ function findHintMove(src){
 function drawHint(w, h, now){
   if(!S.live || S.tut || S.holding) return;               // v0.2.51 3박에 잡아도 화살표는 안 없앤다
   if(buffIs('eye')) return;                               // v0.3.18 눈썰미를 끼면 그쪽이 늘 짚는다(겹치지 않게)
-  if(!S.practice && S.barIndex !== S.hintBar) return;     // 연습에서는 늘 짚어 준다 (v0.2.43)
+  if(!S.practice && !S.ghost && S.barIndex !== S.hintBar) return;     // 연습에서는 늘 짚어 준다 (v0.2.43) · v0.3.32 유령 손가락이 뜬 동안도
   if(locked()) return;
   /*
    * v0.2.52 추천은 **턴마다 한 번만** 고르고 그 턴 동안 바꾸지 않는다.
@@ -3490,6 +3502,168 @@ function drawHint(w, h, now){
   ctx.fillStyle = bp.col; ctx.fill();
   ctx.globalAlpha = 1;
   ctx.restore();
+}
+
+/*
+ * v0.3.32 PERFECT 만 확실하게 — 누른(민) 자리에서 작은 폭죽, 아주 짧은 멈칫(55ms), 강한 진동 한 번.
+ * NICE 는 그대로, OK 는 조용히(진동·튀는 글자 없음). 칭찬이 분명해야 몸이 타이밍을 스스로 배운다.
+ */
+function perfectPop(){
+  const now = clock(), at = actCell();
+  if(at) S.sparks.push({ r: at[0], c: at[1], t0: now, rot: Math.random() * Math.PI });
+  if(S.sparks.length > 6) S.sparks.shift();
+  if(!CALM.on) S.hitStop = now + 0.055;
+  S.perfBuzzAt = now;
+  buzz(55);
+}
+const SPARK_COL = ['#FDE047', '#FFFFFF', '#FF2D87', '#4C8DFF'];
+function drawSparks(w, h, now){
+  if(!S.sparks || !S.sparks.length) return;
+  const LIFE = 0.5;
+  S.sparks = S.sparks.filter(p => now - p.t0 < LIFE);
+  ctx.save();
+  roundRectPath(0, 0, w, h, boardR()); ctx.clip();
+  ctx.translate(PAD, PAD);
+  ctx.lineCap = 'round';
+  for(const p of S.sparks){
+    const q = (now - p.t0) / LIFE, e = easeOut(Math.min(1, q * 1.3));
+    const x = (p.c + 0.5) * cell, y = (p.r + 0.5) * cell;
+    ctx.globalAlpha = 0.85 * Math.pow(1 - q, 2);                        // 가운데 번쩍 — 금빛 원
+    ctx.fillStyle = '#FFF3A6';
+    ctx.beginPath(); ctx.arc(x, y, cell * (0.3 + 0.35 * e), 0, Math.PI * 2); ctx.fill();
+    for(let i = 0; i < 12; i++){                                        // 사방으로 뻗는 빛줄기 열두 개 + 끝의 불티
+      const a = p.rot + i * Math.PI / 6, long = i % 2 ? 0.78 : 1;
+      const r1 = cell * (0.3 + 0.95 * e) * long, r0 = Math.max(cell * 0.2, r1 - cell * 0.5 * (1 - q));
+      const ca = Math.cos(a), sa = Math.sin(a);
+      ctx.globalAlpha = 1 - q;
+      ctx.strokeStyle = SPARK_COL[i % 4]; ctx.lineWidth = Math.max(2.5, cell * 0.1 * (1 - q * 0.6));
+      ctx.beginPath(); ctx.moveTo(x + ca * r0, y + sa * r0); ctx.lineTo(x + ca * r1, y + sa * r1); ctx.stroke();
+      ctx.fillStyle = SPARK_COL[i % 4];
+      ctx.beginPath(); ctx.arc(x + ca * r1, y + sa * r1, Math.max(2, cell * 0.09 * (1 - q * 0.5)), 0, Math.PI * 2); ctx.fill();
+    }
+  }
+  ctx.globalAlpha = 1;
+  ctx.restore();
+}
+
+/*
+ * v0.3.32 유령 손가락 시범 — 판 위에 반투명한 손가락이 **1·2박엔 떠 있다가, 3박에 꾹 누르고, 4박에 쓱 민다**.
+ * 누르는 자리는 힌트 수 위. "언제"와 "어디서"를 한 번에 보여 준다 — 규칙을 몰라도 따라 하면 된다.
+ * 보이는 곳: 튜토리얼에서 리듬을 처음 알려 주는 화면 · 게임 중 두 턴 연속 헤맬 때(S.ghost). 박에 맞춰 3·4박을 해내면 걷힌다.
+ */
+const GHOST = { img: null, key: '' };
+// v0.3.32 손 그림 — 코덱스(ChatGPT 이미지 생성)로 뽑은 가리키는 손. TIP 은 그림 안 손끝 자리(0~1)
+const HAND_TIP = [0.6478, 0.0350], HAND_AR = 0.6458;   // 손끝 x·y, 가로/세로
+const HAND_ROT = -0.22;                                          // 그림 손 기울기(라디안)
+const HAND_IMG = new Image();
+HAND_IMG.src = 'data:image/webp;base64,UklGRhAqAABXRUJQVlA4WAoAAAAQAAAAuQAAHwEAQUxQSPAOAAABDAVt20gJf9h7rndHICImgDdVI7YXPL4XvObxveBrhlyu3G88BjWiAEYB3xJj0RzID0ZJxyRnxWPmE3KOZ8scO3Cmld7WGv5/hiRJv4h/9vRszw7Xtm0bj32+m7Vt27Zt27e2OVrb9nYH/vF7UdnV1ZWV8ToiJoButm2RcOXEpw9rMLWJ04YlmFmCBViIBWgDe7bv+/IP8LwEfDDwMR9xREwAatWIBdC94AY7HH3RlZdfeu5RO260QDcAEYO8NQWABXe+YcKPgf3HH8Zf/d/ZANisEWDU2Md+J8no+w2RJL+9YwOBNdliBEN2nUgm50PUZmPwnuQTawOSKcZgrRdJ76O2MvpAXjk1iiyx6Dop0QVtvQ+csCIkQwQj76b3OriOf/4Xkh0WUz3N3qilqbQhlfanPnF3FJlh7Kin2IutqZaGyP+hyAvB9XTaanZHQ/xzRdicsNiPXhs1m8HA96Y1Jh8slnchpkFk3PE6SDYYO/Q5em2OfsNdr+tBckGwJZ22SKYl9cPnh9pMMGb4xOQHIhkaBPU0cBNIHgjG0uvA7oLGHjEmD4z5yI0JaO/isDlgseRF2wO4J9ETOB4PyYECx9TrHtwCGAh8pwcmA1A8X7M3jWkN2PqzmPcvAcgGzaNBQh1PQFF/BbZmugGa2choPR8XU3+CK3gBGpGDyG+mgak7g+4XmQEs2im6oZGrw9adxfTfsNxiklpsz70g9bdMijhhyPE8FHUn+De9K1meD8HW30F0bhgJfGMoTHAFzmGfC0xJ6nwyXQbcSt9oQHNvxfTbvLDBWTzVFO08aUQjV4LEZtD9JsMdfARuUn9j3m0Bs0AjntvWncWMnzOibgcEMInegfU3+zdNSR1zTBNOqL+5fxyAhmiAhgnn1d+Cv6cII9IIIwJk9q6qO8HiXgekEdsY7N0OG90yKSowJi2h93D9rcCWaEALnq6/VRkauCOhRnOt52HqbvWWLW0CX7W1t1aJXGO9OQR1t2770XmrG6bm1m/QFpN68u294bW3XnXeHVF767afOu/X39rtR+eDUbW3evup8379rVSdd0fW3lIaozd1RtScxcJ/abbN92tqN8zAd4bX3hzfMwKO6E3sqb2Zvyxhgze6a85gmo8YNnlzSO2NmFSZcUNrb8jr9LsMqTlYPFuZNwsEL7i/Mq+a+ru2Ip7PwYR3dmWeyoDD200nsWtlnsiAf1Xmcdjw1mTY5CmY4CwWjQry3Hs6A2b/I5U9noQNb7pvuI0JzmDM+9UIfCYDel5lBk9qUuALpu5gzKNMgB/swFcFdW9xe1Xe6Ko9wQW89pgwGUzNFTiyKu+NyIC9mUAbfDS69gRbM+/x2dQZsEGbyYr8asbas1hJC60bdb6bA7b2FuhV8SU0pcif5qs9g+m+rd5aTb8vlgEjP9lD+5bJgO6JNTtDU4oaVoTUHCDPesOMXKP+DO6vCZDnhsD168/ihj08N0NRd4Jz6uWMRsd/QervOG90tqy/AgfvsksObGfgR539cmDTmvc4rP4E69biiYHj6siKiDUAjC3EClZOFJAjlZ1WN0bEYIAii/xdC+DvnHqxAkDm3WC/c2968Ilnnn7ogr3Wm8dg+t83uQS2PqwAw9c4+bWf6vCPLx211o+NPDd4XlsfRoBZDh1Hkvm6Uso5e+8Cyb4XscVtMDUhwDwX/EAGHyLD0TkVrb97a8IIRh/7M+mDtjKyycP1YAw2nsDkog6qt8AnUIcWOC6xL6qqpsaBlFJlPJ+pA4uea+mDNqZ+rdSU/D1fAxbTPkUXVVVTsyC7MoEvm45nMebjemEODW70RtHpjO16oL4AaPoOqWT8EJjOJjiLL4CW7jKxu+MYKyJirYiIhcVG6suj8FjGFmheZMr3UmCZdhnaSYwAGLbg5oddfvsD99926eEbzgScyj59llZL3pmscxgBelY7/c0/2eRXt+/+QwptosgEmOagN0iqb5Jk0lI9a9nbncJYTH3E17XmlAuDJaXySKnk3WGdQYCtPmK9MtMf6YNRRVchpmqCaa8l+wq2TENP3fAOykWqVGCZ9+iCmooy8ruTjj9ih3VnKwCIqUqB9X6i03KFqcrSX146c80hgJhKFNj4T3pVVW0MOKLvnPOBpL6665SArYBgw14NqqnavtQrjcFF8oO9eiBtZ7HkbymkygM4UnONwZGvrwpr2suYqd9jYgm4EMBGqsHRHwnYtirMjXSsAC8C2EnVR948EtJGgv/RKRCR2hGNns/PAmkba6f5KAUFTceRQG5pZY+o9nHSHLDtIjiRThXFBJI0pI5vTQXbHhYzfqehU+CPGer48HBr2qLAQXTaQXClSep4JaQdjOl+i2Fw8CQAX30glTao586QZVa6sIqW6jG0aU8CSvnv7Vd2UIxYAPZcusEhiFGAVD95LWYQBMD8O97wZq82plUKRACpvgdpmQDDtnr4F5I6WGoUioBS/loItkUC+d/rZHLex4Y0SBLPBPNI9QHbGiNY7inS+6j9dgzvS0jcFrYFFtizjz5o04Px5NPU5PTJlMYMyGLIFVSvAxwcgGdaCXgeARmIxch72Re5qWUKF4J+Oa2xzRnT8yD7tFGSjkVSz6MgTRkZchOdNmEeStAvpzW2GcFp7NNG+aV9LJiX1HE/SBMW/01ecymk90Ya04/FPD9rLJHnJ2ONem6Noh+xt9FpLiX1fNSaMsEmyWtpGmaZYtJGtwRsgzHDxzOj+7BMCgjVlDyPQdEg2I6OOYQltCClFPlCtzEATM+4FA6DFan0rwVhAcG/GPSY7MDdIIAxD9MrcBKrVT0fNBYWC/QlbQkuQlZVjfxiOqDAQfQ5paUhrACYrmfKdFSOu8Ni4V6NLeFsUr0Mgr3pVVUTAZ2JgFxfFIu7WoRAsTNLakr9ehaM+ZBBNU1R7KzSHytiSadRUyuIjyUU3Rhb0mlqKYoPViTuhFNaFv+6I3AffW5hnf7605oP7fK3fqoFjkQgwQxZN73zH5xKuyDztjfKAAfDvDvfrelotOKO98+Habd9cDpC92kTb/7Q0JFizOxcf0vOsOiCOxly7dh7M2Z+Z98HSzSrJEHhfx/KM1H8OvfnWv116TszrdQvp7+FPsfI9bXimixT9bwD59LllzaciqPos8xxB+yVaVFXwliGHIv8Zhas4zXHAl/pMkv8zJhVlHpeiWLmrzNL/ewC6XmHIa9SUlV1i8Pi0RwLnDQCBlfSZ5aqel4HAY6gyytV1cDtG/6TYTH1LgADLBOjaspnVDXwxQIAZvuWMaNoHc+EAJhsPEM+YQZu0iC4gz6zAj8dA9NwdHY5XgBBwwYMmRV1nRKLWX5i1JwKfHcEDABjhjxLn1Wex0HQWOA8umwSqP65YD+CrRhyyvMBY02JxYJ9KWZU4FgISg2632TQYwrpk9EwZbC4mC6fHE+CoN8C/2FQOCT9fT7Y/izm/JXxlDyvhUWTxjzJcEKqGqNbHtKM4BC689FGz3uNRXPL9OkhhbA6pCljho1nPp6kqp4PGmuaguB0etXcSapR14BgIKtqzCHP+6zFAI0ZNo5BNXti33IYEAocTZc/ntdAMGCLhZ1mj+ov8xk7MBj7f/rcCTwJghYW2JYhc6J+PrWxrTCY8gvGTMHAc0tYtNTiTHrVHNES9XzUWtOqRf7UmCmlsW8pCFpscRO9arZ4ngBBqwXL9sZ8CRw3uTUtM9b8nz4/MKOP68Gi9YKNGbID2/EyCAbTdD1Nr3lBm1JI701p7KAI1tWQISlp8KvDYnAt7qHPkcBjIVi2xJ8xqmaEAPV8ssti0C3OoFdVzYoYf5wP7WCm+kxDTgDFcywEbSgYS58RABcvRIF2NBZ30mcDQKrPDLOmLWAx188aMyLrxzlh0aaCXelVNQMAStYbCNpWcC+9qoZHo+MRKNC+1sz8aQqqnIDj9RC0s2Cj5FUhPs8XJje2rSA4hS4HAr+cAxbtbWTo4/RAbAqxby0I2t1i5o+ZosNzewjaX7BKX84AYaHEY1CgigW2qldkcNVbTWEqgQLH0Kmq1pXnG1MYi4oKLqJTVQ1JAz+aFRZVNdbeSaeqRBTir8tAUF1jhj9DpwrxqOc/UKDKFlM+Ra9AIJiOh6FAtQWjH6cDCAPT82KIqRgEUzzDBBBKSE/2WIPKW4x5uJZA1HieA0EHtBj+uXIgkojp13lgO4Gd6yeVYNTzLEgHEBxSXzDDkMb03fQw1YO8VFM46rkHpHIWS/RSAkpPdxmzW4GD+UKrSFX1j/khuxnzOFM0qKrntqZqBjP8wNIoTqzrUTXBeowAClYDPxoNU60C+9KHFLV3aUjVLqaLR5Oq4z+rZszD9FEdVTGD4eMY4klJ1fNq2EpZTP8NY0yBD8FUbI7f6uu5ys31eyrhxP6or8crN/tvrCnPeypmMN1XdeV4KWzFho9jaBTQAZBKwZgH6WOKulbVCpxYRjAp8pMpYKplsTFjSJ5nQlBtgzGfpQIoVo3ht3lgKwbBeXQ11MczINjdYpG/NDaoEofnW2OMrRwszqNrSB0OGPD8aj5YVN/Yqd6mrxX1/HwpWHRCi6V/T14bHwtbKalqUI6bH4LOaLHBH3QNPBT9pBoC3QVjUKBTClb6kD5oKwH+gCm0YjT6QD60PGDROQvMejfpMoMbMIFBNSWlRD79T6Aw6KQCbPMeGXzsR7VE20SbUm2FavQukb/ful4XjOBhrcGUu79MMrhQpoOgIAH0o02pqpZokzE4T/KPFw6bD4CgAwvQtd41X5JU70LU8jJVbUIHmrTfZpqNwflIkt8/sM+iBrCCzmwEwDR/v2RSJMngvQ9RtUH7T9q2MQbvfWDjz8+d+7/ZABix6NxGLICepXe98uWfWBqdDyGEGGPJoMcYQ/Deu6As/XX8nUdtOnMBwIhFpzciADDZrKvvfNb/3/mJ/WsI3nkfQgixyRBjjCEE753zPsTE/t23k+4/c4fVZx+BRhGDejRWBKUj5lnxX/ucdsMz73z9s2M7au8v33z0+kNXnbjLeovPNjlKbSHGoFaNFSkE/Q6fdfG1/7HNfiedc9kdjz39/OuTvvrmx59++vH77774+N0Jrz37+P/vuvb8Ew7d5d8br774bGMK9CuFiDWoOlZQOCD6GgAAUGcAnQEqugAgAT4pEohCoaEhEno1fBgChLG3bq+tx18l9mVgXyX9R9Iarf3HyLdYXUHmk+RfsX/P/tv5hfCn1Qfp/2Av196Sv7peoD9n/3O93H++/tZ7jP7B+Q3+M+QD+t/6X1t/+H7Dv+F/5nsKfzP/H+mr+2/wh/13/gft78Cn81/wH/1/dr4APQA9AD1j+xP847X/7p+SPYe+T/ZvmS9df8LyMfcL8F/d/29/vXvV4A8AX8i/m/+Z/MD8nPcn2lAA/rZ/tPy+877/P9D/sZ/nPy4+gD9Q/8Z+aP+C+fv8R4aP2P/cewD/Iv6r/ov7v+Xn01f1P/Q/yf5le4P82/y3/X9xD+a/1z/bfnR/of//9XPsH/cX2Qf14/8ZX+AwUZh0vgb/P55NR/BEcMy2rQ69ayDp3lPbEupfWWgLcnOTlEKmvkbGtI0WKJXxRkOyLClNQ5K0NI2t7Eu5OZh+yY6FadVVBX63G3Bpp6UoSS6SS/QXB8XbPUbGvazq3rXQlFRUKzopvnVFEPh6+cOvhXI3oKzp/COj7RfUao5sOnsyZXqCuMRNUUeT0Czpnrj3gApJC35lZ3GIesa3tXU1hm2nU9Xioe9rqCirM2yJkxKEv+ccuFRZwEn4MFlD57McpiVedbedZ1iy9X29IGN7CzSwPDsPpC0OBiGVJTCZiN0IpmXrXMXCACwnPS836YpvR8MMi80n0CCnfhQhLTttK1jRCktSuGFkHJVzyghgXScOmSiVcVu0et6u6+Jm9iB3HKfOxbj1fVqY3RjnD423Kd5PzbfwTyfIlKUn58RlsrPMQ2Kuv7PL1/rjta1rWta1TgRBKFZ9r1+noS6lqfTtlpIds0oQhCCbNYP/qgqcxymiyXNDJfHdrwB+tve+D1JQq4RVtFUSXxN4wdSLs8XXENXTBGt6zwB3JklKfWZ+vcuoiD6Sg2ZGp5ojedQRhTjpihRrWiI/KxaiZVeLy3qyqznlSTBUyCGfAHcvNS+6xaLYJg1LjGzkKBbOgf44ktbZKFu5MjyMhQ4ijZi8nbf1BjMKBlRUOk8VHJSXU/KqZNjQ1XO38LgD/hjBeu83CLFUrTAn7aiAA3GiyxbC48/SGl54AAD+/w1ldKtRKcwYxtLfjhE+/dziRKVYM9++wLmNq6Yhf473WH2VgRu3f64/8+frjL5UhcPg9H3z+hHgIGKiO7IA9ltTKT+49wcauthVz9+tUFaeYd4bhYbLd2EPdz8RXZ0Xl6482sAHfCtbanLPr1OApLj0tr/PJ28x2pLX9iB6nTVJ0SualBSrYXwuKJtf/vGCk1li7Ue9gTJdY1vUosWoZofFdS+2ePyaBH3pRkeWwiBtUXpATXaSg1FmUDwSW/C9UfN70WdxRxLhssOHgdwXi96eBOvx1TN/bLtv62b7WnCBnx8eyODmfWoi9R3ErYE8Ax/WYJtXHALe8lBscsN/PJDLryG/DaciqxBaUMo1hsasv2h3pmMv3vcj6lSLwvOuHg2nL7380KbO1+boKnLsuWSV2+a98a0zZDfmEj8CuHk8KuAzHRu8ntHhxSE7ouEaznGVLw+/4uKzNLcwhdlNuDZFe6/213lDLyuNUZEdT0/oyNJvAAQ+D0iq6IWR/5po0JNdwHvrttZtpXoLATjqiO3m07B1x+wPjuQoAysn3iSgTppaHv/ydIeyvm/ZgfOZqD7dLCSsUEy3JnFYcQ6yJV8hurKPUh/K7601vyU4kJ73nC6jfDj6mzEK0FsijC70joZkb8Dv4saWC/jtPES+glJt0g8fuVXi8Ed6/hQY/66Gbm8F1bKR68rItb0LVzrOlSxGp4GhzEHovvqj5GUhofGqyRw5kKX7iSkwo+QpncXlCltM3L0zrCqrDh/zt/VjLZeil0vOSqLcy/3pg1bDmIaP7x2K8AeOjGx2tXU+XcdD/v6+BqlGHTneeDqjqMNKqetGMNVazD0tl87UZazQs2QI1gftGSKZMohVO5yI62e1U0t8ddcdMJ0Kw1weTTsTADb+Ik3ngYb/RsAm2t5fybOSGSiAE0lF7M1/G1soaMe78mO+2+Civwwm+lhqcBCTIgE554Xnb8/J7W4SZ+TNgvG8SPTXKYX0n3XjW7YqEKAmy4U1waflonsy/GNAAUbMOMYWDOHtdyfKDMwmeDF6Kmx7CpoEbdox96reKCpPiqElCJuFTwo/daH7nvZ9lN7oJpW1oXpSngiTasGhvyNwm89s1HWsjEQjP2+5mo2fHJYvuIR4szaHcwSkgqNZxNjmbGL0SHgj5Onzyn+Mqdq4lo2TWhnQ8tgCHA6/3H85b3cVj8sp/76v30hHpiioFbUPXxJCPzARIMavZBnDqep9w10BPNfDrykiWiwPgm/FsTxq+ZnpAEy04BGoUIqrFVRXplahPeCDAqKjMBwqnFY6x7NROy0x/jRrpLVxjW20JJqffFkb3035DAhcvk2J8Et3qd6LubYx9pb9z82F9TYe5w1bsS5KYZ6Pb6j4EiY6G+eJJ07zSieadqEhFkLT1eDSQB9NcqLrOwUhhov7MZ5M7k6jA8BsMg3nftYo82obiAoNB/KbNrKl9iOqFKohaVyEpnlJs+srGpsJzpS9NwKJR3+dJSgDABa7KKaAOUdr4PBE8vS48rNDWidI/DH5FgCswUz2VNakXcBIinAM6btwLsGhZc3GSQgmWHBkzr8B1UhL0LQ8c9SLCldcqY0J31/vlQwwaHtPLS/5oAMIj5Nwxn1iup75CEaK4Ra0oDXBNFCOUrty0ri0IZcvkHZdoWQvVIdgEBRKMJtS/pBlni1HPR718e8q/kK1ectRwYSY/aSwDL0FWszMn+UTCiB03WRXazQ8FcU9RY67zcU/VqI81IYR/Aczfcbr+pPt5U38bgNW6ynkHVn7GDyE9M8RPvYnXpHWhN5+XuzxtQX4llHtDMhXLvEVOkhYCKWlXcbKaA5xofwDPWYzK6Or5zr9782MWwGH4heynjDLjz8aw0TM7en3tojLmoV29hqB8Bk6lvreDIPzIqk+l/9ber6E+JzqeAImWcGMWqjvIztDTwpqYtUcWwClinsAxZSJnaDldw2xkeMrB2ZVvSIPjCumFnxy6L1B5TAA5zCKgPfzzGAG6eKjrnuwgJldf7OtrXmGfzsvNKIv0k+AOgfNyfDtYYmt8PZPn2rgz8pk28F4mlKWAqRuRoFe4GL5RajH0zfmATwMT6gt/oTQPdNEo0CVItiethmbCq+ZASfF7Q3ZYAXqQ1QSA7QqDfYU3du9IBWceGiO1KUlvSpr90xjB6lC1SYnHRi9nH9ZF3LZX3pGte9wGRlGsXgRR5AxK8JXm5/yHgPvTTzbtkiCOIh4FTPHvyEfv73DfyAkb5sgFyBtpVZ9eZsTbBVYo3Au++9llUIWD/uGRwoSBKqRPsOxZsFi9gBQYt5/6bVtbGpOkRZTEu1hJsXzAJTBA9Gm3egmKq+UEYz2sKp6qtFXb0zUB53WTd0KKhdJ36kQbStLuuQOi4OzrXc1O8mBqtsobF/701dXfPvMysyKWV1wxOOLQmSsqjMZUEjRSSio/uttwj2j8Z+M9LO+jnDz58bDO9YjyTyXXYoqqMOn2BoJqmJfjXUmNjM6YfC/zQn/hZp/GEnKomZX1+Qx70T7ute8zKamvwJ8hMBchDP3SFmDfCRGS/LInUWDCZ3P2JTzHY8AS2SUJcrY8ZAjIG5jPZorUfQDWZvf+d6xWZRnuvFjETMKYjFZc0Xy+SzN/dVcQK4YclfYe7vVw8SoIwbD+Jvr/g/qgyRWgTDmlu/ERfJmpjXMxeans6k69gZrv8lm5QC0OnkPiSNPDK/omhKl46OA5oiMp6SM8CWX9ogbYFOHbxHbMtk4EFmN0327HBRB20yMNK9YzI8b3PaJ+Yt5SzGiIyDmOw3kfcQS3ugTes1phqD1983XAV8MjKcp7hV9JLhM2ebGXTAxInx9cpNgWWVb9o389WgxsOB2lz8ixP4XgOrZ97Jjdn6gYyTIwruKEHBT0tVFM4EbD4IFGRhKfyK4dp8ZVSCl5Y5AcgzeVd80e+mLfLpIjRtb9eb2TSjz1438vS1cpijBb0PPxZnWj8USsTfMZH3hsBoOUeFg3IPuJENWAuOKWgIbhBNYtOvlCE9Gd+06bVzUGbnyiFgjhiq6ekACsZTIISIWitcvJstxOOGKHf+FJ6NIxVdGIuvXmnhq7k8fo3WB/6LVYkwTGV6Vqaw4spyeRi8WgugK+DQ8IQga5YaSIUnQD4DoWf4G2cNVROQNOBpL6N0f8+9J46qp3fRuJPpMrj2xbxqjWA4/zE+EZyHq6mK0cizglwBy1eAeFfsZBziqr1dZwFsgsv/U+7QemetSAK/bg3LVgCZBsHoTDTub8BmB1No2GuYRtIVPXi9EGbuoTMufHBtmcnM1+b3JdADXJ0dwzL0JMEQq60+iBPzdw4KVp/E0B5B4o47YD0ajVMgMlqtS1aRwwnnPCvFrraUsXrwireC8CbqnqO07pp17wA/o6yv4Ts43mcaX2py3KV13Lg2at9iD7yp6fTqjtWmW5VXSjcHBchdZLrKskJkbnmYujI/rMxmJ8i2Lv3/nLWThroH981+ZZrCh8LpZwxAdSQPPXafPpnPhc6ZWXL4UNScMGNZlZiB9B2DYqpIC/p19We3T3GR40O9TLicFjhCalo56l0NpRrwumSIYeYagsxVWQqIfYPdh2zKcUcx8UGDLcMhDSoSOGLIAHk7DN6EMS74l5B2v8npr6UAR/yWS0lc92u/beYX9Qt57zZ6YjK7qVTbIBZjltBlxPiIABp24RNjuSaXqjXoz60Lty/hkshJQHQ7SbrHb9LHOSbQvcS8F/qNrCVyHENZAQY71jduJ7QAM5Sxkux7HKQro2lESmfVpdQekSlGCIopoqScJ+dtj20eNJFdaLi0iKHlMrrtQ0/QGWFQ6KF3I0aG75/TInM5NgnHMv8DWLxfdFLAaQhYdGvXF8Nv1oBvz48w4s8axBO5GtHi74fN1AknK7GjEVrGLdIE2/a5ZTyBk6Lp8UJRCxXgc1nxzAA1NzJ2udGTQyNTZ66AyrMIT2NFkHqe13VOfoOWj9vo8J0CP0u+Ggq6EPKX8lcIbAiazwhl4R0sd56vKf43FkNn8xt5F2P/2rLb07lu1TrtH5gYn25JKwpJVSFRAO3C5HZ73BQiVgqN9whB4A2B/D8L9SMwpxrpoVLltrmMFYuoQyh9YnV/0OlHAooZcpVkrdjDtIjosHJ9rfFR+JQVbUzDAg6osXNgd7RXiir7eJCtJPsSQSFB+elWd4bzX9I+VlCafjsfF15otzUbH7H5SUuHk0WpRLAGTOkg67dRZLShclR2HqyyYOt0+7csqC5Ew3f31TBtKAMLMhROomYNzUceEq+LrqsMuwitdeX8Elt51WjWgoTo/Miekxjd7DGAXx9dDSVWZJqyn5ysG0o9fyDGWGpzc8vijktzyqkOV2chW38GH2s//mA/xvGW6iRALjY0zMPyfQagWTq1cXhdE1psuxG55f2IzCgnvMbHw988O0wMJxRU2La/RJPutLySKVUO31vqlRKWxwtiwl8oMqdWluXnQrgBQOSbEjbPc14mgWW1vOmZKKXrSRw28BMvDlz+HKSWf+A173L+Ur5SXAe+KckMRrCugic1Kp8kFRxWogyt3Neqsn6gsvAgwnSoTRH+XX6FxOWG4lOdSIG8KYziBOsfhynK3y4o4CVunmNcbGPV9CHmZxvG+smNddAB0LUx97BYgSmk3Uaqa5hD0K06rAbetXiD1Pw+inf5D3c5S3mK40jz1OAm1LwfUYzwywthl9ZvZ8fISIc6wEQ85p0lBtSJ5kiH8xdcVsvioV5WtHxw/5BsKyblanYB4CSHTIARRXf8RoYsFChJjErzNahqxePWL3L11//j6mUdUNORm/V4VLvl26AzKSdKbJxvzVXi5r7bNkjbIRtPKIyjjcPjYFGqx/edxhi1xM2tq8oAajXC6xbJKtNNbJPhb2cmWCnwVmcKWStAw+fb3sLHr9tu3hATUnKA79bk/qK+T4tTwiyarmcPah/lrExn+bP+QCo+uGGtmyXgM4oaKylzFzfW/+6Qz9HAl6hI6Bf4Co/IqqVS06ZxLtQP02nD7TbguMK7gtiyPebDajRxgTfXyieJvMjKR+ut91ydLfpTwFtGvQ7McvGRM5wJiNSDtS87dhX91Wz79VwEEiHaw8lJwkwOGAFSkHZq1OM0kB8xqTZ5oB/Ku0B+Y8+1RXp3p76n/fl/9pzLY1pGcFTlLljNv8CCQTeoz75Io1IzgNJ4TM+Zj1ItPG9XiDXm7vk12WQRqQ2tDdnCTG5kwoA4YA3pK4q/UD3zf/KTFDvxwdyw5cAKt0ss/bSk/8ALXxUIayaXrEBtp7EAVmjfgYmWDe14L/IjaM3IpU/c13qq2Suuoph03o1WB4NS9SxavCoKsdWnYIVCcGm0I2x5d/FVOdjRxGDxxV68gDlw0V6bIoW6CgtZjWM2qB4zS6Jci0Xs1EnM7wyAAARBaGJzKnh9aXO4dEsmkJJjtQQfaTbskBGLapjs+W2pBTiGyZ66J2Nmku2hXuo8PEMTCkX1xVRA6YE8NYv48wfBmI7IOJncCL2op6Qmg7emwjL6O3pdAGu5hX2t8ZS2zLkryfxHE66ibkmPwn8kcs3bBYqsM0fPNcjJKMTq55eVoj/fhH+wnvbqXpwt+gEzrtcQAixqM3B93J/i8Q8E17a+DLQFsKpalo+mPXK2SoRGnyT62uwm5lPzkWGOviiG33E/jqoXc86dwib4JeUC3QFt0xlHbBnAzarzCjbEBy2XHffya+ved2+nqq2fFHMOL1sDSsQi6m6e5tSdQSM6ASU65XeBUVTEJfD6IHLmMjTU0eEkOUVmwhKvg9eJy+R91CgigyHHGBuI7v+hDEdOnNjPuwJagf7Nf7bOO1VyoJcLSdUcl6auOq0Bwlbe5MGg6LxbzLOGYgutjtCbfhMw1m0DALVzg4/2VXwHtJOoRr0p0LRlOUpYcq1dzrNfun02j9w69ZWgr4tg2SvnGcjoomMh62+RpYEVF/2K6F90atvqgiTzHsAMpjP3kVHtM7JCHub7qty5eeudfIDfILYeSbbOtLL/HefXA878tW8QHW6O7ok8lYFeajbQUNCfAfR0p/kiht2xblQe0/3v16TQyjXcW44smQTKbANtpXhLbmobqxZI7zflcoDmHCwYN9Yv/aSrq9M07kJnfRLDZNjwzBbp7O9/KR18xDi2+/Y4S34s26HasBiuZv4KYiRqWrZibKB7br44RbBdAQvLI+FgeaDAGbWDVsMu4ru0p/UVRthq8PTFcoN9FJlPac99yykzkU07T9TOUg8g38YKsvUzd57tgRZ9VP6LLWSyFEuRuJ491GqMMZk79Tmqb2PZo9y4m0qu47ByVDoLtC1VFIczcdXa5vtuzdN2345VvxNGBX3gwbGKiKpy5xhrT6MhoujnxKyIgBi3m7YdMMBCUzBK815b4CEVdSirqX6WiwCLGb/DThx3DlWYJtUXl+BK6wvNEexVqF3AAFDrOcLxkKqx405KY/B5c3JbP59iP0Jv0PUXR79DFGrBzXskIGFZanOABg1wi6Sy2bDgUDb7E5Ut6TAfKydmtiWGKIAjrQh0ZxLbkM7MwjCCFmQebJGvT1V0BAJEr5tTYUlXGYANtVa+Q2JJSxQjxP4OZ0oiLcHcZjaifMrT/7KdSE04kolQtc8jwWT5IyB0U30oBMmIn36aQdf0oZYlPrmODidueAbrD709r9XhWDplo9qIhVBCFCtnJiTe4YLiUT37uCkyGAwJ3Gcn/3ogveJD85qsvmaj6OzWLxFEZVb0hqLnnHKoBAD4KaBcOV7qHTmeldL+O5sD8EyVr463mLN5e6LHbqqyli7IfvAvmvQvQxM04K6CqWyco4Sr4SK/4oLrcCmeaUbRyC/VNp71UykWoFfkyfC716mW0Hz8D4VnzAVmn9Rbe1FBgRajTdctY2N+gX1+oCQ93eh9Hdo8TJ/27sl8+kP5GNT9nFP9NeFd6CKDmeVUe9BazG1yc91SryPaTgZ/Igk1bbAS/tKpqqZnAHPGq2GXgGbLPc5qQw2mc+PldkJjnWQ4hkh4rBZw1MOFRQq3GU1saSx1TnDGNE1u7aWLgdMjy5Y/HvjWPBT5/KLNVKTcOZUJ6zTGckD0fq9uJU8QGgLkeltNDAR9MCk1+lM/H1NDIiAXUoGpPdWew0dNwST/lVXUlUf8XTcRCcLAv7RjwNp5DaYGnGnDr1ABoId7zT0g204Ojl/PBe/oyHIdRjwk5Li7UbUFkkXmtNSTn46PhxmSxQBb0m0KTQwid3zpZZYT4ENhsPxuK877Tik/gYuO0Pj7zxSDSg3kmMQ+v58L6j1gLWPbInTNNoPp3t2hVa9Oo35uhKlGWCQNMQYs7PeTomo9MACZYg16xklUCNCXamBTrLRPVWnFkvWN3OLh8S4K+RHnyblHsaSM0l6DhxEDjQdjzQc20/1V/+qCUHzYyy7Ax03Ml1j95QgHbRWJSKTCOuHhF3Ip6Uip8uBHTKd8NzfyucReye/CmMk+JWymKaFC/GS6wM/YHJMfCtOnA7NXVl16Ke3gjLmm4PklZcIRER3k4+MTIqzdNcdkFTmrGkDY3tznsLNgx9W/vFpR4dOcHQLZ57CQzVX0W7sAevPPrHjQLmUk8Pnhs9ceshF46+h+WjYCoclU0juk/bgnKZ0wAglxuNk6NX1yu1vRwMkPOebm8kpjqVxRbd7DdwOCT3K//wGQDzPahlo2FDYFOWYLfOacg00w5O8vqL8LXDacgz2aI07bRx5/fXALAlFYFZaK5lyEj13ILJ+ZkuO4KqvtbJTNw/L3k5fBg0LeT0fsWj2aBREN3HMhN40/03+/RcXmaAsxaOKkbXDxaKBbjCCYPCgEX4OAVoGq3hzkm8uBSIdYEcy2RTlziP+w4W/D8W05uanHqkWG7F4vbsYhmbeKPRFeHGF2UuzpgIMZuc7llPp2sqGxSDGAiBmYWRDAucv2z8EojwZ8eIjYUTlFMCzgkV3RtDzqcDfQYr3K8gN8+WINX5D/Efln5ciJ2/yjySGuVcrOqBXxpmgXKudlusk2PMaEG3YGD4XFGMCdlp0guXE+jXx51hnRJ59zHlV6uTH0R0xQWMpMV5ppL5p45LuEG4eGsOp6tTEzoPeSVsAAA';
+function ghostHandImg(){
+  const u = cell * 1.22, k = Math.max(1, DPR);
+  const key = Math.round(u * k) + '';
+  const art = HAND_IMG.complete && HAND_IMG.naturalWidth;
+  if(GHOST.key === key + (art ? 'a' : 'v') && GHOST.img) return GHOST.img;
+  if(art){                                                              // 코덱스 손 그림 — 손 높이 1.62u
+    const Hh = 1.62 * u, Ww = Hh * HAND_AR;
+    const c = document.createElement('canvas'); c.width = Math.ceil(Ww * k); c.height = Math.ceil(Hh * k);
+    const g = c.getContext('2d'); g.imageSmoothingQuality = 'high'; g.drawImage(HAND_IMG, 0, 0, c.width, c.height);
+    const sh = document.createElement('canvas'); sh.width = c.width; sh.height = c.height;
+    const sg = sh.getContext('2d'); sg.drawImage(c, 0, 0); sg.globalCompositeOperation = 'source-in';
+    sg.fillStyle = 'rgba(30,18,50,1)'; sg.fillRect(0, 0, sh.width, sh.height);
+    GHOST.img = { c, sh, ox: HAND_TIP[0] * Ww, oy: HAND_TIP[1] * Hh, w: Ww, h: Hh, art: true };
+    GHOST.key = key + 'a';
+    return GHOST.img;
+  }
+  const X0 = -0.62, Y0 = -0.06, W = 1.36, H = 1.62;                      // 손 둘레(손끝이 0,0) — 그림을 못 읽었을 때의 대신 그림
+  const c = document.createElement('canvas');
+  c.width = Math.ceil(W * u * k); c.height = Math.ceil(H * u * k);
+  const g = c.getContext('2d');
+  g.scale(u * k, u * k); g.translate(-X0, -Y0);
+  const rr = (x, y, w, h, r) => { g.beginPath(); if(g.roundRect) g.roundRect(x, y, w, h, r); else g.rect(x, y, w, h); };
+  g.lineJoin = 'round';
+  g.lineWidth = 0.065;
+  g.strokeStyle = 'rgba(40,24,14,0.9)';
+  g.fillStyle = '#FFFFFF';
+  // 엄지 — 손바닥 왼쪽에 비스듬히
+  g.save(); g.translate(-0.2, 1.02); g.rotate(-0.85); rr(-0.11, -0.44, 0.22, 0.5, 0.11); g.fill(); g.stroke(); g.restore();
+  // 손바닥 + 접은 손가락
+  rr(-0.24, 0.6, 0.8, 0.9, 0.28); g.fill(); g.stroke();
+  for(const [cx, cy] of [[0.26, 0.66], [0.42, 0.74]]){ g.beginPath(); g.arc(cx, cy, 0.13, Math.PI, 0); g.stroke(); }
+  // 검지 — 손끝이 (0,0)
+  rr(-0.15, 0, 0.3, 1.0, 0.15); g.fill(); g.stroke();
+  g.fillStyle = 'rgba(255,190,205,0.9)';                                 // 손톱
+  rr(-0.085, 0.05, 0.17, 0.22, 0.08); g.fill();
+  // 그림자 — 같은 모양을 어둡게(떠 있을 때 손이 판에서 뜬 게 보이게)
+  const sh = document.createElement('canvas'); sh.width = c.width; sh.height = c.height;
+  const sg = sh.getContext('2d'); sg.drawImage(c, 0, 0); sg.globalCompositeOperation = 'source-in';
+  sg.fillStyle = 'rgba(30,18,50,1)'; sg.fillRect(0, 0, sh.width, sh.height);
+  GHOST.img = { c, sh, ox: -X0 * u, oy: -Y0 * u, w: W * u, h: H * u };
+  GHOST.key = key + 'v';
+  return GHOST.img;
+}
+function ghostWanted(){
+  if(!S.live || S.holding || S.free || !BEATV || locked()) return false;
+  if(Tut.on) return !!(TUT[Tut.i] && TUT[Tut.i].rhythm);
+  return !!S.ghost;
+}
+function drawGhost(w, h, now){
+  if(!ghostWanted()){ S.ghostFor = null; return; }
+  if(S.sel || S.drag) return;                                           // 직접 하고 있으면 비킨다
+  if(S.ghostFor !== S.barIndex){
+    S.ghostFor = S.barIndex;
+    S.ghostMv = (S.hintFor === S.barIndex && S.hint) || findHintMove(hintSrc());
+  }
+  const src = hintSrc(), m = S.ghostMv;
+  if(!m || !src[m.from[0]][m.from[1]] || !src[m.to[0]][m.to[1]] || !hintStable(m.from) || !hintStable(m.to)
+     || !swapMakesMatch(src, m.from, m.to)) return;
+  const V = BEATV, ph = Math.max(0, Math.min(1, V.ph));
+  const fx = (m.from[1] + 0.5) * cell, fy = (m.from[0] + 0.5) * cell;
+  const tx = (m.to[1] + 0.5) * cell, ty = (m.to[0] + 0.5) * cell;
+  let x = fx, y = fy, lift = 1, A = 1;
+  if(V.slot === 'D'){                                                   // 4박 — 쓱 민다, 그리고 떼며 사라진다
+    const t = easeOut(Math.min(1, ph / 0.32));
+    x = fx + (tx - fx) * t; y = fy + (ty - fy) * t;
+    lift = smooth01((ph - 0.45) / 0.35);
+    A = 1 - smooth01((ph - 0.55) / 0.4);
+  } else if(V.slot === 'T'){                                            // 3박 — 꾹 누른 채
+    lift = 0;
+  } else if(V.next === 'T'){                                            // 2박 — 떠 있다가 끝자락에 내려온다(3박 정박에 닿게)
+    lift = 1 - smooth01((ph - 0.62) / 0.38);
+  } else if(V.pos === 0){                                               // 1박 — 스르르 나타난다
+    A = smooth01(ph / 0.6);
+  }
+  A *= (CALM.on ? 0.6 : 0.86);                                          // 반투명
+  ctx.save();
+  roundRectPath(0, 0, w, h, boardR()); ctx.clip();
+  ctx.translate(PAD, PAD);
+  // 닿는 자리 그늘 — 떠 있으면 크고 옅게, 누르면 작고 진하게
+  ctx.globalAlpha = A * (0.28 - 0.14 * lift);
+  ctx.fillStyle = 'rgba(59,35,20,1)';
+  ctx.beginPath(); ctx.ellipse(x, y, cell * (0.16 + 0.12 * lift), cell * (0.11 + 0.08 * lift), 0, 0, Math.PI * 2); ctx.fill();
+  if(V.slot === 'T'){                                                   // 누른 순간 퍼지는 분홍 고리
+    const q = Math.min(1, ph / 0.8);
+    ctx.globalAlpha = Math.min(1, A * 1.3 * (1 - q));
+    ctx.strokeStyle = '#FF2D87'; ctx.lineWidth = Math.max(3, cell * 0.1);
+    ctx.beginPath(); ctx.arc(fx, fy, cell * (0.24 + 0.36 * easeOut(q)), 0, Math.PI * 2); ctx.stroke();
+  }
+  if(V.slot === 'D'){                                                   // 미는 자국 — 파랑
+    ctx.globalAlpha = A * 0.55;
+    ctx.strokeStyle = '#4C8DFF'; ctx.lineCap = 'round'; ctx.lineWidth = Math.max(3, cell * 0.16);
+    ctx.beginPath(); ctx.moveTo(fx, fy); ctx.lineTo(x, y); ctx.stroke();
+  }
+  // 손 — 떠 있으면 위로·크게, 누르면 살짝 눌린다
+  const hand = ghostHandImg();
+  const bob = Math.sin(now * 5) * cell * 0.03 * lift;
+  const sc = (1 + 0.14 * lift) * (V.slot === 'T' ? 0.96 : 1);
+  ctx.translate(x + cell * 0.1 * lift, y - cell * 0.4 * lift + bob);
+  ctx.rotate(hand.art ? HAND_ROT : -0.32);
+  ctx.scale(sc, sc);
+  const so = cell * (0.05 + 0.14 * lift);                               // 그림자는 떠 있을수록 멀리
+  ctx.globalAlpha = A * (0.32 - 0.1 * lift);
+  ctx.drawImage(hand.sh, -hand.ox + so, -hand.oy + so, hand.w, hand.h);
+  ctx.globalAlpha = A;
+  ctx.drawImage(hand.c, -hand.ox, -hand.oy, hand.w, hand.h);
+  ctx.restore();
+  ctx.globalAlpha = 1;
 }
 
 /*
@@ -3647,7 +3821,10 @@ function vibBeat(){
   const can = VIB.on && !S.holding && navigator.vibrate;
   if(V.ib !== VIB.last){
     VIB.last = V.ib; VIB.sub = false;
-    if(can) try{ navigator.vibrate(V.pos % 4 >= 2 ? 45 : 5); }catch(e){}   // v0.3.31 1·2박 15 → 5ms
+    // v0.3.32 진동을 행동 모양으로 — 3박 누르기 '탁'(짧고 강하게 한 번) · 4박 밀기 '트르르'(짧게 두 번) · 1·2박 5ms
+    // PERFECT 진동이 막 울렸으면 덮어쓰지 않는다
+    const pat = V.slot === 'T' ? 32 : V.slot === 'D' ? [16, 38, 16] : 5;
+    if(can && clock() - (S.perfBuzzAt || -9) > 0.1) try{ navigator.vibrate(pat); }catch(e){}
     return;
   }
   // v0.2.66 느린 레벨의 8분음 잔박 — 반 박에 아주 짧게 한 번 더. 손으로도 두 배 맥박을 탄다
@@ -4125,6 +4302,17 @@ function draw(now){
     const turn = BEATV.pos >= 2 ? 1.5 : 1;                       // 3·4박은 더 크게
     TILT = Math.cos(ph2 * Math.PI * 2) * (0.035 + S.level * 0.006) * turn * (CALM.on ? 0.4 : 1);
   } else TILT = 0;
+  /*
+   * v0.3.32 3박 직전의 준비 동작 — 2박 후반에 말들이 **세로로만** 살짝 웅크렸다가 3박에 튀어 오른다.
+   * 바닥 기준이라 발 자리·가운데가 안 움직인다(기각한 '판 전체 호흡'은 말 자리가 움직여 누르기가 흐트러졌다).
+   * 번쩍임은 지나간 박을 알리고, 웅크림은 다가오는 박을 알린다.
+   */
+  SQ = 1;
+  if(BEATV && !S.holding){
+    const A = 0.07 * (CALM.on ? 0.5 : 1);
+    if(BEATV.next === 'T' && BEATV.ph > 0.55) SQ = 1 - A * smooth01((BEATV.ph - 0.55) / 0.45);   // 2박 후반 — 웅크림
+    else if(BEATV.slot === 'T') SQ = 1 + A * 0.85 * Math.exp(-BEATV.ph * 7) * Math.cos(BEATV.ph * 9);   // 3박 — 튀어 올랐다 가라앉음
+  }
   const w = cell*CONFIG.cols + PAD*2, h = cell*CONFIG.rows + PAD*2;
   ctx.clearRect(0,0,w,h);
 
@@ -4305,6 +4493,8 @@ function draw(now){
   drawEyes(w, h, now);                              // v0.3.18 능력 '눈썰미' — 움직일 수 있는 말 최대 셋
   drawTutBeat(w, h);                                // 튜토리얼 — 지금 몇 박인지 가운데에 (v0.2.27)
   drawTutMark(w, h, now);                           // 튜토리얼 — 시범·연습 과녁
+  drawSparks(w, h, now);                            // v0.3.32 PERFECT 작은 폭죽
+  drawGhost(w, h, now);                             // v0.3.32 유령 손가락 시범
   drawLevelFx(w, h, now);                           // 레벨이 바뀐 마디의 1·2박 연출
   drawInnerGlow(w, h);                              // v0.2.28 판 가장자리에서 안쪽으로 번지는 박자빛
   drawBeatFrame(w, h);
@@ -4548,7 +4738,8 @@ function frame(){
     }
   }
 
-  draw(now);
+  if(now < (S.hitStop || 0)){ BEATV = beatVisual(now); vibBeat(); }   // v0.3.32 PERFECT 멈칫 — 판 그림만 55ms 세운다(곡·판정·진동은 그대로)
+  else draw(now);
   if(S.overAt && now - S.overAt > 1.1) finish();   // 마지막 터짐을 보고 끝낸다
 }
 
@@ -4627,7 +4818,7 @@ function settleCombo(now){
      * 놓친 바로 다음 턴이 아니라 그다음 턴(= 이미 다시 터뜨려 콤보를 잇는 중)에 힌트가 떴다.
      * 끝난 턴의 박(S.beatIndex, 아직 갱신 전)으로 마디를 재서 **바로 다음 턴**에 짚는다.
      */
-    if(S.dryTurns >= 2) S.hintBar = barAtBeat(S.beatIndex) + 1;
+    if(S.dryTurns >= 2){ S.hintBar = barAtBeat(S.beatIndex) + 1; if(!S.tut) S.ghost = true; }   // v0.3.32 두 턴 헤매면 유령 손가락도
     S.hint = null;
     // v0.2.33 콤보는 0 으로 돌아가지만 **레벨은 절반까지만** 내려간다.
     // 한 번 놓쳤다고 곡이 1단계로 곤두박질치면 흐름이 끊겨서, 반씩만 깎고 다시 올라가게 했다.
@@ -4844,7 +5035,7 @@ async function start(tut){        // tut: true = 튜토리얼(박자 켬) · 'fr
     stats:{perfect:0,nice:0,ok:0,miss:0,turns:0,blocked:0,blasts:0,maxCombo:0,maxLevel:S.tut ? TUT_LEVEL+1 : 1,overBars:0},
     actedBeats:{}, blockFlash:-9,
     errors:[], shake:0, hold:0, tut:tut === true || tut === 'free', free:tut === 'free', practice:tut === 'practice',
-    test:tut === 'test', testLevel:0, holding:false, releasedBar:0, dropPlan:null, popGroups:null, planBar:0, pin:null, droppedBar:-1, reshuffling:false, reshuffledBar:-1, ringDoneBar:-2, reshuffleAt:null, turnJ:{}, multBar:-1, lastSwap:null, combo:0, comboMade:false, announceAt:-9, countShown:'', level:S.tut ? TUT_LEVEL : 0, lvGauge:0, levelBar:0, fillBar:-1, hintBar:-1, dryTurns:0, hint:null, hintFor:-2, hintAt:0, zonePos:-1, zoneAt:0, taps:[], errs8:[], countBar:-1, missRun:0, blockRun:0, why:[], paused:false, pauseBar:0, pauseLockBar:-2, timeUp:false, bonusTime:0, lastPlayBar:Infinity, overAt:0,
+    test:tut === 'test', testLevel:0, holding:false, releasedBar:0, dropPlan:null, popGroups:null, planBar:0, pin:null, droppedBar:-1, reshuffling:false, reshuffledBar:-1, ringDoneBar:-2, reshuffleAt:null, turnJ:{}, multBar:-1, lastSwap:null, combo:0, comboMade:false, announceAt:-9, countShown:'', level:S.tut ? TUT_LEVEL : 0, lvGauge:0, levelBar:0, fillBar:-1, hintBar:-1, dryTurns:0, ghost:false, sparks:[], hitStop:0, hint:null, hintFor:-2, hintAt:0, zonePos:-1, zoneAt:0, taps:[], errs8:[], countBar:-1, missRun:0, blockRun:0, why:[], paused:false, pauseBar:0, pauseLockBar:-2, timeUp:false, bonusTime:0, lastPlayBar:Infinity, overAt:0,
       barIndex:-1, beatIndex:-1, drag:null, sel:null,
   });
   S.tut = tut === true || tut === 'free';         // v0.1.82 클릭 이벤트가 인자로 들어와 튜토리얼로 오인되던 버그 방지
@@ -5267,7 +5458,7 @@ const TUT = [
        + '<b>ㄱ·ㄴ 모양</b> → 꺾이는 칸 둘레 <b>3×3</b>이 사라져요<br>'
        + '<b>5마리 한 줄</b> → 판 위의 <b>그 강아지가 전부</b> 사라져요' },
   { say: '조작은 다 익혔어요!<br>이제 <b>리듬</b>을 얹어 볼게요.' },                 // v0.2.92 음악은 다음 화면부터
-  { rhythm: true, beats: true, waitBars: 3, say: '한 마디(4박)가 <b>한 턴</b>이에요.<br><b>1 · 2</b>박은 판을 읽는 시간,<br><b>3</b>박에 누르고 <b>4</b>박에 밀어요.' },
+  { rhythm: true, beats: true, waitBars: 3, say: '한 마디(4박)가 <b>한 턴</b>이에요.<br><b>1 · 2</b>박은 판을 읽는 시간,<br><b>3</b>박에 누르고 <b>4</b>박에 밀어요.<br><b>손가락 시범</b>을 잘 보세요!' },
   { demo: 'move', shape: 'line3', strict: true, beats: true, say: '이제 박자에 맞춰서 해 볼게요.<br><b>3</b>박에 누르고, <b>4</b>박에 화살표 쪽으로 미세요.',
     good: '잘했어요! 박자에 맞췄어요.' },
   // v0.3.00 한 번 맞춘 뒤 — **세 번만 더**. 연속이 아니어도 된다. v0.3.02 3·4박 둘 다 NICE 이상일 때만 센다(실패해도 센 수는 안 깎인다)
