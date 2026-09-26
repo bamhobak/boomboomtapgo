@@ -661,7 +661,7 @@
   <!-- 남은 시간 — 가득 찬 게이지가 줄어든다. 오른쪽 동그라미에 남은 초 -->
   <div class="timebar" role="timer" aria-label="남은 시간">
     <div class="led"><div class="track"><div class="fill" id="timeFill"></div></div></div>
-    <div class="clock" id="time">60</div>
+    <div class="clock" id="time">40</div>
     <span class="plus" id="timePlus" aria-hidden="true"></span>
   </div>
   </div>
@@ -785,8 +785,8 @@
       <b>사라지는 기준</b><span><b>내가 민 칸</b>이 기준이 된다</span>
       <b>붙잡기</b><span>떨어질 말을 <b>누른 채로 버티면</b> 그 말과 위쪽이 안 떨어진다. <b>놓으면 그 순간</b> 떨어진다</span>
       <b>미는 방향</b><span>위·아래·왼쪽·오른쪽 네 방향</span>
-      <b>시간</b><span><b>1분</b> 타임어택. 시간이 끝나면 그 턴 4박까지 둘 수 있고, 그 뒤엔 <b>떨어져서 저절로 맞춰지는 연쇄가 이어지는 동안</b> 계속 간다</span>
-      <b>시간 보너스</b><span>콤보가 <b>1 오를 때마다 +0.5초</b> — 3줄·2×2 +0.5 · 4줄·ㄱㄴ+ +1 · 5줄 +1.5. 단 <b>남은 시간은 60초를 넘지 않는다</b>(꽉 차 있으면 안 붙는다)</span>
+      <b>시간</b><span><b>40초</b> 타임어택. 시간이 끝나면 그 턴 4박까지 둘 수 있고, 그 뒤엔 <b>떨어져서 저절로 맞춰지는 연쇄가 이어지는 동안</b> 계속 간다</span>
+      <b>시간 보너스</b><span>콤보가 <b>1 오를 때마다 +0.3초</b> — 3줄·2×2 +0.3 · 4줄·ㄱㄴ+ +0.6 · 5줄 +0.9. 단 <b>남은 시간은 40초를 넘지 않는다</b>(꽉 차 있으면 안 붙는다)</span>
       <b>배율</b><span>한 턴(3박+4박)을 함께 본다 — 퍼펙트+퍼펙트 <b>+0.5</b> · 퍼펙트+나이스 +0.4 · 퍼펙트+오케이·나이스+나이스 +0.3 · 나이스+오케이 +0.2 · 오케이+오케이 +0.1. <b>하나라도 놓치면 올린 만큼의 절반</b>이 깎인다</span>
       <b>능력</b><span>시작 전에 하나 장착 — 🛡️ <b>콤보 방패</b>(레벨 4까지, 끊길 턴을 2번 막음) · 🎯 <b>넓은 과녁</b>(레벨 4까지, 판정 40% 넓게 — PERFECT 는 그대로) · 👀 <b>눈썰미</b>(움직일 수 있는 강아지 최대 3마리를 늘 짚음)</span>
       <b>점수</b><span>사라진 칸 × 10 × <b>모양</b>(4줄 1.6 · ㄱㄴ+ 2.0 · 5줄 2.6) × <b>콤보</b>(콤보당 약 +10%, 콤보 <b>32</b>에서 최대 4배) × <b>배율</b></span>
@@ -873,7 +873,7 @@
    ========================================================================= */
 
 // 게임 버전 — 수정해서 배포할 때마다 끝 두 자리를 1씩 올린다(v0.1.01 → v0.1.02). 화면 오른쪽 아래에 보인다
-const GAME_VERSION = 'v0.3.35';   // 버전 표기 — 패치 자리는 두 자리 (v0.2.01, v0.2.02 …)
+const GAME_VERSION = 'v0.3.36';   // 버전 표기 — 패치 자리는 두 자리 (v0.2.01, v0.2.02 …)
 /*
  * 번쩍임 줄이기 (v0.1.22) — 광과민성 배려. 켜면 화면 전체 번쩍임·흔들림을 끄고, 발판 조명·테두리 박동을 약하게.
  * 폰의 '동작 줄이기'가 켜져 있으면 처음부터 켠다. 고른 값은 이 기기에 기억한다.
@@ -904,8 +904,8 @@ const CONFIG = {
   // v0.2.66 '그때까지 닿아 본 적 있는 레벨까지만' 이라는 조건을 뗐다 — 그 조건 탓에 정작 필요한 초보에게는
   // 한 번도 걸리지 않는 안전망이었다. 레벨 1 과 3 의 한 턴 차이는 0.9초뿐이라 감당 못 할 폭이 아니다
   floors: [ { at:20, level:2 }, { at:40, level:3 } ],
-  timeBonus: 0.5,            // 콤보가 1 오를 때마다 시간 +0.5초 (3줄 +0.5 · 4줄·ㄱㄴ+ +1 · 5줄 +1.5). 시간 끝난 뒤엔 안 붙는다
-  timeLimit: 60,             // 1분 타임어택 — 곡 시계 기준(판이 정리되느라 곡이 기다리는 동안은 안 줄어든다).
+  timeBonus: 0.3,            // 콤보가 1 오를 때마다 시간 +0.3초 (3줄 +0.3 · 4줄·ㄱㄴ+ +0.6 · 5줄 +0.9). 시간 끝난 뒤엔 안 붙는다 — v0.3.36 0.5 → 0.3
+  timeLimit: 40,             // v0.3.36 40초 타임어택(60 → 40) — 곡 시계 기준(판이 정리되느라 곡이 기다리는 동안은 안 줄어든다).
                              // v0.2.65 **남은 시간은 이 값을 넘지 않는다** — 콤보가 말도 안 되게 쌓여도 시계는 꽉 찬 채로 멈춘다
   cols: 8,
   rows: 9,                   // v0.1.65 가로 8칸 · 세로 9칸
@@ -2314,7 +2314,7 @@ function popStep(now, depth){
   const gain = groups.reduce((n, gr) => n + comboValue(gr), 0);
   S.combo += gain;
   S.lvGauge += gain;                               // v0.2.65 레벨 게이지 — 콤보와 같이 오르되 끊겨도 절반만 깎인다
-  if(!S.timeUp) addTime(gain * CONFIG.timeBonus);  // 콤보만큼 시간이 늘어난다(60초를 넘겨 쌓이지는 않는다)
+  if(!S.timeUp) addTime(gain * CONFIG.timeBonus);  // 콤보만큼 시간이 늘어난다(기본 시간을 넘겨 쌓이지는 않는다)
   S.comboMade = true;                              // 이 턴은 무언가 터졌다
   S.stats.maxCombo = Math.max(S.stats.maxCombo, S.combo);
 
@@ -2399,7 +2399,7 @@ function dropStep(now, skipCol){
   if(skipCol === undefined || skipCol === null){ S.dropPlan = null; S.willFall = null; }   // 남겨둔 열이 있으면 계획도 남긴다
   if(S.reshuffling && S.reshuffleAt != null){        // 섞느라 흘러간 만큼 시간을 돌려준다 — 손해 없이 한 턴
     S.bonusTime += Math.max(0, songTime() - S.reshuffleAt);
-    S.bonusTime = Math.min(S.bonusTime, songTime());   // v0.2.65 되돌려줘도 60초 상한은 넘지 않는다
+    S.bonusTime = Math.min(S.bonusTime, songTime());   // v0.2.65 되돌려줘도 기본 시간 상한은 넘지 않는다
     S.reshuffleAt = null;
   }
   /*
@@ -4611,7 +4611,7 @@ function frame(){
   if(bi !== S.barIndex){ S.barIndex = bi; pauseBtnSync(); }   // v0.2.43 턴이 바뀌면 멈춤 단추가 다시 눌린다
 
 
-  // 1분 타임어택 — 시간이 다 되면 그 마디(턴)의 4박까지만 손을 쓸 수 있다
+  // 타임어택(v0.3.36 40초) — 시간이 다 되면 그 마디(턴)의 4박까지만 손을 쓸 수 있다
   if(S.tut || S.practice || S.test) S.bonusTime = Math.max(S.bonusTime, song);   // 튜토리얼·연습·테스트는 시계가 안 준다
   if(!S.timeUp && song >= CONFIG.timeLimit + S.bonusTime){
     S.timeUp = true;
@@ -4667,7 +4667,7 @@ function frame(){
   const tv = el('time'), tf = el('timeFill'), low = left <= 10;
   setText('time', (S.practice || S.test) ? '∞' : (S.timeUp ? '0' : Math.ceil(left)));
   tv.classList.toggle('low', low);
-  const wpc = (Math.round(Math.min(100, left / CONFIG.timeLimit * 100) * 4) / 4).toFixed(2) + '%';   // 60초 넘게 모이면 꽉 찬 채로
+  const wpc = (Math.round(Math.min(100, left / CONFIG.timeLimit * 100) * 4) / 4).toFixed(2) + '%';   // 기본 시간 넘게 모이면 꽉 찬 채로
   if(tf.style.width !== wpc) tf.style.width = wpc;
   timeBarColor(Math.min(1, left / CONFIG.timeLimit));
   tf.classList.toggle('low', low);
@@ -4751,7 +4751,7 @@ function frame(){
 function addTime(sec){
   if(!(sec > 0)) return 0;
   /*
-   * v0.2.65 남은 시간은 CONFIG.timeLimit(60초)를 넘지 않는다.
+   * v0.2.65 남은 시간은 CONFIG.timeLimit(v0.3.36 40초)를 넘지 않는다.
    * 남은 시간 = timeLimit + bonusTime - song 이므로 상한은 곧 **bonusTime <= song**(이미 흘러간 만큼만 되살릴 수 있다).
    * 넘치는 몫은 버리고, 아예 못 붙는 때는 '+N초' 문구도 안 띄운다.
    */
