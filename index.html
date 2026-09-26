@@ -316,6 +316,36 @@
   #start .pack img:first-child,
   #start .pack img:nth-child(3){pointer-events:auto;cursor:pointer}   /* v0.2.86 가운데 — 게임 설명 */
   /* 개발자 통계 */
+  /* v0.3.37 실험실 — 흰둥이 + 2424. 본 게임 위를 통째로 덮는 자기 화면 */
+  #lab{position:absolute;inset:0;z-index:13;display:flex;flex-direction:column;gap:6px;padding:8px 8px 10px;
+       background:radial-gradient(120% 80% at 50% 0%,#2A2160,#140F2E 70%);color:var(--cream);font-family:Jua,sans-serif}
+  #lab[hidden]{display:none}
+  #lab .labtop{display:flex;align-items:center;gap:8px}
+  #lab .labtop button{padding:8px 14px;font-size:14px}
+  #lab .labtop #labName{flex:1;min-width:0;font-size:16px;color:#FFD9A8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  #lab .labstat{font-size:14px;white-space:nowrap;color:var(--cream-dim)}
+  #lab .labstat b{color:var(--cream);font-size:17px}
+  #lab .labstat #labScore{color:#FDE047}
+  #lab .labstat #labMult{color:#FF5C7A}
+  #lab .labrow{display:flex;align-items:center;justify-content:space-between;gap:8px}
+  #lab .labbeats{display:flex;gap:10px;padding:0 6px}
+  #lab .labbeats i{width:16px;height:16px;border-radius:50%;background:rgba(255,255,255,.14);transition:background 60ms}
+  #lab .labbeats i.on:nth-child(1){background:#FFFFFF} #lab .labbeats i.on:nth-child(2){background:#FDE047}
+  #lab .labbeats i.on:nth-child(3){background:#FF2D87;box-shadow:0 0 12px #FF2D87} #lab .labbeats i.on:nth-child(4){background:#4C8DFF;box-shadow:0 0 12px #4C8DFF}
+  #lab .lablv{display:flex;align-items:center;gap:6px;font-size:14px}
+  #lab .lablv button{padding:6px 14px;font-size:16px}
+  #lab .labboard{flex:1;min-height:0;position:relative}
+  #lab .labdesc{margin:0;font-size:14px;line-height:1.45;text-align:center;color:var(--cream-dim)}
+  #lab .labdesc b{color:var(--cream)}
+  #lab .labpick,#lab .labend{position:absolute;inset:0;z-index:2;display:flex;flex-direction:column;align-items:center;justify-content:center;
+       gap:12px;padding:20px;background:rgba(20,15,46,.97);text-align:center}
+  #lab .labpick[hidden],#lab .labend[hidden]{display:none}
+  #lab .labpick h2,#lab .labend h2{margin:0;font-size:26px;color:#FFD9A8}
+  #lab .labpick p,#lab .labend p{margin:0;font-size:15px;line-height:1.5;color:var(--cream-dim)}
+  #lab .labpick p b,#lab .labend p b{color:var(--cream)}
+  #lab .labpick [data-m]{width:min(340px,100%);padding:12px 16px;font-size:18px;text-align:left;display:flex;flex-direction:column;gap:4px}
+  #lab .labpick [data-m] small{font-size:13px;line-height:1.4;opacity:.8}
+  #lab .labend .labbtns{display:flex;gap:8px;flex-wrap:wrap;justify-content:center}
   #dev #devPw{text-align:center;letter-spacing:.3em}
   .devwrap{width:min(360px,100%);display:flex;flex-direction:column;gap:10px}
   .devgrid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:2px;background:var(--edge);box-shadow:0 0 0 3px var(--edge)}
@@ -766,6 +796,38 @@
     <button id="devClose" type="button">닫기</button>
   </div>
 
+  <!-- v0.3.37 실험실 — 시작 화면 흰둥이(비숑)를 누르고 2424. 본 게임과 따로 도는 다른 게임 방식 셋 -->
+  <div id="lab" hidden role="dialog" aria-modal="true" aria-label="실험실">
+    <div class="labtop">
+      <button class="ghost" id="labExit" type="button">나가기</button>
+      <b id="labName">실험실</b>
+      <span class="labstat">점수 <b id="labScore">0</b> · <b id="labMult">×1.0</b> · <b id="labTime">40</b>초</span>
+    </div>
+    <div class="labrow">
+      <span class="labbeats" id="labBeats" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
+      <span class="lablv"><button class="ghost" id="labLvDn" type="button" aria-label="느리게">−</button><b id="labLv">Lv1 · 64</b><button class="ghost" id="labLvUp" type="button" aria-label="빠르게">+</button></span>
+    </div>
+    <div class="labboard" id="labBoard"><canvas id="labCv"></canvas></div>
+    <p class="labdesc" id="labDesc"></p>
+    <div class="labpick" id="labPick">
+      <h2>실험실</h2>
+      <p>지금 게임은 그대로 두고, <b>다른 방식</b>을 따로 해 봐요.<br>40초 · 기록은 랭킹에 안 올라가요.</p>
+      <button type="button" data-m="0">1 · 박에 붙여 주기<small>아무 때나 한 번 밀면 다음 박에 실행 · 매 박이 차례 · 박에 가깝게 밀수록 배율↑</small></button>
+      <button type="button" data-m="1">2 · 선 긋기<small>같은 강아지를 3마리 이상 이어 긋기(대각선 OK) · 손 떼는 순간이 박이면 보너스</small></button>
+      <button type="button" data-m="2">3 · 박자 선<small>아무 때나 맞춰 두면 지나가는 박자 선이 터뜨림 · 선이 오기 전에 키우기</small></button>
+      <button class="ghost" id="labPickClose" type="button">닫기</button>
+    </div>
+    <div class="labend" id="labEnd" hidden>
+      <h2>끝!</h2>
+      <p id="labEndTxt"></p>
+      <div class="labbtns">
+        <button id="labAgain" type="button">다시</button>
+        <button class="ghost" id="labModes" type="button">다른 방식</button>
+        <button class="ghost" id="labQuit" type="button">나가기</button>
+      </div>
+    </div>
+  </div>
+
   <div class="overlay" id="help" hidden role="dialog" aria-modal="true" aria-labelledby="helpTitle">
     <h2 id="helpTitle">게임 설명</h2>
     <div class="turn">
@@ -873,7 +935,7 @@
    ========================================================================= */
 
 // 게임 버전 — 수정해서 배포할 때마다 끝 두 자리를 1씩 올린다(v0.1.01 → v0.1.02). 화면 오른쪽 아래에 보인다
-const GAME_VERSION = 'v0.3.36';   // 버전 표기 — 패치 자리는 두 자리 (v0.2.01, v0.2.02 …)
+const GAME_VERSION = 'v0.3.37';   // 버전 표기 — 패치 자리는 두 자리 (v0.2.01, v0.2.02 …)
 /*
  * 번쩍임 줄이기 (v0.1.22) — 광과민성 배려. 켜면 화면 전체 번쩍임·흔들림을 끄고, 발판 조명·테두리 박동을 약하게.
  * 폰의 '동작 줄이기'가 켜져 있으면 처음부터 켠다. 고른 값은 이 기기에 기억한다.
@@ -5744,7 +5806,7 @@ const DEV_PIN = '2424';
 let devMode = 'stats';                                   // 'stats' 개발자 통계 · 'test' 테스트 모드 (v0.2.61)
 function devOpen(mode){
   devMode = mode || 'stats';
-  el('devTitle').textContent = devMode === 'test' ? '테스트 모드' : '개발자 통계';
+  el('devTitle').textContent = devMode === 'test' ? '테스트 모드' : devMode === 'lab' ? '실험실' : '개발자 통계';
   el('dev').hidden = false;
   el('devBody').hidden = true; el('devBody').innerHTML = '';
   el('devPin').hidden = false;
@@ -5803,6 +5865,7 @@ el('devPin').addEventListener('submit', e => {
   e.preventDefault();
   if(el('devPw').value.trim() !== DEV_PIN){ el('devPw').value = ''; el('devPw').placeholder = '다시'; return; }   // 자릿수는 안 알려 준다
   el('devPin').hidden = true;
+  if(devMode === 'lab'){ el('dev').hidden = true; labOpen(); return; }   // v0.3.37 실험실
   if(devMode === 'test'){                                // 테스트 모드로 바로 들어간다
     el('dev').hidden = true;
     const nin = el('menuName');
@@ -5822,11 +5885,551 @@ el('bgmSet').addEventListener('click', () => setBgmSet(BGM_SET + 1));   // v0.2.
   box.addEventListener('click', e => {
     if(e.target === box.lastElementChild) devOpen('stats');        // 맨 오른쪽 — 개발자 통계
     else if(e.target === box.firstElementChild) devOpen('test');   // 맨 왼쪽 — 테스트 모드 (v0.2.61)
+    else if(e.target === box.children[1]) devOpen('lab');          // 흰둥이(비숑) — 실험실 (v0.3.37)
     else if(e.target === box.children[2]){                         // 가운데(노란 래브라도) — 게임 설명 (v0.2.86)
       el('help').hidden = false; el('helpClose').focus();
     }
   });
 })();
+
+/* ==========================================================================
+ * v0.3.37 실험실 — 시작 화면 흰둥이(비숑)를 누르고 2424 → 다른 게임 방식 셋을 따로 해 본다.
+ * 본 게임(S · frame · BARS)은 전혀 건드리지 않는다 — 자기 판 · 자기 시계 · 자기 루프.
+ * 강아지 그림(FACES)·곡(TRACK_SETS)·효과음(sfx)만 빌려 쓴다. 기록은 랭킹에 안 올린다.
+ *   ① 박에 붙여 주기 — 아무 때나 한 번 밀면 **다음 박에** 실행. 매 박이 차례. 박에 가깝게 밀수록 배율↑(벌은 '안 오름'뿐)
+ *   ② 선 긋기 — 같은 강아지를 손가락으로 이어(대각선 포함) 3마리 이상. 손을 떼는 순간이 박이면 보너스
+ *   ③ 박자 선 — 아무 때나 맞춰 두면 박마다 한 칸씩 쓸고 가는 선이 지나갈 때 터진다. 선이 오기 전에 키우면 더 크게
+ * ======================================================================== */
+const LAB = { on:false, mode:0, L:0, g:null, cv:null, x:null, cell:40, dpr:2, W:0, H:0, ox:0, oy:0,
+  t0:0, tStart:0, bl:0.9375, bpm:64, src:null, gain:null, tickNext:0, score:0, mult:1, maxMult:1, chain:0, pops:0,
+  q:null, back:null, drag:null, path:null, pathC:0, fx:[], texts:[], raf:0, end:true, lastBeat:-1, id:1, T:40, hud:{} };
+const LAB_MODES = [
+  { name:'박에 붙여 주기', desc:'아무 때나 <b>한 번 밀면</b> 다음 박에 실행돼요. <b>매 박이 차례</b> — 박에 가깝게 밀수록 배율이 올라요.' },
+  { name:'선 긋기',       desc:'같은 강아지를 손가락으로 <b>3마리 이상 이어요</b>(대각선도 돼요). 손을 떼는 순간이 박이면 보너스!' },
+  { name:'박자 선',       desc:'아무 때나 맞춰 두세요. <b>박자 선이 지나갈 때</b> 터져요 — 선이 오기 전에 모양을 키우면 더 커요.' },
+];
+const LR = () => CONFIG.rows, LC = () => CONFIG.cols;
+const labNow = () => Audio_.ac ? Audio_.ac.currentTime : performance.now() / 1000;
+const labBeatF = () => (labNow() - LAB.t0) / LAB.bl;
+const labRand = () => CONFIG.roster[(Math.random() * CONFIG.roster.length) | 0];
+function labTile(c){ return { c, id: LAB.id++, fr: null, ft: 0, ox: 0, oy: 0, ot: 0, mk: false }; }
+const labIn = (r, c) => r >= 0 && c >= 0 && r < LR() && c < LC();
+
+/* ---------------------------------------------------------------- 판 */
+function labSafe(g, r, c){                           // 놓자마자 맞춰지는 색은 피한다(본 게임 safeOptions 와 같은 규칙)
+  const at = (rr, cc) => (labIn(rr, cc) && g[rr][cc]) ? g[rr][cc].c : -1;
+  const ban = new Set(), two = (a, b) => { if(a !== -1 && a === b) ban.add(a); };
+  two(at(r, c-1), at(r, c-2)); two(at(r, c+1), at(r, c+2)); two(at(r, c-1), at(r, c+1));
+  two(at(r-1, c), at(r-2, c)); two(at(r+1, c), at(r+2, c)); two(at(r-1, c), at(r+1, c));
+  const sq = (a, b, d) => { if(a !== -1 && a === b && b === d) ban.add(a); };
+  sq(at(r-1, c-1), at(r-1, c), at(r, c-1)); sq(at(r-1, c), at(r-1, c+1), at(r, c+1));
+  sq(at(r+1, c-1), at(r+1, c), at(r, c-1)); sq(at(r+1, c), at(r+1, c+1), at(r, c+1));
+  const o = CONFIG.roster.filter(k => !ban.has(k));
+  return o.length ? o[(Math.random() * o.length) | 0] : labRand();
+}
+/** 가로·세로 3줄 이상 + 2×2 — 맞춰진 칸들(r*C+c) */
+function labMatches(g){
+  const R = LR(), C = LC(), hit = new Set(), k = (r, c) => g[r][c] ? g[r][c].c : -1;
+  for(let r = 0; r < R; r++){ let s = 0; for(let c = 1; c <= C; c++){ if(c < C && k(r, c) === k(r, s)) continue; if(c - s >= 3 && k(r, s) >= 0) for(let i = s; i < c; i++) hit.add(r*C + i); s = c; } }
+  for(let c = 0; c < C; c++){ let s = 0; for(let r = 1; r <= R; r++){ if(r < R && k(r, c) === k(s, c)) continue; if(r - s >= 3 && k(s, c) >= 0) for(let i = s; i < r; i++) hit.add(i*C + c); s = r; } }
+  for(let r = 0; r < R-1; r++) for(let c = 0; c < C-1; c++){
+    const v = k(r, c);
+    if(v >= 0 && v === k(r, c+1) && v === k(r+1, c) && v === k(r+1, c+1)) [r*C+c, r*C+c+1, (r+1)*C+c, (r+1)*C+c+1].forEach(x => hit.add(x));
+  }
+  return hit;
+}
+/** 대각선까지 이어진 같은 색 무리 크기(선 긋기) */
+function labBlob(g, r0, c0, seen){
+  const col = g[r0][c0].c, st = [[r0, c0]]; let n = 0;
+  seen.add(r0*LC() + c0);
+  while(st.length){
+    const [r, c] = st.pop(); n++;
+    for(let dr = -1; dr <= 1; dr++) for(let dc = -1; dc <= 1; dc++){
+      const rr = r+dr, cc = c+dc, key = rr*LC() + cc;
+      if((dr || dc) && labIn(rr, cc) && !seen.has(key) && g[rr][cc] && g[rr][cc].c === col){ seen.add(key); st.push([rr, cc]); }
+    }
+  }
+  return n;
+}
+function labSwapHits(g, a, b){
+  const C = LC(), A = g[a[0]][a[1]], B = g[b[0]][b[1]];
+  if(!A || !B || A.c === B.c) return false;
+  g[a[0]][a[1]] = B; g[b[0]][b[1]] = A;
+  const m = labMatches(g), ok = m.has(a[0]*C + a[1]) || m.has(b[0]*C + b[1]);
+  g[a[0]][a[1]] = A; g[b[0]][b[1]] = B;
+  return ok;
+}
+function labHasMove(g){
+  if(LAB.mode === 1){
+    const seen = new Set();
+    for(let r = 0; r < LR(); r++) for(let c = 0; c < LC(); c++) if(g[r][c] && !seen.has(r*LC() + c) && labBlob(g, r, c, seen) >= 3) return true;
+    return false;
+  }
+  for(let r = 0; r < LR(); r++) for(let c = 0; c < LC(); c++){
+    if(g[r][c] && g[r][c].mk) continue;
+    for(const [dr, dc] of [[0,1],[1,0]]){
+      const rr = r+dr, cc = c+dc;
+      if(labIn(rr, cc) && g[rr][cc] && !g[rr][cc].mk && labSwapHits(g, [r, c], [rr, cc])) return true;
+    }
+  }
+  return false;
+}
+function labNewGrid(){
+  let g;
+  for(let guard = 0; guard < 40; guard++){
+    g = [];
+    for(let r = 0; r < LR(); r++) g.push(new Array(LC()).fill(null));
+    for(let r = 0; r < LR(); r++) for(let c = 0; c < LC(); c++) g[r][c] = labTile(LAB.mode === 1 ? labRand() : labSafe(g, r, c));
+    if(labHasMove(g)) break;
+  }
+  const now = labNow();
+  for(let r = 0; r < LR(); r++) for(let c = 0; c < LC(); c++){ g[r][c].fr = r - LR() - 1; g[r][c].ft = now + c*0.02; }   // 위에서 쏟아진다
+  return g;
+}
+/** 빈칸을 메운다 — 위 말은 내려오고, 새 말은 판 위에서 떨어진다 */
+function labGravity(now){
+  const R = LR(), C = LC(), g = LAB.g;
+  for(let c = 0; c < C; c++){
+    let w = R - 1;
+    for(let r = R - 1; r >= 0; r--){
+      const t = g[r][c];
+      if(!t) continue;
+      if(w !== r){ g[w][c] = t; g[r][c] = null; t.fr = (t.fr !== null ? t.fr : r); t.ft = now; }
+      w--;
+    }
+    const n = w + 1;
+    for(let r = w; r >= 0; r--){
+      const safe = LAB.mode !== 1 && Math.random() < CONFIG.refillSafety;
+      const t = labTile(safe ? labSafe(g, r, c) : labRand());
+      t.fr = r - n; t.ft = now;
+      g[r][c] = t;
+    }
+  }
+}
+/** 칸들을 터뜨린다 — 점수·소리·파편, 그리고 빈칸 메우기 */
+function labPop(keys, mul){
+  const C = LC(), now = labNow();
+  let n = 0, first = -1;
+  for(const x of keys){
+    const r = (x / C) | 0, c = x % C, t = LAB.g[r][c];
+    if(!t) continue;
+    LAB.fx.push({ r, c, col: t.c, t0: now });
+    if(first < 0) first = t.c;
+    LAB.g[r][c] = null; n++;
+  }
+  if(!n) return 0;
+  const pts = Math.round(n * 10 * (mul || 1) * LAB.mult);
+  LAB.score += pts; LAB.pops += n;
+  if(!sfx('pop', now, 0.7)) Audio_.tone(now, 660, 0.08, 'triangle', 0.15);
+  if(first >= 0) sfx('voice' + PETS[first].voice, now, 0.5, 1 + Math.min(0.4, LAB.chain * 0.08));
+  labGravity(now);
+  return pts;
+}
+function labText(txt, r, c, col, big){
+  LAB.texts.push({ txt, r, c, col: col || '#FFFFFF', t0: labNow(), big: !!big });
+  if(LAB.texts.length > 8) LAB.texts.shift();
+}
+/** 박과의 거리 — 가장 가까운 박까지 초(음수 = 이르게) */
+function labErr(){
+  const bf = labBeatF(), near = Math.round(bf);
+  return { err: (bf - near) * LAB.bl, near, bf };
+}
+const labTier = e => Math.abs(e) <= 0.075 ? 'PERFECT' : Math.abs(e) <= 0.15 ? 'NICE' : 'OK';
+const LAB_TCOL = { PERFECT: '#FDE047', NICE: '#4ADE80', OK: '#7FD8FF' };
+function labBuzz(ms){ if(VIB.on && navigator.vibrate) try{ navigator.vibrate(ms); }catch(e){} }
+
+/* ---------------------------------------------------------------- 방식별 규칙 */
+/** ① 민 수를 받는다 — 막 지난 박 가까이(늦은 쪽 0.15초 안)면 그 박에 바로, 아니면 다음 박에 */
+function labQueue(a, b){
+  if(LAB.q) return;                                   // 한 박에 한 수
+  const A = LAB.g[a[0]][a[1]], B = LAB.g[b[0]][b[1]];
+  if(!A || !B) return;
+  const { err, bf } = labErr();
+  const tier = labTier(err);
+  const exec = (err >= 0 && err <= 0.15) ? Math.round(bf) : Math.floor(bf) + 1;
+  LAB.q = { a, b, tier, exec };
+  if(exec <= LAB.lastBeat) labExec();
+}
+function labExec(){
+  const { a, b, tier } = LAB.q; LAB.q = null;
+  const g = LAB.g, A = g[a[0]][a[1]], B = g[b[0]][b[1]];
+  if(!A || !B) return;
+  const now = labNow();
+  g[a[0]][a[1]] = B; g[b[0]][b[1]] = A;
+  B.ox = b[1] - a[1]; B.oy = b[0] - a[0]; B.ot = now;          // 자리를 바꾸는 움직임
+  A.ox = a[1] - b[1]; A.oy = a[0] - b[0]; A.ot = now;
+  const m = labMatches(g), C = LC();
+  if(m.has(a[0]*C + a[1]) || m.has(b[0]*C + b[1])){
+    const up = tier === 'PERFECT' ? 0.3 : tier === 'NICE' ? 0.15 : 0;   // 벌은 없다 — 박에서 멀면 '안 오를' 뿐
+    LAB.mult = Math.min(5, LAB.mult + up); LAB.maxMult = Math.max(LAB.maxMult, LAB.mult);
+    LAB.chain = 1;
+    labText(tier, b[0], b[1], LAB_TCOL[tier], tier === 'PERFECT');
+    if(tier === 'PERFECT') labBuzz(55); else if(tier === 'NICE') labBuzz(28);
+    labPop(m, 1);
+  } else {
+    LAB.back = { a, b, at: now + 0.16 };             // 안 맞으면 되돌아간다 — 벌은 없다
+    labText('땡', b[0], b[1], '#C9C2E8');
+  }
+}
+/** ③ 맞춘 말은 표시해 두고(움직일 수 없다) 선이 지나갈 때 터진다 */
+function labMark(){
+  const m = labMatches(LAB.g), C = LC();
+  for(const x of m){ const t = LAB.g[(x / C) | 0][x % C]; if(t && !t.mk){ t.mk = true; t.mt = labNow(); } }
+}
+/** 표시된 무리의 크기(가로세로로 이어진 같은 색 표시 칸) */
+function labMarkSize(r0, c0, seen){
+  const g = LAB.g, col = g[r0][c0].c, st = [[r0, c0]]; let n = 0;
+  seen.add(r0*LC() + c0);
+  while(st.length){
+    const [r, c] = st.pop(); n++;
+    for(const [dr, dc] of [[1,0],[-1,0],[0,1],[0,-1]]){
+      const rr = r+dr, cc = c+dc, key = rr*LC() + cc;
+      if(labIn(rr, cc) && !seen.has(key) && g[rr][cc] && g[rr][cc].mk && g[rr][cc].c === col){ seen.add(key); st.push([rr, cc]); }
+    }
+  }
+  return n;
+}
+function labSwapNow(a, b){                            // ③ 박자 상관없이 바로 바꾼다
+  const g = LAB.g, A = g[a[0]][a[1]], B = g[b[0]][b[1]];
+  if(!A || !B || A.mk || B.mk) return;
+  const now = labNow();
+  if(!labSwapHits(g, a, b)){                         // 맞춤이 안 생기면 흔들고 끝
+    A.ox = (b[1] - a[1]) * 0.25; A.oy = (b[0] - a[0]) * 0.25; A.ot = now;
+    if(!sfx('deny', now, 0.4)) Audio_.tone(now, 200, 0.08, 'square', 0.06);
+    return;
+  }
+  g[a[0]][a[1]] = B; g[b[0]][b[1]] = A;
+  B.ox = b[1] - a[1]; B.oy = b[0] - a[0]; B.ot = now;
+  A.ox = a[1] - b[1]; A.oy = a[0] - b[0]; A.ot = now;
+  if(!sfx('swap', now, 0.5)) Audio_.tone(now, 520, 0.05, 'triangle', 0.1);
+  labMark();
+}
+
+/** 박마다 한 번 */
+function labOnBeat(bi){
+  const C = LC();
+  if(LAB.mode === 0){
+    const m = labMatches(LAB.g);
+    if(m.size){                                        // 떨어져서 생긴 맞춤 — 다음 박에 연쇄로 터진다
+      LAB.chain++;
+      labText(LAB.chain + '연쇄', 4, 3, '#FFB0D0', true);
+      labPop(m, 1 + 0.5 * (LAB.chain - 1));
+      if(LAB.q) LAB.q.exec = bi + 1;                  // 연쇄가 터지는 박에는 민 수를 한 박 미룬다
+      return;
+    }
+    if(LAB.q && LAB.q.exec <= bi){ labExec(); return; }
+    LAB.chain = 0;
+  } else if(LAB.mode === 2){
+    const col = ((bi % C) + C) % C;                    // 박마다 한 칸 — 8칸이면 두 마디에 한 바퀴
+    if(col === 0) LAB.chain = 0;
+    const seen = new Set(), keys = []; let big = 0;
+    for(let r = 0; r < LR(); r++){
+      const t = LAB.g[r][col];
+      if(t && t.mk){ keys.push(r*C + col); if(!seen.has(r*C + col)) big = Math.max(big, labMarkSize(r, col, seen)); }
+    }
+    if(keys.length){
+      LAB.chain++;
+      const mul = (1 + 0.15 * Math.max(0, big - 3)) * (1 + 0.1 * (LAB.chain - 1));   // 큰 무리 · 이어지는 칸일수록
+      labPop(keys, mul);
+      if(LAB.chain >= 2) labText(LAB.chain + '칸 연속', 0, col, '#FFB0D0');
+      labMark();                                       // 떨어져서 새로 맞춰진 것도 표시(다음 바퀴에 터진다)
+    } else LAB.chain = 0;
+  }
+  if(!labHasMove(LAB.g) && LAB.mode !== 2){ LAB.g = labNewGrid(); labText('섞기', 4, 3, '#FFFFFF', true); }
+  if(LAB.mode === 2 && !labHasMove(LAB.g) && !LAB.g.some(row => row.some(t => t && t.mk))){ LAB.g = labNewGrid(); labText('섞기', 4, 3, '#FFFFFF', true); }
+}
+
+/* ---------------------------------------------------------------- 입력 */
+function labCellAt(e){
+  const rc = LAB.cv.getBoundingClientRect();
+  const px = e.clientX - rc.left - LAB.ox, py = e.clientY - rc.top - LAB.oy;
+  return { r: Math.floor(py / LAB.cell), c: Math.floor(px / LAB.cell), px, py };
+}
+function labDown(e){
+  if(LAB.end || !LAB.on) return;
+  e.preventDefault();
+  try{ LAB.cv.setPointerCapture(e.pointerId); }catch(_){}
+  const p = labCellAt(e);
+  if(!labIn(p.r, p.c) || !LAB.g[p.r][p.c]) return;
+  if(LAB.mode === 1){ LAB.path = [[p.r, p.c]]; LAB.pathC = LAB.g[p.r][p.c].c; return; }
+  LAB.drag = { r: p.r, c: p.c, x0: p.px, y0: p.py, done: false };
+}
+function labMove(e){
+  if(LAB.end || !LAB.on) return;
+  const p = labCellAt(e);
+  if(LAB.mode === 1 && LAB.path){
+    if(!labIn(p.r, p.c)) return;
+    const cx = (p.c + 0.5) * LAB.cell, cy = (p.r + 0.5) * LAB.cell;
+    if(Math.hypot(p.px - cx, p.py - cy) > LAB.cell * 0.42) return;   // 칸 가운데 가까이 와야 — 대각선 오인 방지
+    const P = LAB.path, last = P[P.length - 1];
+    if(p.r === last[0] && p.c === last[1]) return;
+    if(P.length >= 2 && P[P.length - 2][0] === p.r && P[P.length - 2][1] === p.c){ P.pop(); return; }   // 되돌아가면 지운다
+    const t = LAB.g[p.r][p.c];
+    if(!t || t.c !== LAB.pathC || P.some(([r, c]) => r === p.r && c === p.c)) return;
+    if(Math.max(Math.abs(p.r - last[0]), Math.abs(p.c - last[1])) !== 1) return;
+    P.push([p.r, p.c]);
+    Audio_.tone(labNow(), 520 + P.length * 40, 0.05, 'triangle', 0.06);
+    return;
+  }
+  const d = LAB.drag;
+  if(!d || d.done) return;
+  const dx = p.px - d.x0, dy = p.py - d.y0;
+  if(Math.hypot(dx, dy) < LAB.cell * 0.35) return;
+  d.done = true;
+  const b = Math.abs(dx) > Math.abs(dy) ? [d.r, d.c + (dx > 0 ? 1 : -1)] : [d.r + (dy > 0 ? 1 : -1), d.c];
+  if(!labIn(b[0], b[1])) return;
+  if(LAB.mode === 0) labQueue([d.r, d.c], b);
+  else labSwapNow([d.r, d.c], b);
+}
+function labUp(e){
+  if(LAB.mode === 1 && LAB.path){
+    const P = LAB.path; LAB.path = null;
+    if(P.length < 3 || LAB.end) return;
+    const { err } = labErr(), tier = labTier(err), C = LC();
+    const up = tier === 'PERFECT' ? 0.3 : tier === 'NICE' ? 0.15 : 0;
+    LAB.mult = Math.min(5, LAB.mult + up); LAB.maxMult = Math.max(LAB.maxMult, LAB.mult);
+    const tm = tier === 'PERFECT' ? 1.5 : tier === 'NICE' ? 1.2 : 1;
+    const last = P[P.length - 1];
+    labText(tier + (P.length >= 6 ? ' · ' + P.length + '마리!' : ''), last[0], last[1], LAB_TCOL[tier], tier === 'PERFECT' || P.length >= 6);
+    if(tier === 'PERFECT') labBuzz(55); else if(tier === 'NICE') labBuzz(28);
+    LAB.chain = 0;
+    labPop(P.map(([r, c]) => r*C + c), tm * (1 + 0.25 * (P.length - 3)));   // 길게 이을수록 크게
+    if(!labHasMove(LAB.g)){ LAB.g = labNewGrid(); labText('섞기', 4, 3, '#FFFFFF', true); }
+    return;
+  }
+  LAB.drag = null;
+}
+
+/* ---------------------------------------------------------------- 음악 */
+function labMusicStop(fade){
+  if(LAB.src){
+    try{ const t = Audio_.ac.currentTime; LAB.gain.gain.setValueAtTime(LAB.gain.gain.value, t); LAB.gain.gain.linearRampToValueAtTime(0, t + (fade || 0.05)); LAB.src.stop(t + (fade || 0.05) + 0.01); }catch(e){}
+  }
+  LAB.src = null; LAB.gain = null;
+}
+/** 그 레벨 곡을 첫 박부터 튼다 — 곡이 없으면(받기 실패) 똑딱이로 */
+async function labMusicStart(){
+  labMusicStop(0.05);
+  const tr = trackForLevel(LAB.L);
+  LAB.bpm = tr.bpm; LAB.bl = 60 / tr.bpm;
+  await Promise.race([loadTrack(tr), new Promise(r => setTimeout(r, 3500))]);
+  const b = Bank.buf[tr.key], t0 = Audio_.ac.currentTime + 0.25;
+  LAB.t0 = t0; LAB.tickNext = 0; LAB.lastBeat = -1;
+  if(!b) return;
+  const Lp = bgmLoop(b, tr);
+  const src = Audio_.ac.createBufferSource();
+  src.buffer = b; src.loop = true;
+  src.loopStart = Lp.start; src.loopEnd = Math.min(b.duration, Lp.start + Lp.len);
+  const g = Audio_.ac.createGain();
+  g.gain.setValueAtTime(0, t0); g.gain.linearRampToValueAtTime(BGM_VOL * (tr.gain || 1), t0 + 0.02);
+  src.connect(g); g.connect(Audio_.master);
+  src.start(t0, Lp.first);                           // 곡 첫 박 = 실험실 0박
+  LAB.src = src; LAB.gain = g;
+}
+
+/* ---------------------------------------------------------------- 그리기 */
+function labRR(x, X, Y, w, h, r){ x.beginPath(); if(x.roundRect) x.roundRect(X, Y, w, h, r); else x.rect(X, Y, w, h); }
+function labPet(x, cx, cy, s, color, wow){
+  const face = (wow && FACES_WOW[color] && FACES_WOW[color].complete && FACES_WOW[color].naturalWidth) ? FACES_WOW[color] : FACES[color];
+  if(!face || !face.complete || !face.naturalWidth) return;
+  const k = s * 1.04 * (PET_SCALE[color] || 1);
+  x.drawImage(bakedFace(face, Math.max(1, Math.round(k * LAB.dpr))), cx - k/2, cy - k/2, k, k);
+}
+function labLayout(){
+  const box = el('labBoard');
+  if(!box || !LAB.cv) return;
+  const W = box.clientWidth, H = box.clientHeight;
+  LAB.W = W; LAB.H = H;
+  LAB.cell = Math.max(10, Math.floor(Math.min((W - 16) / LC(), (H - 16) / LR())));
+  LAB.dpr = Math.min(3, Math.max(2, devicePixelRatio || 1));
+  LAB.cv.style.width = W + 'px'; LAB.cv.style.height = H + 'px';
+  LAB.cv.width = Math.round(W * LAB.dpr); LAB.cv.height = Math.round(H * LAB.dpr);
+  LAB.ox = Math.round((W - LAB.cell * LC()) / 2); LAB.oy = Math.round((H - LAB.cell * LR()) / 2);
+  LAB.x.imageSmoothingQuality = 'high';
+}
+function labDraw(now){
+  const x = LAB.x, cs = LAB.cell, R = LR(), C = LC(), g = LAB.g;
+  x.setTransform(LAB.dpr, 0, 0, LAB.dpr, 0, 0);
+  x.clearRect(0, 0, LAB.W, LAB.H);
+  if(!g) return;
+  const bw = cs*C, bh = cs*R, ox = LAB.ox, oy = LAB.oy;
+  const bf = LAB.end ? 0 : labBeatF(), bi = Math.floor(bf), pos = ((bi % 4) + 4) % 4, ph = bf - bi;
+  const k = (LAB.end || bf < 0) ? 0 : Math.exp(-ph * 6), bp = BEAT_POP[pos];
+  x.fillStyle = '#FFF4E6'; labRR(x, ox - 6, oy - 6, bw + 12, bh + 12, 16); x.fill();
+  x.strokeStyle = `rgba(${bp.rgb},${(0.4 + 0.55 * k * beatLoud(pos)).toFixed(3)})`; x.lineWidth = 5;
+  labRR(x, ox - 6, oy - 6, bw + 12, bh + 12, 16); x.stroke();
+  x.save(); x.translate(ox, oy);
+  for(let r = 0; r < R; r++) for(let c = 0; c < C; c++){
+    x.fillStyle = ((r + c) & 1) ? TILE_BASE : TILE_BASE2;
+    labRR(x, c*cs + 2, r*cs + 2, cs - 4, cs - 4, cs * 0.2); x.fill();
+  }
+  const inPath = (r, c) => LAB.path && LAB.path.some(p => p[0] === r && p[1] === c);
+  for(let r = 0; r < R; r++) for(let c = 0; c < C; c++){
+    const t = g[r][c];
+    if(!t) continue;
+    let dx = 0, dy = 0;
+    if(t.fr !== null){
+      const p = (now - t.ft) / 0.2;
+      if(p >= 1) t.fr = null;
+      else dy = (t.fr - r) * cs * (1 - easeOut(Math.max(0, p)));
+    }
+    if(t.ot){
+      const p = (now - t.ot) / 0.13;
+      if(p >= 1) t.ot = 0;
+      else { dx += t.ox * cs * (1 - p); dy += t.oy * cs * (1 - p); }
+    }
+    const cx = (c + 0.5)*cs + dx, cy = (r + 0.5)*cs + dy;
+    if(t.mk){                                           // ③ 맞춰 둔 말 — 강아지 색으로 빛나는 받침
+      const pu = 0.55 + 0.25 * Math.sin((now - (t.mt || 0)) * 6);
+      x.globalAlpha = pu; x.fillStyle = PETS[t.c].hex;
+      labRR(x, c*cs + 1, r*cs + 1 + dy, cs - 2, cs - 2, cs * 0.22); x.fill(); x.globalAlpha = 1;
+    }
+    const sel = inPath(r, c), q = LAB.q && LAB.q.a[0] === r && LAB.q.a[1] === c;
+    labPet(x, cx, cy, cs * 0.94 * (sel ? 1.12 : q ? 1.06 : 1), t.c, sel || t.mk);
+  }
+  // ② 잇는 선
+  if(LAB.path && LAB.path.length){
+    x.strokeStyle = PETS[LAB.pathC].hex; x.lineWidth = Math.max(4, cs * 0.16); x.lineCap = x.lineJoin = 'round';
+    x.globalAlpha = 0.85; x.beginPath();
+    LAB.path.forEach(([r, c], i) => { const px = (c + 0.5)*cs, py = (r + 0.5)*cs; i ? x.lineTo(px, py) : x.moveTo(px, py); });
+    x.stroke(); x.globalAlpha = 1;
+    x.fillStyle = '#FFFFFF'; x.font = `bold ${Math.round(cs*0.36)}px Jua`; x.textAlign = 'center';
+    const [lr, lc] = LAB.path[LAB.path.length - 1];
+    x.fillText(String(LAB.path.length), (lc + 0.5)*cs, lr*cs + cs*0.1);
+  }
+  // ① 다음 박에 실행될 수
+  if(LAB.q){
+    const [ar, ac] = LAB.q.a, [br, bc] = LAB.q.b, x1 = (ac + 0.5)*cs, y1 = (ar + 0.5)*cs, x2 = (bc + 0.5)*cs, y2 = (br + 0.5)*cs;
+    x.strokeStyle = '#FF2D87'; x.lineWidth = Math.max(3, cs * 0.1); x.lineCap = 'round';
+    x.globalAlpha = 0.6 + 0.4 * Math.sin(now * 20);
+    x.beginPath(); x.moveTo(x1, y1); x.lineTo(x2, y2); x.stroke();
+    x.beginPath(); x.arc(x1, y1, cs * 0.46, 0, Math.PI * 2); x.stroke(); x.globalAlpha = 1;
+  }
+  // 터짐
+  LAB.fx = LAB.fx.filter(f => now - f.t0 < 0.4);
+  for(const f of LAB.fx){
+    const q = (now - f.t0) / 0.4, cx = (f.c + 0.5)*cs, cy = (f.r + 0.5)*cs;
+    x.globalAlpha = 1 - q;
+    labPet(x, cx, cy, cs * 0.94 * (1 + 0.5*q), f.col, true);
+    x.strokeStyle = PETS[f.col].hex; x.lineWidth = 3;
+    x.beginPath(); x.arc(cx, cy, cs * (0.3 + 0.5*q), 0, Math.PI*2); x.stroke();
+    x.globalAlpha = 1;
+  }
+  // ③ 박자 선 — 박마다 한 칸씩, 정박에 칸 가운데
+  if(LAB.mode === 2 && !LAB.end && bf >= -1){
+    const u = (((bf % C) + C) % C) + 0.5, sx = (u % C) * cs;
+    const gr = x.createLinearGradient(sx - cs*0.9, 0, sx + 6, 0);
+    gr.addColorStop(0, 'rgba(76,141,255,0)'); gr.addColorStop(1, 'rgba(76,141,255,0.35)');
+    x.fillStyle = gr; x.fillRect(sx - cs*0.9, 0, cs*0.9 + 6, bh);
+    x.fillStyle = '#FFFFFF'; x.globalAlpha = 0.9; x.fillRect(sx - 2, -4, 4, bh + 8); x.globalAlpha = 1;
+  }
+  // 글자
+  LAB.texts = LAB.texts.filter(t => now - t.t0 < 0.9);
+  x.textAlign = 'center';
+  for(const t of LAB.texts){
+    const q = (now - t.t0) / 0.9;
+    x.globalAlpha = 1 - q*q;
+    x.font = `bold ${Math.round(cs * (t.big ? 0.62 : 0.46))}px Jua`;
+    x.lineWidth = 5; x.strokeStyle = 'rgba(20,15,46,0.85)'; x.fillStyle = t.col;
+    const tx = Math.min(bw - cs, Math.max(cs, (t.c + 0.5)*cs)), ty = (t.r + 0.2)*cs - q * cs * 0.8;
+    x.strokeText(t.txt, tx, ty); x.fillText(t.txt, tx, ty);
+    x.globalAlpha = 1;
+  }
+  x.restore();
+}
+
+/* ---------------------------------------------------------------- 흐름 */
+function labHud(){
+  const set = (id, v) => { if(LAB.hud[id] !== v){ LAB.hud[id] = v; el(id).textContent = v; } };
+  set('labScore', LAB.score.toLocaleString());
+  set('labMult', '×' + LAB.mult.toFixed(1));
+  const left = LAB.end ? (LAB.tStart ? 0 : LAB.T) : Math.max(0, LAB.T - Math.max(0, labNow() - LAB.tStart));
+  set('labTime', String(Math.ceil(left)));
+  set('labLv', 'Lv' + (LAB.L + 1) + ' · ' + Math.round(LAB.bpm));
+  const bf = labBeatF(), pos = bf < 0 || LAB.end ? -1 : ((Math.floor(bf) % 4) + 4) % 4;
+  if(LAB.hud.pos !== pos){
+    LAB.hud.pos = pos;
+    [...el('labBeats').children].forEach((d, i) => d.classList.toggle('on', i === pos));
+  }
+}
+function labFrame(){
+  if(!LAB.on) return;
+  LAB.raf = requestAnimationFrame(labFrame);
+  const now = labNow();
+  if(!LAB.end && LAB.g){
+    const bf = labBeatF(), bi = Math.floor(bf);
+    if(bi >= 0 && bi !== LAB.lastBeat){ LAB.lastBeat = bi; labOnBeat(bi); }
+    if(!LAB.src) while(LAB.tickNext <= bf + 0.3){        // 곡이 없으면 똑딱이
+      const t = LAB.t0 + LAB.tickNext * LAB.bl;
+      if(t >= Audio_.ac.currentTime - 0.01) Audio_.tone(t, LAB.tickNext % 4 >= 2 ? 1320 : 880, 0.05, 'square', LAB.tickNext % 4 >= 2 ? 0.1 : 0.05);
+      LAB.tickNext++;
+    }
+    if(LAB.back && now >= LAB.back.at){                  // ① 안 맞은 수 — 되돌린다
+      const { a, b } = LAB.back, g = LAB.g, A = g[a[0]][a[1]], B = g[b[0]][b[1]];
+      LAB.back = null;
+      if(A && B){ g[a[0]][a[1]] = B; g[b[0]][b[1]] = A; B.ox = b[1]-a[1]; B.oy = b[0]-a[0]; B.ot = now; A.ox = a[1]-b[1]; A.oy = a[0]-b[0]; A.ot = now; }
+    }
+    if(now - LAB.tStart >= LAB.T) labFinish();   // 시간은 곡과 따로 센다(템포를 바꿔도 이어진다)
+  }
+  labHud();
+  labDraw(now);
+}
+function labFinish(){
+  LAB.end = true; LAB.q = null; LAB.path = null; LAB.drag = null;
+  labMusicStop(0.6);
+  if(!sfx('fanfare', labNow(), 0.6)) Audio_.tone(labNow(), 880, 0.3, 'triangle', 0.15);
+  el('labEndTxt').innerHTML = `<b>${LAB_MODES[LAB.mode].name}</b><br>점수 <b>${LAB.score.toLocaleString()}</b> · 최고 배율 ×${LAB.maxMult.toFixed(1)} · 터뜨린 강아지 ${LAB.pops}마리`;
+  el('labEnd').hidden = false;
+}
+async function labPlay(mode){
+  LAB.mode = mode;
+  el('labPick').hidden = true; el('labEnd').hidden = true;
+  el('labName').textContent = (mode + 1) + ' · ' + LAB_MODES[mode].name;
+  el('labDesc').innerHTML = LAB_MODES[mode].desc;
+  menuStop(0.3);
+  Audio_.init();
+  if(Audio_.ac.state === 'suspended') Audio_.ac.resume();
+  await Promise.race([loadBank(), new Promise(r => setTimeout(r, 1800))]);
+  Object.assign(LAB, { score:0, mult:1, maxMult:1, chain:0, pops:0, q:null, back:null, drag:null, path:null, fx:[], texts:[], hud:{} });
+  labLayout();
+  LAB.g = labNewGrid();
+  LAB.end = true;                                        // 곡을 받는 동안은 멈춰 둔다
+  LAB.tStart = 0;
+  await labMusicStart();
+  LAB.tStart = LAB.t0;
+  LAB.end = false;
+}
+function labOpen(){
+  LAB.on = true;
+  el('lab').hidden = false;
+  el('labPick').hidden = false; el('labEnd').hidden = true;
+  if(!LAB.cv){
+    LAB.cv = el('labCv'); LAB.x = LAB.cv.getContext('2d');
+    LAB.cv.addEventListener('pointerdown', labDown);
+    LAB.cv.addEventListener('pointermove', labMove);
+    LAB.cv.addEventListener('pointerup', labUp);
+    LAB.cv.addEventListener('pointercancel', labUp);
+    addEventListener('resize', () => { if(LAB.on) labLayout(); });
+  }
+  labLayout();
+  cancelAnimationFrame(LAB.raf);
+  LAB.raf = requestAnimationFrame(labFrame);
+}
+function labClose(){
+  LAB.on = false; LAB.end = true;
+  cancelAnimationFrame(LAB.raf);
+  labMusicStop(0.2);
+  el('lab').hidden = true;
+  setTimeout(menuStart, 250);
+}
+[...document.querySelectorAll('#labPick [data-m]')].forEach(b => b.addEventListener('click', () => labPlay(+b.dataset.m)));
+el('labPickClose').addEventListener('click', labClose);
+el('labExit').addEventListener('click', labClose);
+el('labQuit').addEventListener('click', labClose);
+el('labAgain').addEventListener('click', () => labPlay(LAB.mode));
+el('labModes').addEventListener('click', () => { labMusicStop(0.2); LAB.end = true; el('labEnd').hidden = true; el('labPick').hidden = false; });
+el('labLvDn').addEventListener('click', () => { if(LAB.L > 0){ LAB.L--; if(!LAB.end) labMusicStart(); else LAB.bpm = bpmOfLevel(LAB.L); } });
+el('labLvUp').addEventListener('click', () => { if(LAB.L < CONFIG.level.max - 1){ LAB.L++; if(!LAB.end) labMusicStart(); else LAB.bpm = bpmOfLevel(LAB.L); } });
 
 const calmLabel = () => { el('calm').textContent = CALM.on ? '번쩍임 줄이기 켜짐' : '번쩍임 줄이기 꺼짐'; el('calm').classList.toggle('off', !CALM.on); };
 calmLabel();
