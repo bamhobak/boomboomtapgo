@@ -813,7 +813,7 @@
     <div class="labpick" id="labPick">
       <h2>실험실</h2>
       <p>지금 게임은 그대로 두고, <b>다른 방식</b>을 따로 해 봐요.<br>시간 제한 없음 · 그만하고 싶으면 위 <b>그만</b> · 기록은 랭킹에 안 올라가요.</p>
-      <button type="button" id="labDropNow">1 · 바로 내려오기<small>본 게임 그대로 · 터지면 위 강아지가 곧바로 내려오고, 그렇게 맞춰진 줄은 다음 4박에 터짐</small></button>
+      <button type="button" id="labDropNow">1 · 바로 내려오기<small>본 게임과 같은 규칙(v0.3.44부터 본 게임에 들어감) · 시간 제한 없이 연습</small></button>
       <button type="button" data-m="1">2 · 선 긋기<small>강아지 네 마리 · 같은 강아지를 3마리 이상 이어 긋기(대각선 OK) · 손 떼는 순간이 박이면 보너스</small></button>
       <button type="button" data-m="2">3 · 박자 선<small>아무 때나 맞춰 두면 지나가는 박자 선이 터뜨림 · 선이 오기 전에 키우기</small></button>
       <button class="ghost" id="labPickClose" type="button">닫기</button>
@@ -835,7 +835,7 @@
       <div class="slot wait"><b>1박</b><span>대기</span></div>
       <div class="slot wait"><b>2박</b><span>대기</span></div>
       <div class="slot t"><b>3박</b><span>누르기</span></div>
-      <div class="slot d"><b>4박</b><span>낙하·드래그</span></div>
+      <div class="slot d"><b>4박</b><span>드래그</span></div>
     </div>
     <p class="tag">한 마디가 <b>한 턴</b>입니다. 두 박 동안 판을 읽고, 3박에 옮길 말을 누르고, 4박에 그 말을 밀 방향으로 드래그합니다. <b>차례가 아닌 박에는 판이 움직이지 않습니다.</b></p>
     <div class="legend">
@@ -846,7 +846,7 @@
       <b>5개 한 줄</b><span>판 위의 <b>그 동물이 전부</b> 사라진다</span>
       <b>ㄱ · ㄴ · + 모양</b><span>교차 칸 둘레 <b>3×3 한 덩어리</b>가 사라진다</span>
       <b>사라지는 기준</b><span><b>내가 민 칸</b>이 기준이 된다</span>
-      <b>붙잡기</b><span>떨어질 말을 <b>누른 채로 버티면</b> 그 말과 위쪽이 안 떨어진다. <b>놓으면 그 순간</b> 떨어진다</span>
+      <b>낙하</b><span>터지면 위의 말이 <b>곧바로</b> 내려온다. 그렇게 맞춰진 줄은 <b>다음 4박에</b> 터진다 — 3박에 그 줄의 말을 잡아 빼면 안 터진다</span>
       <b>미는 방향</b><span>위·아래·왼쪽·오른쪽 네 방향</span>
       <b>시간</b><span><b>40초</b> 타임어택. 시간이 끝나면 그 턴 4박까지 둘 수 있고, 그 뒤엔 <b>떨어져서 저절로 맞춰지는 연쇄가 이어지는 동안</b> 계속 간다</span>
       <b>시간 보너스</b><span>콤보가 <b>1 오를 때마다 +0.3초</b> — 3줄·2×2 +0.3 · 4줄·ㄱㄴ+ +0.6 · 5줄 +0.9. 단 <b>남은 시간은 40초를 넘지 않는다</b>(꽉 차 있으면 안 붙는다)</span>
@@ -936,7 +936,7 @@
    ========================================================================= */
 
 // 게임 버전 — 수정해서 배포할 때마다 끝 두 자리를 1씩 올린다(v0.1.01 → v0.1.02). 화면 오른쪽 아래에 보인다
-const GAME_VERSION = 'v0.3.43';   // 버전 표기 — 패치 자리는 두 자리 (v0.2.01, v0.2.02 …)
+const GAME_VERSION = 'v0.3.44';   // 버전 표기 — 패치 자리는 두 자리 (v0.2.01, v0.2.02 …)
 /*
  * 번쩍임 줄이기 (v0.1.22) — 광과민성 배려. 켜면 화면 전체 번쩍임·흔들림을 끄고, 발판 조명·테두리 박동을 약하게.
  * 폰의 '동작 줄이기'가 켜져 있으면 처음부터 켠다. 고른 값은 이 기기에 기억한다.
@@ -4729,7 +4729,7 @@ function frame(){
 
 
   // 타임어택(v0.3.36 40초) — 시간이 다 되면 그 마디(턴)의 4박까지만 손을 쓸 수 있다
-  if(S.tut || S.practice || S.test || S.dropNow) S.bonusTime = Math.max(S.bonusTime, song);   // 튜토리얼·연습·테스트는 시계가 안 준다
+  if(S.tut || S.practice || S.test || S.labDrop) S.bonusTime = Math.max(S.bonusTime, song);   // 튜토리얼·연습·테스트는 시계가 안 준다
   if(!S.timeUp && song >= CONFIG.timeLimit + S.bonusTime){
     S.timeUp = true;
     S.lastPlayBar = bi;
@@ -4779,10 +4779,10 @@ function frame(){
   // v0.2.16 간판 글자·시간 막대는 값이 바뀔 때만 쓴다 — 프레임마다 쓰면 그때마다 다시 재고 다시 칠한다
   setText('lvl', bar.level + 1);
   setText('hudSub', bar.bpm + ' BPM');
-  const left = (S.tut || S.practice || S.test || S.dropNow) ? CONFIG.timeLimit
+  const left = (S.tut || S.practice || S.test || S.labDrop) ? CONFIG.timeLimit
                      : Math.max(0, CONFIG.timeLimit + S.bonusTime - Math.max(0, song));
   const tv = el('time'), tf = el('timeFill'), low = left <= 10;
-  setText('time', (S.practice || S.test || S.dropNow) ? '∞' : (S.timeUp ? '0' : Math.ceil(left)));
+  setText('time', (S.practice || S.test || S.labDrop) ? '∞' : (S.timeUp ? '0' : Math.ceil(left)));
   tv.classList.toggle('low', low);
   const wpc = (Math.round(Math.min(100, left / CONFIG.timeLimit * 100) * 4) / 4).toFixed(2) + '%';   // 기본 시간 넘게 모이면 꽉 찬 채로
   if(tf.style.width !== wpc) tf.style.width = wpc;
@@ -5139,7 +5139,9 @@ async function start(tut){        // tut: true = 튜토리얼(박자 켬) · 'fr
   S.tut = tut === true || tut === 'free';          // 마디를 짜기 전에 정해야 튜토리얼 빠르기가 먹는다 (v0.2.08)
   S.practice = tut === 'practice';                 // v0.2.43 연습 — 시간 없음·레벨 1 고정·늘 힌트
   S.test = tut === 'test';                         // v0.2.61 테스트 — 시간·콤보레벨 안 흐르고 레벨을 손으로 고른다
-  S.dropNow = tut === 'dropnow';                   // v0.3.41 실험실 ① 바로 내려오기 — 본 게임 그대로, 낙하 규칙만 다르다(시간 없음·기록 안 남김)
+  // v0.3.44 '바로 내려오기'를 본 게임 규칙으로 — 터지면 곧바로 내려오고, 그렇게 선 줄은 다음 4박에 터진다(박자 없는 연습 free 만 예전대로)
+  S.labDrop = tut === 'dropnow';                   // 실험실 ① — 규칙은 본 게임과 같고 시간 없음·기록 안 남김만 다르다
+  S.dropNow = tut !== 'free';
   buildTimeline();
   Bgm.run = null; Bgm.resume = {};                 // 판마다 곡은 처음부터
 
@@ -5309,7 +5311,7 @@ el('pResume').addEventListener('click', resumeGame);
 el('pRestart').addEventListener('click', () => {
   el('pause').hidden = true; S.paused = false; S.live = false;
   clearInterval(schedTimer); schedTimer = null; bgmStop(0.2);
-  start(S.practice ? 'practice' : S.dropNow ? 'dropnow' : undefined);
+  start(S.practice ? 'practice' : S.labDrop ? 'dropnow' : undefined);
 });
 el('pHome').addEventListener('click', () => {
   el('pause').hidden = true; S.paused = false; S.live = false;
@@ -5370,7 +5372,7 @@ function finish(){
     e.hidden = false;
     e.classList.remove('fadein'); void e.offsetWidth; e.classList.add('fadein');
   }, 900);
-  if(!S.practice && !S.test && !S.dropNow){
+  if(!S.practice && !S.test && !S.labDrop){
     Rank.afterGame(S.score, S.stats.maxLevel, S.stats.maxCombo);   // 연습·테스트 기록은 안 남긴다
     mineSave({ t: Date.now(), score: Math.round(S.score), level: S.stats.maxLevel,
                combo: S.stats.maxCombo, err: S.errors.length ? avg : null });   // v0.2.64 내 최근 기록
