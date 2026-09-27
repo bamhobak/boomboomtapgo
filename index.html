@@ -340,7 +340,7 @@
   #lab #labOk{align-self:center;min-width:200px;height:56px;padding:0 36px;border-radius:28px;background:#FFD43B;color:#3B2314;border:4px solid #3B2314;
               box-shadow:0 6px 0 #3B2314;font-family:Jua;font-size:24px}
   #lab #labOk[hidden]{display:none}
-  #lab #labOk:active{transform:translate(0,4px);box-shadow:0 2px 0 #3B2314}
+  #lab #labOk[disabled]{opacity:1;cursor:default}
   #lab #labOk.ready{animation:okpulse .9s ease-in-out infinite}
   @keyframes okpulse{0%,100%{filter:none}50%{filter:brightness(1.12)}}
   #lab .labdesc b{color:var(--cream)}
@@ -988,14 +988,14 @@
     </div>
     <div class="labboard" id="labBoard"><canvas id="labCv"></canvas></div>
     <p class="labdesc" id="labDesc"></p>
-    <button type="button" id="labOk" hidden>오케이!</button>   <!-- v0.3.63 ④ 자유 배치 — 연결된 것 한 번에 터뜨리기 -->
+    <button type="button" id="labOk" hidden disabled aria-live="polite">터지기까지 12박</button>   <!-- v0.3.65 ④ 자유 배치 — 12박마다 저절로 터진다(카운트다운 표시) -->
     <div class="labpick" id="labPick">
       <h2>실험실</h2>
       <p>지금 게임은 그대로 두고, <b>다른 방식</b>을 따로 해 봐요.<br>시간 제한 없음 · 그만하고 싶으면 위 <b>그만</b> · 기록은 랭킹에 안 올라가요.</p>
       <button type="button" id="labDropNow">1 · 바로 내려오기<small>본 게임과 같은 규칙(v0.3.44부터 본 게임에 들어감) · 시간 제한 없이 연습</small></button>
       <button type="button" data-m="1">2 · 선 긋기<small>강아지 네 마리 · 같은 강아지를 3마리 이상 이어 긋기(대각선 OK) · 손 떼는 순간이 박이면 보너스</small></button>
       <button type="button" data-m="2">3 · 박자 선<small>아무 때나 맞춰 두면 지나가는 박자 선이 터뜨림 · 선이 오기 전에 키우기</small></button>
-      <button type="button" data-m="3">4 · 자유 배치<small>안 맞아도 마음대로 옮겨 두기 · 오케이를 누르면 연결된 게 한 번에 다 터짐</small></button>
+      <button type="button" data-m="3">4 · 자유 배치<small>안 맞아도 마음대로 옮겨 두기 · 3턴(12박)마다 연결된 게 한 번에 다 터짐</small></button>
       <button class="ghost" id="labPickClose" type="button">닫기</button>
     </div>
     <div class="labend" id="labEnd" hidden>
@@ -1116,7 +1116,7 @@
    ========================================================================= */
 
 // 게임 버전 — 수정해서 배포할 때마다 끝 두 자리를 1씩 올린다(v0.1.01 → v0.1.02). 화면 오른쪽 아래에 보인다
-const GAME_VERSION = 'v0.3.64';   // 버전 표기 — 패치 자리는 두 자리 (v0.2.01, v0.2.02 …)
+const GAME_VERSION = 'v0.3.65';   // 버전 표기 — 패치 자리는 두 자리 (v0.2.01, v0.2.02 …)
 /*
  * 번쩍임 줄이기 (v0.1.22) — 광과민성 배려. 켜면 화면 전체 번쩍임·흔들림을 끄고, 발판 조명·테두리 박동을 약하게.
  * 폰의 '동작 줄이기'가 켜져 있으면 처음부터 켠다. 고른 값은 이 기기에 기억한다.
@@ -6236,7 +6236,7 @@ const LAB_MODES = [
   { name:'박에 붙여 주기', desc:'아무 때나 <b>한 번 밀면</b> 다음 박에 실행돼요. <b>매 박이 차례</b> — 박에 가깝게 밀수록 배율이 올라요.' },
   { name:'선 긋기',       desc:'같은 강아지를 손가락으로 <b>3마리 이상 이어요</b>(대각선도 돼요). 손을 떼는 순간이 박이면 보너스!' },
   { name:'박자 선',       desc:'아무 때나 맞춰 두세요. <b>박자 선이 지나갈 때</b> 터져요 — 선이 오기 전에 모양을 키우면 더 커요.' },
-  { name:'자유 배치',     desc:'강아지를 <b>마음대로 옮겨</b> 두세요(안 맞아도 그대로). 준비되면 <b>오케이</b> — 연결된 게 <b>한 번에 다</b> 터져요. 박에 맞춰 누르면 보너스!' },
+  { name:'자유 배치',     desc:'강아지를 <b>마음대로 옮겨</b> 두세요(안 맞아도 그대로). <b>3턴(12박)마다</b> 연결된 게 <b>한 번에 다</b> 터져요.' },
 ];
 const LR = () => CONFIG.rows, LC = () => CONFIG.cols;
 const labNow = () => Audio_.ac ? Audio_.ac.currentTime : performance.now() / 1000;
@@ -6432,23 +6432,15 @@ function labSwapFree(a, b){
   if(!sfx('swap', now, 0.45)) Audio_.tone(now, 520, 0.05, 'triangle', 0.1);
 }
 /* 오케이 — 지금 판에 연결된 것 전부 한 번에. 누른 순간이 박에 가까우면 보너스, 떨어져 생긴 줄은 연쇄로 이어 터진다 */
-function labBurst(){
+function labBurst(){                                   // v0.3.65 12박마다 저절로 — 오케이 단추는 없앴다
   if(LAB.end || LAB.mode !== 3 || LAB.burstAt) return;
   const m = labMatches(LAB.g), now = labNow();
-  if(!m.size){
-    labText('연결된 게 없어요', 4, 3, '#C9C2E8');
-    if(!sfx('deny', now, 0.4)) Audio_.tone(now, 200, 0.08, 'square', 0.06);
-    return;
-  }
-  const { err } = labErr(), tier = labTier(err);
-  const up = tier === 'PERFECT' ? 0.3 : tier === 'NICE' ? 0.15 : 0;
-  LAB.mult = Math.min(5, LAB.mult + up); LAB.maxMult = Math.max(LAB.maxMult, LAB.mult);
-  const tm = tier === 'PERFECT' ? 1.5 : tier === 'NICE' ? 1.2 : 1;
+  if(!m.size){ labText('터질 게 없어요', 4, 3, '#C9C2E8'); return; }
   const big = 1 + 0.06 * Math.max(0, m.size - 3);                     // 한 번에 많이 터뜨릴수록 크게
-  labText(tier + ' · ' + m.size + '마리!', 4, 3, LAB_TCOL[tier], true);
-  if(tier === 'PERFECT') labBuzz(55); else if(tier === 'NICE') labBuzz(28);
+  labText(m.size + '마리!', 4, 3, '#FDE047', true);
+  labBuzz(45);
   LAB.chain = 1;
-  labPop(m, tm * big);
+  labPop(m, big);
   LAB.burstAt = now + 0.34;                                          // 떨어진 뒤 연쇄를 본다
 }
 function labSwapNow(a, b){                            // ③ 박자 상관없이 바로 바꾼다
@@ -6469,6 +6461,7 @@ function labSwapNow(a, b){                            // ③ 박자 상관없이
 
 /** 박마다 한 번 */
 function labOnBeat(bi){
+  if(LAB.mode === 3 && bi > 0 && bi % 12 === 0) labBurst();   // v0.3.65 ④ 3턴(12박)마다
   const C = LC();
   if(LAB.mode === 0){
     const m = labMatches(LAB.g);
@@ -6739,7 +6732,16 @@ function labFrame(){
       if(m.size){ LAB.chain++; labText(LAB.chain + '연쇄', 4, 3, '#FFB0D0', true); labPop(m, 1 + 0.5 * (LAB.chain - 1)); LAB.burstAt = now + 0.34; }
       else LAB.burstAt = 0;
     }
-    if(LAB.mode === 3){ const ok = el('labOk'); if(ok){ const r = labMatches(LAB.g).size > 0 && !LAB.burstAt; if(ok.classList.contains('ready') !== r) ok.classList.toggle('ready', r); } }
+    if(LAB.mode === 3){                                  // v0.3.65 ④ 터지기까지 남은 박
+      const ok = el('labOk'), bi = Math.floor(labBeatF());
+      if(ok){
+        const left = bi < 0 ? 12 : 12 - (bi % 12);
+        const t = LAB.burstAt ? '연쇄 중!' : '터지기까지 ' + left + '박';
+        if(ok.textContent !== t) ok.textContent = t;
+        const r = !LAB.burstAt && left <= 4;
+        if(ok.classList.contains('ready') !== r) ok.classList.toggle('ready', r);
+      }
+    }
     if(LAB.back && now >= LAB.back.at){                  // ① 안 맞은 수 — 되돌린다
       const { a, b } = LAB.back, g = LAB.g, A = g[a[0]][a[1]], B = g[b[0]][b[1]];
       LAB.back = null;
@@ -6804,7 +6806,6 @@ el('labDropNow').addEventListener('click', () => {    // v0.3.41 ① 본 게임 
   el('lab').hidden = true;
   start('dropnow');
 });
-el('labOk').addEventListener('click', labBurst);
 [...document.querySelectorAll('#labPick [data-m]')].forEach(b => b.addEventListener('click', () => labPlay(+b.dataset.m)));
 el('labPickClose').addEventListener('click', labClose);
 el('labExit').addEventListener('click', () => { if(!LAB.end && LAB.g) labFinish(); else labClose(); });   // v0.3.40 판 도중엔 '그만' — 결과부터
