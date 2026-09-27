@@ -847,6 +847,16 @@
   #start.v2 #door4{left:calc(var(--ox) + var(--u)*755);top:calc(var(--oy) + var(--u)*140);width:calc(var(--u)*160);height:calc(var(--u)*190)}
   .menudoor{display:none}
   #start.v2 .menudoor{display:block}
+  /* v0.3.67 실험실 ⑤ 피버 — 게이지 막대 · 판 둘레 무지개 */
+  #feverGauge{position:relative;height:20px;margin:0 12px 10px;border-radius:10px;background:#FFFFFF;border:3px solid #5A3825;overflow:hidden}
+  #feverGauge[hidden]{display:none}
+  #feverGauge i{position:absolute;left:0;top:0;bottom:0;width:0;background:linear-gradient(90deg,#FF8FB1,#FFD43B,#8FD0FF);transition:width .15s linear}
+  #feverGauge b{position:relative;display:block;text-align:center;font-family:Jua;font-weight:400;font-size:12px;line-height:14px;color:#5A3825}
+  #feverGauge.on i{background:linear-gradient(90deg,#FF3860,#FB923C,#FDE047,#4ADE80,#22D3EE,#A855F7);background-size:200% 100%;animation:feverflow .8s linear infinite}
+  @keyframes feverflow{from{background-position:0 0}to{background-position:200% 0}}
+  #stage.fever .cvglow{animation:fevertint 1.2s linear infinite}
+  @keyframes fevertint{0%{outline-color:#FF3860}20%{outline-color:#FB923C}40%{outline-color:#FDE047}60%{outline-color:#4ADE80}80%{outline-color:#22D3EE}100%{outline-color:#A855F7}}
+  #stage.fever{background-color:#FFE3F0}
 </style>
 
 <!-- v0.3.22 색약 보기(테스트 모드) — 색 변환 필터. Machado 2009 행렬 -->
@@ -867,6 +877,8 @@
     <div class="clock" id="time">60</div>
     <span class="plus" id="timePlus" aria-hidden="true"></span>
   </div>
+  <!-- v0.3.67 실험실 ⑤ 피버 게이지 -->
+  <div id="feverGauge" hidden><i></i><b>피버 0%</b></div>
   </div>
 
   <div class="boardwrap">
@@ -995,6 +1007,9 @@
       <button type="button" id="labDropNow">1 · 바로 내려오기<small>본 게임과 같은 규칙(v0.3.44부터 본 게임에 들어감) · 시간 제한 없이 연습</small></button>
       <button type="button" data-m="1">2 · 선 긋기<small>강아지 네 마리 · 같은 강아지를 3마리 이상 이어 긋기(대각선 OK) · 손 떼는 순간이 박이면 보너스</small></button>
       <button type="button" data-m="2">3 · 박자 선<small>아무 때나 맞춰 두면 지나가는 박자 선이 터뜨림 · 선이 오기 전에 키우기</small></button>
+      <button type="button" class="labfever" data-k="A">5A · 피버 — 두 번 두기<small>본 게임 + 피버 게이지 · 피버 4마디 동안 한 마디에 누르기·밀기 두 번</small></button>
+      <button type="button" class="labfever" data-k="B">5B · 피버 — 둘만 모여도<small>본 게임 + 피버 게이지 · 피버 동안 내가 민 말은 두 마리만 이어져도 터짐</small></button>
+      <button type="button" class="labfever" data-k="C">5C · 피버 — 황금 강아지<small>본 게임 + 피버 게이지 · 피버 시작에 황금 강아지 셋, 터지면 둘레 3×3 + 점수 ×3</small></button>
       <button type="button" data-m="3">4 · 자유 배치<small>안 맞아도 마음대로 옮겨 두기 · 3턴(12박)마다 연결된 게 한 번에 다 터짐</small></button>
       <button class="ghost" id="labPickClose" type="button">닫기</button>
     </div>
@@ -1116,7 +1131,7 @@
    ========================================================================= */
 
 // 게임 버전 — 수정해서 배포할 때마다 끝 두 자리를 1씩 올린다(v0.1.01 → v0.1.02). 화면 오른쪽 아래에 보인다
-const GAME_VERSION = 'v0.3.66';   // 버전 표기 — 패치 자리는 두 자리 (v0.2.01, v0.2.02 …)
+const GAME_VERSION = 'v0.3.67';   // 버전 표기 — 패치 자리는 두 자리 (v0.2.01, v0.2.02 …)
 /*
  * 번쩍임 줄이기 (v0.1.22) — 광과민성 배려. 켜면 화면 전체 번쩍임·흔들림을 끄고, 발판 조명·테두리 박동을 약하게.
  * 폰의 '동작 줄이기'가 켜져 있으면 처음부터 켠다. 고른 값은 이 기기에 기억한다.
@@ -1686,6 +1701,7 @@ function makeBar(startBeat, startTime, level){
 function appendBar(){
   const L = BARS[BARS.length-1];
   BARS.push(makeBar(L.startBeat + L.meter, L.startTime + L.meter*L.beatLen, L.level));
+  if(S.fever && S.fever.kind === 'A' && feverBar(BARS.length - 1)) BARS[BARS.length-1].pattern = FEVER_PAT;   // v0.3.67
   const N = BARS[BARS.length-1];
   TOTAL_BEATS = N.startBeat + N.meter;
   SONG_LEN = N.startTime + N.meter*N.beatLen;
@@ -1786,6 +1802,12 @@ const DIRS = [[0,1],[1,0]];
  * 가로·세로 3연속과 2×2 뭉치를 전부 찾아, 셀을 공유하는 것끼리 한 그룹으로 묶는다.
  * 한 수가 두 줄을 동시에 걸치면 ㄱ·ㄴ·+ 모양이 되어 한 그룹으로 합쳐진다.
  */
+/** v0.3.67 피버 B — 이 둘 줄(r,c 에서 dr,dc 로 두 칸)에 방금 민 말이 끼어 있나 */
+function feverPair(r, c, dr, dc){
+  if(!S.fever || S.fever.kind !== 'B' || !S.fever.on || !S.dnSwap) return false;
+  for(const [sr, sc] of S.dnSwap) if((sr === r && sc === c) || (sr === r + dr && sc === c + dc)) return true;
+  return false;
+}
 function findMatches(g){
   const runs = [];
   for(const [dr,dc] of DIRS){
@@ -1797,7 +1819,7 @@ function findMatches(g){
       if(inb(pr,pc) && matchKey(g[pr][pc])===k) continue;
       let len = 1;
       while(inb(r+dr*len, c+dc*len) && matchKey(g[r+dr*len][c+dc*len])===k) len++;
-      if(len >= 3){
+      if(len >= 3 || (len === 2 && feverPair(r, c, dr, dc))){   // v0.3.67 피버 B — 내가 민 말이 낀 둘
         const cells = [];
         for(let i=0;i<len;i++) cells.push([r+dr*i, c+dc*i]);
         runs.push({ dir:'line', vec:[dr,dc], len, cells, k });
@@ -2040,7 +2062,7 @@ function matchAt(g, r, c){
     let n = 1;
     for(let i=1;i<3;i++){ const rr=r-dr*i, cc=c-dc*i; if(inb(rr,cc) && matchKey(g[rr][cc])===k) n++; else break; }
     for(let i=1;i<3;i++){ const rr=r+dr*i, cc=c+dc*i; if(inb(rr,cc) && matchKey(g[rr][cc])===k) n++; else break; }
-    if(n >= 3) return true;
+    if(n >= 3 || (n >= 2 && S.fever && S.fever.kind === 'B' && S.fever.on)) return true;   // v0.3.67 피버 B
   }
   for(const [dr,dc] of [[-1,-1],[-1,0],[0,-1],[0,0]]){   // 이 칸이 낄 수 있는 2×2 넷
     const r0=r+dr, c0=c+dc;
@@ -2327,8 +2349,84 @@ function judgeWin(b){
                     : { p, g, pe: Math.min(CONFIG.judge.perfect*e, bl*0.37), ge: Math.min(CONFIG.judge.good*e, bl*0.59) };
   // v0.3.18 능력 '넓은 과녁' — 레벨 4 까지 OK 창을 40% 넓힌다(MISS 가 OK 로). PERFECT·NICE 는 그대로
   if(buffIs('wide') && bar && bar.level <= BUFF_LV){ w.g = Math.min(w.g*1.4, bl*0.62); w.ge = Math.min(w.ge*1.4, bl*0.7); }
+  if(feverBar(barAtBeat(b))){ w.g = Math.min(w.g*1.3, bl*0.45); w.ge = Math.min((w.ge || w.g)*1.3, bl*0.45); }   // v0.3.67 피버 — OK 까지 30% 넓게(두 번 두기에서 옆 박과 안 겹치게 반 박 안쪽)
   return w;
 }
+/*
+ * v0.3.67 실험실 ⑤ 피버 타임 — 본 게임 그대로 + 피버 게이지. 본 게임에는 아직 안 넣었다.
+ *   게이지: 판정마다 PERFECT +4% · NICE +2.5% · OK +1% (한 턴 두 판정 = PERFECT 두 번이면 +8%),
+ *           무언가 터진 턴이면 +2%, 한 턴을 비우면 -10%. 꽉 차면 **다음 마디 1박부터 4마디(16박)** 피버.
+ *   피버 중: 점수 ×2 · 판정 창(OK 까지) 30% 넓게 · 판 둘레 무지개 · 게이지는 줄어드는 시계.
+ *   플레이 셋(실험실에서 골라 들어온다):
+ *     A 두 번 두기  — 피버 마디는 '누르기·밀기·누르기·밀기' 로 한 마디에 두 번 둔다
+ *     B 둘만 모여도 — 피버 동안 내가 민 말이 낀 줄은 두 마리만 이어져도 터진다
+ *     C 황금 강아지 — 피버 시작에 황금 강아지 셋, 같이 터지면 둘레 3×3 까지 터지고 그 터짐 점수 ×3
+ */
+let FEVER_KIND = 'A';
+const FEVER_BARS = 4, FEVER_PAT = ['T', 'D', 'T', 'D'];
+const feverBar = bi => !!(S.fever && S.fever.start >= 0 && bi >= S.fever.start && bi < S.fever.end);
+const feverNow = () => !!(S.fever && S.fever.on);
+function feverAdd(d){
+  const F = S.fever;
+  if(!F || F.on || F.start >= 0) return;
+  F.g = Math.max(0, Math.min(1, F.g + d));
+  if(F.g >= 1){
+    F.start = S.barIndex + 1; F.end = F.start + FEVER_BARS;
+    if(F.kind === 'A') for(let i = F.start; i < Math.min(F.end, BARS.length); i++){ BARS[i].pattern = FEVER_PAT; }
+    announce('곧 피버!');
+  }
+  feverUi();
+}
+function feverBarTick(bi, now){
+  const F = S.fever;
+  if(!F || F.start < 0) return;
+  if(bi === F.start){
+    F.on = true;
+    el('stage').classList.add('fever');
+    announce('피버 타임!');
+    if(!sfx('fanfare', Audio_.startAC + now, 0.6)) Audio_.tone(Audio_.startAC + now, 1046, 0.2, 'square', 0.1);
+    if(F.kind === 'C') feverGold();
+  }
+  if(bi === F.end){
+    F.on = false; F.g = 0; F.start = F.end = -1;
+    el('stage').classList.remove('fever');
+    for(const row of S.grid) for(const t of row) if(t) t.gold = false;
+    announce('피버 끝');
+  }
+  feverUi();
+}
+/** C — 판 가운데 가까운 말 셋을 황금으로(서로 떨어뜨려) */
+function feverGold(){
+  const cand = [];
+  for(let r = 1; r < CONFIG.rows - 1; r++) for(let c = 1; c < CONFIG.cols - 1; c++) if(S.grid[r][c]) cand.push([r, c, Math.random()]);
+  cand.sort((a, b) => a[2] - b[2]);
+  const pick = [];
+  for(const [r, c] of cand){
+    if(pick.every(([pr, pc]) => Math.abs(pr - r) + Math.abs(pc - c) >= 3)) pick.push([r, c]);
+    if(pick.length >= 3) break;
+  }
+  for(const [r, c] of pick) S.grid[r][c].gold = true;
+}
+function feverUi(){
+  const box = el('feverGauge');
+  if(!box) return;
+  const F = S.fever;
+  box.hidden = !F;
+  if(!F) return;
+  let w = F.g, txt = '피버 ' + Math.round(F.g * 100) + '%';
+  if(F.start >= 0 && !F.on) txt = '곧 피버!';
+  if(F.on){
+    const V = BEATV, bi = S.barIndex, meter = (BARS[bi] && BARS[bi].meter) || 4;
+    const left = Math.max(0, (F.end - bi) * meter - (V ? V.pos + V.ph : 0));
+    w = left / (FEVER_BARS * meter); txt = '피버 타임! ' + Math.ceil(left) + '박';
+  }
+  const fill = box.firstElementChild, lab = box.lastElementChild;
+  const ws = (w * 100).toFixed(1) + '%';
+  if(fill.style.width !== ws) fill.style.width = ws;
+  if(lab.textContent !== txt) lab.textContent = txt;
+  box.classList.toggle('on', F.on);
+}
+
 /** 오차 부호에 맞는 창 — 이르면(err<0) 넓은 쪽 */
 const winP = (w, err) => w ? (err < 0 ? (w.pe || w.p) : w.p) : CONFIG.judge.perfect;
 const winG = (w, err) => w ? (err < 0 ? (w.ge || w.g) : w.g) : CONFIG.judge.good;
@@ -2342,8 +2440,12 @@ const winG = (w, err) => w ? (err < 0 ? (w.ge || w.g) : w.g) : CONFIG.judge.good
 function judgeFor(t, type){
   const bf = beatAt(t), bar = BARS[barAtBeat(Math.floor(bf))];
   if(!bar) return { rank:'miss', err:0, blocked:true, beat:Math.round(bf) };
+  // v0.3.67 한 마디에 같은 차례가 둘일 수 있다(피버 A '누르기·밀기·누르기·밀기') — 아직 안 한 것 중 가장 가까운 박
+  const cands = [];
+  for(let i=0;i<bar.meter;i++) if(bar.pattern[i] === type) cands.push(bar.startBeat + i);
+  const free = cands.filter(x => !S.actedBeats[x]), pool = free.length ? free : cands;
   let b = -1;
-  for(let i=0;i<bar.meter;i++) if(bar.pattern[i] === type){ b = bar.startBeat + i; break; }
+  for(const x of pool) if(b < 0 || Math.abs(t - timeOfBeat(x)) < Math.abs(t - timeOfBeat(b))) b = x;
   if(b < 0) return { rank:'miss', err:0, blocked:true, beat:Math.round(bf) };
   const err = t - timeOfBeat(b), a = Math.abs(err), w = judgeWin(b);
   if(a <= winP(w, err)) return { rank:'perfect', err, beat:b, w };
@@ -2417,6 +2519,7 @@ function applyJudge(j){
     const at = actCell();
     if(at) whyMark(at[0], at[1], j.err < 0 ? 'early' : 'late', clock());
   }
+  if(S.fever) feverAdd(tier === 'PERFECT' ? 0.04 : tier === 'NICE' ? 0.025 : tier === 'OK' ? 0.01 : 0);   // v0.3.67
   if(tier === 'MISS'){ if(++S.missRun >= 2){ S.countBar = S.barIndex + 1; S.missRun = 0; } }
   else S.missRun = 0;
   if(!S.turnJ) S.turnJ = {};
@@ -2501,7 +2604,8 @@ function clearCells(cells, now, depth, label, noScore){
     const shapeMul = (label && SC.shape[label]) || 1;                       // 4줄 · ㄱㄴ+ · 5줄은 한 단계씩 더
     const unit = SC.perCell + S.combo * SC.streakStep;                   // v0.3.49 단가 ← 스트릭(S.combo) — 상한 없음
     const turnMul = 1 + (S.turnCombo || 0) * SC.turnStep;                // v0.3.49 콤보 배수 ← 콤보(턴 연속) — 상한 없음
-    S.score += Math.round(set.size * unit * shapeMul * turnMul * S.mult);
+    const feverMul = (S.fever && S.fever.on ? 2 : 1) * (S.goldPop ? 3 : 1);   // v0.3.67 피버 ×2 · 황금 폭발 ×3
+    S.score += Math.round(set.size * unit * shapeMul * turnMul * S.mult * feverMul);
   }
 
   const t = Audio_.startAC + now;
@@ -2562,6 +2666,14 @@ function popStep(now, depth){
     if(blast.label && RANK[blast.label] > rank){ rank = RANK[blast.label]; label = blast.label; }
   }
   if(label) S.stats.blasts++;
+  S.goldPop = false;                               // v0.3.67 피버 C — 황금 강아지가 끼면 둘레 3×3 까지
+  if(S.fever && S.fever.on) for(const [r, c] of [...toClear.values()]){
+    const t = S.grid[r][c];
+    if(!t || !t.gold) continue;
+    S.goldPop = true;
+    for(let dr = -1; dr <= 1; dr++) for(let dc = -1; dc <= 1; dc++) if(inb(r + dr, c + dc) && S.grid[r + dr][c + dc]) toClear.set(key(r + dr, c + dc), [r + dr, c + dc]);
+  }
+  if(S.goldPop) announce('황금 폭발!');
 
   // 콤보는 터진 모양만큼 오른다 — 터지기 전에 올려야 흥(juiceLevel)이 새 콤보로 터진다
   const prevCombo = S.combo;
@@ -4268,6 +4380,18 @@ function popRing(color, step, tint, wow){
   POP_RING_CACHE.set(ck, cv2);
   return cv2;
 }
+function goldMark(x, y, now){
+  const R = cell * 0.56, p = 0.5 + 0.5 * Math.sin(now * 9);
+  ctx.save();
+  const g = ctx.createRadialGradient(x, y, R * 0.2, x, y, R);
+  g.addColorStop(0, 'rgba(255,236,120,' + (0.75 + 0.2 * p).toFixed(3) + ')');
+  g.addColorStop(0.7, 'rgba(255,196,40,' + (0.55 + 0.25 * p).toFixed(3) + ')');
+  g.addColorStop(1, 'rgba(255,196,40,0)');
+  ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, R, 0, Math.PI * 2); ctx.fill();
+  ctx.strokeStyle = '#B7791F'; ctx.lineWidth = Math.max(2, cell * 0.06); ctx.globalAlpha = 0.7 + 0.3 * p;
+  ctx.beginPath(); ctx.arc(x, y, R * 0.86, 0, Math.PI * 2); ctx.stroke();
+  ctx.restore();
+}
 function popMark(x, y, now, color, alpha){
   // v0.1.33 진분홍 + 바깥 진갈색 한 겹. v0.1.35 가운데를 비운 '고리'로 — 반투명한 말 뒤가 분홍 덩어리로 비치지 않게
   const p = 0.5 + 0.5*Math.sin(now*16);
@@ -4449,6 +4573,7 @@ function drawTile(t, r, c, now, dx, dy){
   }
   const hint = t.fromRow===null ? fallHint(t,r,c) : 0;
   const x = (c+0.5)*cell + dx + SWAY, y = (dr+0.5)*cell + dy + hint + BOB;
+  if(t.gold) goldMark(x, y, now);                  // v0.3.67 피버 C 황금 강아지
   if(POPSET.has(t.id)) popMark(x, y, now, t.color, hint > 0 ? 0.9 : 1);    // 떨어지면 곧바로 터질 말 — 말 뒤에 모양 테두리
   if(S.sel && S.sel.id === t.id && S.drag) selMark(x, y, now, t.color);   // 3박에 고른 말 — 캐릭터 색 모양 테두리 (v0.3.07 누르고 있는 동안만)
   if(hint > 0) ctx.globalAlpha = 0.9;              // 곧 내려올 말 (v0.1.59 0.5→0.72 · v0.2.84 더 잘 보이게 0.72→0.9)
@@ -4968,7 +5093,8 @@ function frame(){
 
     // 마디 머리 — 방금 끝난 턴까지의 콤보로 이 마디의 레벨·템포를 정한다
     if(ib === bar.startBeat && finalizeBar(bi)) changeLevel(now, bar, song);
-    if(ib === bar.startBeat) fillCheck(bi, bar);            // v0.2.66 레벨이 바뀔 마디 직전에 필인으로 예고
+    if(ib === bar.startBeat) fillCheck(bi, bar);
+    if(ib === bar.startBeat) feverBarTick(bi, now);   // v0.3.67            // v0.2.66 레벨이 바뀔 마디 직전에 필인으로 예고
 
     // 시간이 끝난 뒤엔 떨어져서 터지는 연쇄가 이어지는 동안만 간다. 콤보가 끊기면 끝
     if(S.timeUp && bi > S.lastPlayBar && !S.overAt){
@@ -4995,6 +5121,7 @@ function frame(){
   timeBarColor(Math.min(1, left / CONFIG.timeLimit));
   tf.classList.toggle('low', low);
   setText('score', S.score.toLocaleString());
+  if(S.fever) feverUi();   // v0.3.67
   const m = el('mult');
   setText('mult', '×' + S.mult.toFixed(1));
   m.classList.toggle('hot', S.mult > 2.4);
@@ -5163,6 +5290,7 @@ function settleCombo(now){
     S.turnCombo = 0;                                     // v0.3.48 콤보(턴 연속)도 같이 끊긴다
   }
   else S.dryTurns = 0;                                   // v0.2.84 무언가 터졌다 — 힌트 셈을 처음부터
+  if(S.fever) feverAdd(S.comboMade ? 0.02 : -0.10);      // v0.3.67 피버 게이지 — 이어 가면 조금 더, 비우면 깎인다
   S.comboMade = false;
   S.tcDone = false;                                      // v0.3.48 다음 턴의 첫 터짐이 콤보 +1
 }
@@ -5351,7 +5479,7 @@ async function start(tut){        // tut: true = 튜토리얼(박자 켬) · 'fr
   S.practice = tut === 'practice';                 // v0.2.43 연습 — 시간 없음·레벨 1 고정·늘 힌트
   S.test = tut === 'test';                         // v0.2.61 테스트 — 시간·콤보레벨 안 흐르고 레벨을 손으로 고른다
   // v0.3.44 '바로 내려오기'를 본 게임 규칙으로 — 터지면 곧바로 내려오고, 그렇게 선 줄은 다음 4박에 터진다(박자 없는 연습 free 만 예전대로)
-  S.labDrop = tut === 'dropnow';                   // 실험실 ① — 규칙은 본 게임과 같고 시간 없음·기록 안 남김만 다르다
+  S.labDrop = tut === 'dropnow' || tut === 'fever';   // v0.3.67 실험실 ⑤ 피버도 시간 없음·기록 안 남김                   // 실험실 ① — 규칙은 본 게임과 같고 시간 없음·기록 안 남김만 다르다
   S.dropNow = tut !== 'free';
   buildTimeline();
   Bgm.run = null; Bgm.resume = {};                 // 판마다 곡은 처음부터
@@ -5374,6 +5502,8 @@ async function start(tut){        // tut: true = 튜토리얼(박자 켬) · 'fr
       barIndex:-1, beatIndex:-1, drag:null, sel:null,
   });
   S.tut = tut === true || tut === 'free';         // v0.1.82 클릭 이벤트가 인자로 들어와 튜토리얼로 오인되던 버그 방지
+  S.fever = tut === 'fever' ? { g:0, start:-1, end:-1, on:false, kind:FEVER_KIND } : null;   // v0.3.67 실험실 ⑤ 피버
+  feverUi();
   S.free = tut === 'free';                        // v0.1.89 박자 없이 아무 때나 눌러 옮기는 연습 구간                                   // v0.1.79 튜토리얼 판 — 시간이 안 줄고, 미스도 없고, 끝나지도 않는다
   el('start').hidden = true; el('end').hidden = true;
   setText('lvl', (S.tut ? TUT_LEVEL : 0) + 1);                    // v0.2.10 튜토리얼은 처음부터 2단계로 보인다
@@ -5522,7 +5652,7 @@ el('pResume').addEventListener('click', resumeGame);
 el('pRestart').addEventListener('click', () => {
   el('pause').hidden = true; S.paused = false; S.live = false;
   clearInterval(schedTimer); schedTimer = null; bgmStop(0.2);
-  start(S.practice ? 'practice' : S.labDrop ? 'dropnow' : undefined);
+  start(S.practice ? 'practice' : S.fever ? 'fever' : S.labDrop ? 'dropnow' : undefined);
 });
 el('pHome').addEventListener('click', () => {
   el('pause').hidden = true; S.paused = false; S.live = false;
@@ -6808,6 +6938,12 @@ el('labDropNow').addEventListener('click', () => {    // v0.3.41 ① 본 게임 
   el('lab').hidden = true;
   start('dropnow');
 });
+[...document.querySelectorAll('#labPick .labfever')].forEach(b => b.addEventListener('click', () => {   // v0.3.67 ⑤ 피버 — 본 게임 엔진으로
+  FEVER_KIND = b.dataset.k;
+  LAB.on = false; LAB.end = true; cancelAnimationFrame(LAB.raf); labMusicStop(0.1);
+  el('lab').hidden = true;
+  start('fever');
+}));
 [...document.querySelectorAll('#labPick [data-m]')].forEach(b => b.addEventListener('click', () => labPlay(+b.dataset.m)));
 el('labPickClose').addEventListener('click', labClose);
 el('labExit').addEventListener('click', () => { if(!LAB.end && LAB.g) labFinish(); else labClose(); });   // v0.3.40 판 도중엔 '그만' — 결과부터
