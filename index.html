@@ -938,7 +938,7 @@
    ========================================================================= */
 
 // 게임 버전 — 수정해서 배포할 때마다 끝 두 자리를 1씩 올린다(v0.1.01 → v0.1.02). 화면 오른쪽 아래에 보인다
-const GAME_VERSION = 'v0.3.49';   // 버전 표기 — 패치 자리는 두 자리 (v0.2.01, v0.2.02 …)
+const GAME_VERSION = 'v0.3.50';   // 버전 표기 — 패치 자리는 두 자리 (v0.2.01, v0.2.02 …)
 /*
  * 번쩍임 줄이기 (v0.1.22) — 광과민성 배려. 켜면 화면 전체 번쩍임·흔들림을 끄고, 발판 조명·테두리 박동을 약하게.
  * 폰의 '동작 줄이기'가 켜져 있으면 처음부터 켠다. 고른 값은 이 기기에 기억한다.
@@ -5441,6 +5441,51 @@ const Rank = (() => {
   }
 
   let list = [], mine = null;
+  /*
+   * v0.3.50 기록 올리기가 **한 번 실패하면 그 판이 사라졌다**(998,101 점이 서버에 없었다 — 카톡 브라우저가 결과 화면 순간 통신을 놓쳤다).
+   * 이제 ① 세 번까지 다시 시도하고 ② 그래도 안 되면 이 기기에 보관해 두었다가(btg_pending) 다음에 랭킹을 부를 때 마저 올린다.
+   * created_at 도 같이 보내 늦게 올라가도 그 판을 한 시각(그 주)에 들어가게 한다.
+   */
+  const PEND_KEY = 'btg_pending';
+  let lastErr = '';
+  const pendLoad = () => { try{ return JSON.parse(store.get(PEND_KEY) || '[]'); }catch(e){ return []; } };
+  const pendSave = a => store.set(PEND_KEY, JSON.stringify(a.slice(-20)));
+  async function postOnce(rec){
+    const res = await fetch(URL_ + '/rest/v1/' + TABLE, {
+      method:'POST', headers:H({'Content-Type':'application/json', Prefer:'return=minimal'}),
+      body: JSON.stringify(rec),
+    });
+    if(res.ok) return true;
+    let why = ''; try{ why = (await res.text()).slice(0, 80); }catch(e){}
+    lastErr = 'HTTP ' + res.status + (why ? ' ' + why : '');
+    return res.status >= 400 && res.status < 500 && res.status !== 408 && res.status !== 429 ? null : false;   // null = 다시 해도 안 될 거절
+  }
+  async function postScore(rec){
+    for(let i = 0; i < 3; i++){
+      try{
+        const r = await postOnce(rec);
+        if(r) return true;
+        if(r === null) return false;
+      }catch(e){ lastErr = (e && e.message) || '연결 안 됨'; }
+      await new Promise(ok => setTimeout(ok, 700 * (i + 1)));
+    }
+    return false;
+  }
+  let flushing = false;
+  async function flushPending(){
+    if(flushing) return;
+    const a = pendLoad();
+    if(!a.length) return;
+    flushing = true;
+    const left = [];
+    for(const rec of a){
+      let ok = false;
+      try{ ok = await postOnce(rec); }catch(e){ ok = false; }
+      if(ok === false) left.push(rec);                 // 연결 문제는 다음에 또 — 거절(null)은 버린다
+    }
+    pendSave(left);
+    flushing = false;
+  }
   async function fetchTop(){
     const res = await fetch(URL_ + '/rest/v1/rpc/boomboomtapgo_top', {
       method:'POST', headers:H({'Content-Type':'application/json'}),
@@ -5491,6 +5536,7 @@ const Rank = (() => {
 
   async function refresh(elId){
     notes();
+    try{ await flushPending(); }catch(e){}               // v0.3.50 못 올린 판이 남아 있으면 먼저 올린다
     try{ await fetchTop(); render(elId); }
     catch(e){ render(elId, '랭킹 준비 중입니다 (연결 안 됨)'); }
   }
@@ -5518,23 +5564,24 @@ const Rank = (() => {
     notes();
     const tag = el('nameTag');
     const nm = ensureName();
+    mine = null;                                         // v0.3.50 지난 판 기록으로 '1위!'를 덮어쓰던 것 — 이번 판 것만
+    let failed = false;
     if(score > 0){
-      try{
-        const res = await fetch(URL_ + '/rest/v1/' + TABLE, {
-          method:'POST', headers:H({'Content-Type':'application/json', Prefer:'return=minimal'}),
-          // v0.3.19 어떤 능력을 끼고 세운 기록인지(없으면 null) — 랭킹 이름 옆 아이콘
-          body: JSON.stringify({ name:nm, score:Math.min(1e9, Math.round(score)), level, combo, device, buff: BUFF !== 'none' ? BUFF : null }),
-        });
-        if(!res.ok) throw new Error('HTTP ' + res.status);
-        mine = { name:nm, score:Math.round(score) };
-      }catch(e){
-        if(tag){ tag.textContent = '기록을 못 올렸어요 (연결 안 됨)'; if(f) f.hidden = false; }
+      // v0.3.19 어떤 능력을 끼고 세운 기록인지(없으면 null) — 랭킹 이름 옆 아이콘
+      const rec = { name:nm, score:Math.min(1e9, Math.round(score)), level, combo, device, buff: BUFF !== 'none' ? BUFF : null,
+                    created_at: new Date().toISOString() };
+      await flushPending();                              // 전에 못 올린 판이 있으면 먼저
+      if(await postScore(rec)) mine = { name:nm, score:rec.score };
+      else {
+        failed = true;
+        pendSave(pendLoad().concat([rec]));              // 기기에 보관 — 다음에 랭킹을 부를 때 다시 올린다
+        if(tag){ tag.textContent = '기록을 아직 못 올렸어요 — 다음에 켤 때 다시 올릴게요 (' + (lastErr || '연결 안 됨') + ')'; if(f) f.hidden = false; }
       }
     }
     try{ await fetchTop(); }
     catch(e){ render('boardOver', '랭킹 준비 중입니다 (연결 안 됨)'); return; }
     render('boardOver');
-    if(mine && tag && f){
+    if(mine && !failed && tag && f){
       const pos = list.findIndex(r => r.name === mine.name && Number(r.score) === mine.score);
       tag.textContent = pos >= 0 ? '🎉 ' + nm + ' — 이번 주 ' + (pos + 1) + '위!' : nm + ' 기록을 남겼어요';
       f.hidden = false;
