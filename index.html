@@ -1116,7 +1116,7 @@
    ========================================================================= */
 
 // 게임 버전 — 수정해서 배포할 때마다 끝 두 자리를 1씩 올린다(v0.1.01 → v0.1.02). 화면 오른쪽 아래에 보인다
-const GAME_VERSION = 'v0.3.63';   // 버전 표기 — 패치 자리는 두 자리 (v0.2.01, v0.2.02 …)
+const GAME_VERSION = 'v0.3.64';   // 버전 표기 — 패치 자리는 두 자리 (v0.2.01, v0.2.02 …)
 /*
  * 번쩍임 줄이기 (v0.1.22) — 광과민성 배려. 켜면 화면 전체 번쩍임·흔들림을 끄고, 발판 조명·테두리 박동을 약하게.
  * 폰의 '동작 줄이기'가 켜져 있으면 처음부터 켠다. 고른 값은 이 기기에 기억한다.
@@ -6646,8 +6646,11 @@ function labDraw(now){
     const hot = LAB.mode === 3 && LAB.hot && LAB.hot.has(r*C + c);   // v0.3.63 ④ 연결된 칸
     if(t.mk || hot){                                    // ③ 맞춰 둔 말 — 강아지 색으로 빛나는 받침
       const pu = 0.55 + 0.25 * Math.sin((now - (t.mt || 0)) * 6);
-      x.globalAlpha = pu; x.fillStyle = PETS[t.c].hex;
-      labRR(x, c*cs + 1, r*cs + 1 + dy, cs - 2, cs - 2, cs * 0.22); x.fill(); x.globalAlpha = 1;
+      // v0.3.64 흰 비숑은 크림 판에서 안 보여 연보라로, 모두 갈색 테두리를 두른다(본 게임 곧 터짐 고리처럼)
+      x.globalAlpha = pu; x.fillStyle = t.c === 2 ? '#C9BEF2' : PETS[t.c].hex;
+      labRR(x, c*cs + 1, r*cs + 1 + dy, cs - 2, cs - 2, cs * 0.22); x.fill();
+      x.globalAlpha = 0.5 + 0.4 * pu; x.strokeStyle = '#5A3825'; x.lineWidth = Math.max(2, cs * 0.05);
+      labRR(x, c*cs + 2, r*cs + 2 + dy, cs - 4, cs - 4, cs * 0.2); x.stroke(); x.globalAlpha = 1;
     }
     const sel = inPath(r, c), q = LAB.q && LAB.q.a[0] === r && LAB.q.a[1] === c;
     labPet(x, cx, cy, cs * 0.94 * (sel ? 1.12 : q ? 1.06 : 1), t.c, sel || t.mk || hot);
