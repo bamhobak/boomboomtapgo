@@ -926,6 +926,46 @@
   .pausebox{background:#FFFBF4 !important;background-clip:padding-box !important;box-shadow:none !important;border-style:solid !important;border-width:22px !important;border-image:var(--ui-card-white) 44 fill / 22px !important;border-radius:0 !important}
   .pausebox h2{color:#5A3825}
   .pausebox .note{color:#9A7A62}
+  /* v0.3.71 나머지 창도 C안 — 게임 설명·설정·능력·기록·개발자·실험실·환영·튜토리얼. 크림 물방울 바탕 + 흰 카드 + 갈색 글자.
+     창 안에서만 색 변수를 갈색 계열로 바꿔 끼워, 변수를 쓰는 글자·칸이 한꺼번에 따라온다 */
+  #help,#set,#buff,#mineBox,#dev,#lab,#lab .labpick,#lab .labend{background-color:#FFF1E0 !important;background-image:radial-gradient(circle,#FFD3DE 3px,transparent 3.5px),radial-gradient(circle,#CDEBFF 3px,transparent 3.5px) !important;background-size:34px 34px,34px 34px !important;background-position:0 0,17px 17px !important;
+       --cream:#5A3825;--cream-dim:#9A7A62;--cream-faint:rgba(90,56,37,.2);--gold:#E8590C;--cyan:#C2410C;--panel:#F7F1EA;--edge:transparent;color:#5A3825}
+  #help > h2,#set > h2,#buff > h2,#mineBox > h2,#dev > h2,#lab .labpick h2,#lab .labend h2{font-size:24px;letter-spacing:0;color:#5A3825}
+  #help .legend,#help .tag,#set .setcard,#mine,#dev .devgrid,#dev #devPin,#lab .labpick p,#lab .labend p{box-sizing:border-box;background:none !important;box-shadow:none !important;border-style:solid !important;border-width:16px !important;border-image:var(--ui-card-white) 44 fill / 16px !important;border-radius:0 !important}
+  #help .legend{width:min(360px,100%);padding:2px 0}
+  #help .legend b{color:#C2410C}
+  #help .legend span b{white-space:normal}          /* 설명 속 굵은 글자까지 안 끊기게 해서 카드 밖으로 넘쳤다 */
+  #help .legend span{min-width:0;word-break:keep-all}
+  #lab .labpick{justify-content:flex-start;overflow-y:auto}   /* 단추가 많아 화면보다 길면 위가 잘렸다 — 위에서부터 스크롤 */
+  #lab .labpick > :first-child{margin-top:auto} #lab .labpick > :last-child{margin-bottom:auto}
+  #lab .labpick [data-m],#lab .labpick .labfever,#lab #labDropNow{width:min(340px,100%);padding:12px 16px;font-size:18px;text-align:left;display:flex;flex-direction:column;gap:4px;flex:none}
+  #lab .labpick .labfever small,#lab #labDropNow small{font-size:13px;line-height:1.4;opacity:.8}
+  #help .tag{color:#6B4A2A}
+  #help .tag b{color:#5A3825}
+  #set .setcard{width:min(360px,100%);display:flex;flex-direction:column;gap:14px}
+  #set .knobs.setrow{width:100%}
+  #buff .bufflist button{background:none !important;box-shadow:none !important;border-style:solid !important;border-width:14px !important;border-image:var(--ui-card-white) 44 fill / 14px !important;border-radius:0 !important;padding:0 4px !important;color:#5A3825 !important}
+  #buff .bufflist button.sel{border-image-source:var(--ui-card-yellow) !important}
+  #buff .bufflist button small{color:#9A7A62}
+  #mine{width:min(360px,100%)}
+  #dev .devgrid{gap:0}
+  #dev .devgrid div{background:transparent;border-bottom:1.5px dashed rgba(90,56,37,.18)}
+  #dev #devPin{width:min(340px,100%)}
+  #dev #devPin p{color:#5A3825}
+  .namerow input{background:#FFFBF4;color:#5A3825;box-shadow:inset 0 0 0 3px #E8D5C0;border-radius:12px}
+  .namerow input:focus{box-shadow:inset 0 0 0 3px #FF8A1E}
+  #lab .labtop #labName{color:#5A3825}
+  #lab .labstat #labScore{color:#E8590C}
+  #lab .labstat #labMult{color:#E03E6A}
+  #lab .labbeats i{background:rgba(90,56,37,.16)}
+  #lab .labbeats i.on:nth-child(1){background:#FFFFFF;box-shadow:0 0 0 2px #C9B39C}
+  #lab .labbeats i.on:nth-child(2){background:#FFC02E}
+  #lab .labpick p,#lab .labend p{max-width:360px}
+  #lab #labOk{border-width:11px 22px 13px !important;border-image:var(--ui-pill-yellow) 30 48 36 48 fill / 11px 22px 13px !important;height:auto;padding:4px 30px !important}   /* 예전 border 한 줄이 조각 자르기를 지워 모서리만 보였다 */
+  #welcome{background:rgba(90,56,37,.45)}
+  .welcard{background:none !important;box-shadow:none !important;border-style:solid !important;border-width:18px !important;border-image:var(--ui-card-white) 44 fill / 18px !important;border-radius:0 !important;padding:4px 6px 2px !important}
+  .tutbox{background:none !important;box-shadow:none !important;border-style:solid !important;border-width:16px !important;border-image:var(--ui-card-white) 44 fill / 16px !important;border-radius:0 !important;padding:0 2px !important}
+  #help .ver,#set .ver,#buff .ver,#mineBox .ver,#dev .ver{color:rgba(90,56,37,.5)}
 </style>
 
 <!-- v0.3.22 색약 보기(테스트 모드) — 색 변환 필터. Machado 2009 행렬 -->
@@ -1150,6 +1190,7 @@
 
   <div class="overlay" id="set" hidden role="dialog" aria-modal="true" aria-labelledby="setTitle">
     <h2 id="setTitle">설정</h2>
+    <div class="setcard">
     <div class="knobs setrow">
       <div class="knob">
         <div class="row"><label for="off">입력 오프셋</label><b><span id="offv">0</span> ms</b></div>
@@ -1158,6 +1199,7 @@
       <button class="ghost" id="snd" type="button">소리 켜짐</button>
     </div>
     <div class="toggles"><button class="ghost" id="calm" type="button">번쩍임 줄이기 꺼짐</button><button class="ghost" id="vib" type="button">진동 켜짐</button></div>
+    </div>
     <button id="setClose" type="button">닫기</button>
   </div>
 
@@ -1200,7 +1242,7 @@
    ========================================================================= */
 
 // 게임 버전 — 수정해서 배포할 때마다 끝 두 자리를 1씩 올린다(v0.1.01 → v0.1.02). 화면 오른쪽 아래에 보인다
-const GAME_VERSION = 'v0.3.70';   // 버전 표기 — 패치 자리는 두 자리 (v0.2.01, v0.2.02 …)
+const GAME_VERSION = 'v0.3.71';   // 버전 표기 — 패치 자리는 두 자리 (v0.2.01, v0.2.02 …)
 /*
  * 번쩍임 줄이기 (v0.1.22) — 광과민성 배려. 켜면 화면 전체 번쩍임·흔들림을 끄고, 발판 조명·테두리 박동을 약하게.
  * 폰의 '동작 줄이기'가 켜져 있으면 처음부터 켠다. 고른 값은 이 기기에 기억한다.
