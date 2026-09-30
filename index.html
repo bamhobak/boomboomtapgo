@@ -1199,6 +1199,16 @@
       </div>
       <button class="ghost" id="snd" type="button">소리 켜짐</button>
     </div>
+    <div class="knobs">   <!-- v0.3.74 소리 크기 따로 -->
+      <div class="knob">
+        <div class="row"><label for="volBgm">배경음악</label><b><span id="volBgmV">100</span>%</b></div>
+        <input type="range" id="volBgm" min="0" max="100" step="5" value="100">
+      </div>
+      <div class="knob">
+        <div class="row"><label for="volSfx">효과음</label><b><span id="volSfxV">100</span>%</b></div>
+        <input type="range" id="volSfx" min="0" max="100" step="5" value="100">
+      </div>
+    </div>
     <div class="toggles"><button class="ghost" id="calm" type="button">번쩍임 줄이기 꺼짐</button><button class="ghost" id="vib" type="button">진동 켜짐</button></div>
     </div>
     <button id="setClose" type="button">닫기</button>
@@ -1243,12 +1253,16 @@
    ========================================================================= */
 
 // 게임 버전 — 수정해서 배포할 때마다 끝 두 자리를 1씩 올린다(v0.1.01 → v0.1.02). 화면 오른쪽 아래에 보인다
-const GAME_VERSION = 'v0.3.73';   // 버전 표기 — 패치 자리는 두 자리 (v0.2.01, v0.2.02 …)
+const GAME_VERSION = 'v0.3.74';   // 버전 표기 — 패치 자리는 두 자리 (v0.2.01, v0.2.02 …)
 /*
  * 번쩍임 줄이기 (v0.1.22) — 광과민성 배려. 켜면 화면 전체 번쩍임·흔들림을 끄고, 발판 조명·테두리 박동을 약하게.
  * 폰의 '동작 줄이기'가 켜져 있으면 처음부터 켠다. 고른 값은 이 기기에 기억한다.
  */
 const CALM = { on: false };
+/* v0.3.74 배경음악 · 효과음 크기 따로 — 0~100(%), 기기에 기억. 귀에 고르게 들리게 제곱으로 줄인다(50% ≈ -12dB) */
+const VOL = { bgm: 100, sfx: 100 };
+try{ for(const k of ['bgm', 'sfx']){ const v = localStorage.getItem('btg_vol_' + k); if(v !== null && !isNaN(+v)) VOL[k] = Math.max(0, Math.min(100, +v)); } }catch(e){}
+const volGain = v => Math.pow(v / 100, 2);
 try{ const v = localStorage.getItem('btg_calm'); CALM.on = v === null ? matchMedia('(prefers-reduced-motion: reduce)').matches : v === '1'; }catch(e){}
 
 const CONFIG = {
@@ -1357,6 +1371,9 @@ const Audio_ = {
     comp.threshold.value = -14; comp.ratio.value = 5;
     this.master = this.ac.createGain(); this.master.gain.value = CONFIG.sound ? 0.5 : 0;
     this.master.connect(comp); comp.connect(this.ac.destination);
+    // v0.3.74 배경음악·효과음 버스 — 설정의 두 손잡이가 이 둘을 움직인다('소리 켜짐'은 그대로 마스터)
+    this.bgmBus = this.ac.createGain(); this.bgmBus.gain.value = volGain(VOL.bgm); this.bgmBus.connect(this.master);
+    this.sfxBus = this.ac.createGain(); this.sfxBus.gain.value = volGain(VOL.sfx); this.sfxBus.connect(this.master);
     const len = Math.floor(this.ac.sampleRate*0.4);
     const buf = this.ac.createBuffer(1, len, this.ac.sampleRate);
     const d = buf.getChannelData(0);
@@ -1371,7 +1388,7 @@ const Audio_ = {
     g.gain.setValueAtTime(0.0001,t);
     g.gain.exponentialRampToValueAtTime(vol, t+0.006);
     g.gain.exponentialRampToValueAtTime(0.0001, t+dur);
-    o.connect(g); g.connect(this.master); o.start(t); o.stop(t+dur+0.02);
+    o.connect(g); g.connect(this.sfxBus); o.start(t); o.stop(t+dur+0.02);
   },
   hit(t, dur, vol, hp){
     t = Math.max(this.ac.currentTime, t);
@@ -1379,7 +1396,7 @@ const Audio_ = {
     const f=this.ac.createBiquadFilter(); f.type='highpass'; f.frequency.value=hp;
     const g=this.ac.createGain();
     g.gain.setValueAtTime(vol,t); g.gain.exponentialRampToValueAtTime(0.0001,t+dur);
-    s.connect(f); f.connect(g); g.connect(this.master); s.start(t); s.stop(t+dur+0.02);
+    s.connect(f); f.connect(g); g.connect(this.sfxBus); s.start(t); s.stop(t+dur+0.02);
   },
   penta(i){
     const steps=[0,2,4,7,9];
@@ -1536,7 +1553,7 @@ function sfx(name, when, vol, rate){
   s.playbackRate.value = rate || 1;
   const g = Audio_.ac.createGain();
   g.gain.value = vol === undefined ? 0.8 : vol;
-  s.connect(g); g.connect(Audio_.master);
+  s.connect(g); g.connect(Audio_.sfxBus);
   s.start(Math.max(Audio_.ac.currentTime, when));
   return true;
 }
@@ -1756,7 +1773,7 @@ function bgmStart(songPos){
   src.loopStart = L.start; src.loopEnd = Math.min(b.duration, L.start + L.len);   // 온전한 마디만 돈다
   const g = Audio_.ac.createGain(), t = Audio_.ac.currentTime;
   g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(BGM_VOL * (tr.gain || 1), t + 0.02);
-  src.connect(g); g.connect(Audio_.master);
+  src.connect(g); g.connect(Audio_.bgmBus);
   src.start(t, pos);
   Bgm.src = src; Bgm.gain = g; Bgm.level = bar.level;
   loadTrack(trackForLevel(bar.level + 1));             // 다음 레벨 곡을 미리 받아 둔다
@@ -5559,7 +5576,7 @@ function menuLap(t){
   g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(vol, t + 0.03);
   g.gain.setValueAtTime(vol, t + L);                            // 다음 바퀴가 박에 맞춰 들어오면
   g.gain.linearRampToValueAtTime(0.0001, t + b.duration);        // 끝맺음 꼬리는 서서히 줄인다
-  src.connect(g); g.connect(Audio_.master);
+  src.connect(g); g.connect(Audio_.bgmBus);
   src.start(t); src.stop(t + b.duration + 0.05);
   const node = { src, g };
   Menu.nodes.push(node);
@@ -6907,7 +6924,7 @@ async function labMusicStart(){
   src.loopStart = Lp.start; src.loopEnd = Math.min(b.duration, Lp.start + Lp.len);
   const g = Audio_.ac.createGain();
   g.gain.setValueAtTime(0, t0); g.gain.linearRampToValueAtTime(BGM_VOL * (tr.gain || 1), t0 + 0.02);
-  src.connect(g); g.connect(Audio_.master);
+  src.connect(g); g.connect(Audio_.bgmBus);
   src.start(t0, Lp.first);                           // 곡 첫 박 = 실험실 0박
   LAB.src = src; LAB.gain = g;
 }
@@ -7207,6 +7224,21 @@ el('vib').addEventListener('click', () => {
 el('calm').addEventListener('click', () => {
   CALM.on = !CALM.on; calmLabel();
   try{ localStorage.setItem('btg_calm', CALM.on ? '1' : '0'); }catch(e){}
+});
+/* v0.3.74 배경음악 · 효과음 크기 */
+[['bgm', 'volBgm', 'bgmBus'], ['sfx', 'volSfx', 'sfxBus']].forEach(([k, id, bus]) => {
+  const r = el(id);
+  r.value = VOL[k]; el(id + 'V').textContent = VOL[k];
+  r.addEventListener('input', () => {
+    VOL[k] = +r.value; el(id + 'V').textContent = VOL[k];
+    if(Audio_.ac && Audio_[bus]) Audio_[bus].gain.setTargetAtTime(volGain(VOL[k]), Audio_.ac.currentTime, 0.03);
+    try{ localStorage.setItem('btg_vol_' + k, String(VOL[k])); }catch(e){}
+  });
+  if(k === 'sfx') r.addEventListener('change', () => {       // 손을 떼면 한 번 들려 준다
+    Audio_.init(); if(Audio_.ac.state === 'suspended') Audio_.ac.resume();
+    const t = Audio_.ac.currentTime + 0.02;
+    if(!sfx('pop', t, 0.7)) Audio_.tone(t, 660, 0.08, 'triangle', 0.15);
+  });
 });
 el('snd').addEventListener('click', () => {
   CONFIG.sound = !CONFIG.sound;
