@@ -1265,7 +1265,7 @@
    ========================================================================= */
 
 // 게임 버전 — 수정해서 배포할 때마다 끝 두 자리를 1씩 올린다(v0.1.01 → v0.1.02). 화면 오른쪽 아래에 보인다
-const GAME_VERSION = 'v0.3.78';   // 버전 표기 — 패치 자리는 두 자리 (v0.2.01, v0.2.02 …)
+const GAME_VERSION = 'v0.3.79';   // 버전 표기 — 패치 자리는 두 자리 (v0.2.01, v0.2.02 …)
 /*
  * 번쩍임 줄이기 (v0.1.22) — 광과민성 배려. 켜면 화면 전체 번쩍임·흔들림을 끄고, 발판 조명·테두리 박동을 약하게.
  * 폰의 '동작 줄이기'가 켜져 있으면 처음부터 켠다. 고른 값은 이 기기에 기억한다.
@@ -2388,14 +2388,26 @@ const PET_SCALE = [1, 1.124, 1.112, 1.232, 1.02, 1.057];   // v0.3.21 푸들(버
 const PAD = 5;                    // 판 안쪽 여백 — 여기서 주황·파랑 이중 테두리가 보인다 (v0.1.46 판을 키우려고 14→5, 테두리도 얇게)
 const boardR = () => Math.round(Math.max(12, cell*0.42));   // 판 모서리 둥글기 (v0.1.34)
 
+let BOARD_GAP = 46, PAUSE_H = 50;  // v0.3.79 판 밑 ~ 일시정지 단추 사이 · 단추 높이 (layout 이 정하고 placeBottom 이 쓴다)
 function layout(){
   const wrap = cv.parentElement;
-  const cs = getComputedStyle(wrap);                // v0.1.95 판을 내린 만큼(위 여백) 빼고 잰다
-  const padV = (parseFloat(cs.paddingTop) || 0) + (parseFloat(cs.paddingBottom) || 0);
   // v0.1.92 우퍼는 판 가장자리에 겹쳐 그린다 — 판 크기를 깎지 않는다
   // v0.3.30 판 아래 일시정지 단추 자리(판 밑 46px + 단추 50px + 여유 6px)를 먼저 빼 둔다 — 키 작은 화면에서 단추가 잘렸다
-  const BELOW = 102;
-  const w = wrap.clientWidth, h = wrap.clientHeight - padV - BELOW;
+  /*
+   * v0.3.79 화면이 세로로 짧게 잡히면(아이폰 홈 화면 앱이 가끔 아래를 검게 남기고 짧게 뜬다) 판이 세로에 맞춰 줄어
+   * 가로를 다 못 채웠다(요청). 그럴 때만 판 밑을 줄여 가로를 채울 자리를 만든다 — 판 밑 틈 46 → 최소 24,
+   * 단추 50 → 44, 단추 아래 여유 6 → 2 (최대 32px). 판 위 여백 44px 은 흐름 막대(발바닥 줄) 자리라 줄이지 않는다.
+   */
+  const PT = 44, GAP_MAX = 46, GAP_MIN = 24;
+  const w = wrap.clientWidth, H = wrap.clientHeight;
+  const cellW = Math.floor((w - PAD*2) / CONFIG.cols);
+  let gap = GAP_MAX, bh = 50, tail = 6;
+  let need = (cellW * CONFIG.rows + PAD*2) - (H - PT - gap - bh - tail);   // 가로를 채우려면 모자란 세로
+  if(need > 0){ const a = Math.min(need, GAP_MAX - GAP_MIN); gap -= a; need -= a; }
+  if(need > 0){ const a = Math.min(need, 6); bh -= a; need -= a; }
+  if(need > 0){ const a = Math.min(need, 4); tail -= a; need -= a; }
+  BOARD_GAP = gap; PAUSE_H = bh;
+  const h = H - PT - gap - bh - tail;
   cell = Math.max(8, Math.floor(Math.min((w-PAD*2)/CONFIG.cols, (h-PAD*2)/CONFIG.rows)));
   POP_RING_CACHE.clear();                            // 칸 크기가 바뀌면 만들어 둔 고리는 버린다 (v0.2.11)
   if(typeof warmUp === 'function') warmUp.done = false;   // v0.2.22 새 크기로 다시 데운다
@@ -5759,10 +5771,10 @@ function placeBottom(cw, ch){
   }
   const pb = el('pauseBtn');
   if(pb){
-    const bw = Math.min(240, Math.round(w * 0.62)), bh = 50;
+    const bw = Math.min(240, Math.round(w * 0.62)), bh = PAUSE_H;   // v0.3.79 짧은 화면이면 44까지
     pb.style.width = bw + 'px'; pb.style.height = bh + 'px';
     pb.style.left = Math.round(cv.offsetLeft + (w - bw)/2) + 'px';
-    pb.style.top = Math.round(cv.offsetTop + h + (on ? 84 : 46)) + 'px';
+    pb.style.top = Math.round(cv.offsetTop + h + (on ? BOARD_GAP + 38 : BOARD_GAP)) + 'px';   // v0.3.79 짧은 화면이면 틈이 준다
   }
 }
 
