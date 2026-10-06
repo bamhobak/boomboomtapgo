@@ -1265,7 +1265,7 @@
    ========================================================================= */
 
 // 게임 버전 — 수정해서 배포할 때마다 끝 두 자리를 1씩 올린다(v0.1.01 → v0.1.02). 화면 오른쪽 아래에 보인다
-const GAME_VERSION = 'v0.3.77';   // 버전 표기 — 패치 자리는 두 자리 (v0.2.01, v0.2.02 …)
+const GAME_VERSION = 'v0.3.78';   // 버전 표기 — 패치 자리는 두 자리 (v0.2.01, v0.2.02 …)
 /*
  * 번쩍임 줄이기 (v0.1.22) — 광과민성 배려. 켜면 화면 전체 번쩍임·흔들림을 끄고, 발판 조명·테두리 박동을 약하게.
  * 폰의 '동작 줄이기'가 켜져 있으면 처음부터 켠다. 고른 값은 이 기기에 기억한다.
@@ -1701,11 +1701,15 @@ function loadSfxSet(i){
  * 화면을 흐리게 그리는 원인으로 의심 — 지금 레벨 둘레(두 단계 아래 ~ 한 단계 위)와 첫 판용 1·2레벨만 남기고 버린다.
  */
 function trackTrim(level){
-  const keep = new Set();
-  for(const i of [0, 1, level - 2, level - 1, level, level + 1]){ const t = trackForLevel(Math.max(0, i)); if(t) keep.add(t.key); }
+  // v0.3.78 판 도는 중엔 1·2레벨 곡도 둘레(-2~+1)를 벗어나면 버리고, 메인 곡도 비운다 — 판이 끝나면 finish 가 다시 받는다
+  const live = S.live && !S.tut, keep = new Set();
+  for(const i of live ? [level - 2, level - 1, level, level + 1] : [0, 1, level - 2, level - 1, level, level + 1]){
+    const t = trackForLevel(Math.max(0, i)); if(t) keep.add(t.key);
+  }
   for(const T of TRACK_SETS) for(const t of T.list){
     if(!keep.has(t.key) && Bank.buf[t.key]){ delete Bank.buf[t.key]; delete trackJobs[t.key]; delete Bgm.resume[t.key]; }
   }
+  if(live && Bank.buf[MENU.file] && !Menu.on){ delete Bank.buf[MENU.file]; Menu.job = null; }   // 메인 곡(15MB) — 결과 화면에서 menuStart 가 다시 받는다
 }
 function trackForLevel(L){
   const bpm = bpmOfLevel(L), list = TRACK_SETS[BGM_SET].list;
@@ -5877,6 +5881,8 @@ function finish(){
   }
   cv.classList.add('done');                        // 판이 천천히 가라앉는다
   setTimeout(menuStart, 1300);                     // 결과 화면이 뜬 뒤에 메뉴 음악
+  trackTrim(0);                                    // v0.3.78 그 판에서 쓴 높은 레벨 곡은 버린다(1·2레벨만 남김)
+  loadTrack(trackForLevel(0)); loadTrack(trackForLevel(1));   // v0.3.78 판 중에 버렸을 수 있는 1·2레벨 곡 — 다음 판 첫 곡이 바로 나오게
 
   const St = S.stats;
   const total = St.perfect + St.nice + St.ok + St.miss;
