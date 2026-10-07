@@ -868,15 +868,15 @@
   #start.v2 .board.wide10 li.pod .cb{display:none}
   #start.v2 .board.wide10 li.pod .nm{font-size:calc(var(--u)*28)}
   #start.v2 .board.wide10 li.pod .sc{font-size:calc(var(--u)*34)}
-  #start.v2 .board.wide10 li:nth-child(4){left:calc(var(--ox) + var(--u)*70);top:calc(var(--oy) + var(--u)*810);width:calc(var(--u)*425);height:calc(var(--u)*48)}
-  #start.v2 .board.wide10 li:nth-child(5){left:calc(var(--ox) + var(--u)*70);top:calc(var(--oy) + var(--u)*874);width:calc(var(--u)*425);height:calc(var(--u)*48)}
-  #start.v2 .board.wide10 li:nth-child(6){left:calc(var(--ox) + var(--u)*70);top:calc(var(--oy) + var(--u)*937);width:calc(var(--u)*425);height:calc(var(--u)*48)}
-  #start.v2 .board.wide10 li:nth-child(7){left:calc(var(--ox) + var(--u)*70);top:calc(var(--oy) + var(--u)*999);width:calc(var(--u)*425);height:calc(var(--u)*48)}
-  #start.v2 .board.wide10 li:nth-child(8){left:calc(var(--ox) + var(--u)*534);top:calc(var(--oy) + var(--u)*810);width:calc(var(--u)*333);height:calc(var(--u)*48)}
-  #start.v2 .board.wide10 li:nth-child(9){left:calc(var(--ox) + var(--u)*534);top:calc(var(--oy) + var(--u)*874);width:calc(var(--u)*333);height:calc(var(--u)*48)}
-  #start.v2 .board.wide10 li:nth-child(10){left:calc(var(--ox) + var(--u)*534);top:calc(var(--oy) + var(--u)*937);width:calc(var(--u)*333);height:calc(var(--u)*48)}
+  #start.v2 .board.wide10 li:nth-child(4){left:calc(var(--ox) + var(--u)*70);top:calc(var(--oy) + var(--u)*808.5);width:calc(var(--u)*425);height:calc(var(--u)*48)}
+  #start.v2 .board.wide10 li:nth-child(5){left:calc(var(--ox) + var(--u)*70);top:calc(var(--oy) + var(--u)*871.5);width:calc(var(--u)*425);height:calc(var(--u)*48)}
+  #start.v2 .board.wide10 li:nth-child(6){left:calc(var(--ox) + var(--u)*70);top:calc(var(--oy) + var(--u)*934.5);width:calc(var(--u)*425);height:calc(var(--u)*48)}
+  #start.v2 .board.wide10 li:nth-child(7){left:calc(var(--ox) + var(--u)*70);top:calc(var(--oy) + var(--u)*1000.5);width:calc(var(--u)*425);height:calc(var(--u)*48)}
+  #start.v2 .board.wide10 li:nth-child(8){left:calc(var(--ox) + var(--u)*534);top:calc(var(--oy) + var(--u)*812);width:calc(var(--u)*333);height:calc(var(--u)*48)}
+  #start.v2 .board.wide10 li:nth-child(9){left:calc(var(--ox) + var(--u)*534);top:calc(var(--oy) + var(--u)*879);width:calc(var(--u)*333);height:calc(var(--u)*48)}
+  #start.v2 .board.wide10 li:nth-child(10){left:calc(var(--ox) + var(--u)*534);top:calc(var(--oy) + var(--u)*946);width:calc(var(--u)*333);height:calc(var(--u)*48)}
   #start.v2 .board.wide10 li:not(.pod){justify-content:flex-start;padding:0 calc(var(--u)*14) 0 0}
-  #start.v2 .board.wide10 li:not(.pod) .rk{display:block;flex:0 0 calc(var(--u)*62);text-align:center;font-size:calc(var(--u)*24);color:#FFFFFF;margin-right:calc(var(--u)*14)}
+  #start.v2 .board.wide10 li:not(.pod) .rk{display:block;flex:0 0 calc(var(--u)*62);text-align:center;font-size:calc(var(--u)*24);color:#FFFFFF;line-height:1;margin-right:calc(var(--u)*14)}   /* v0.3.84 줄 높이는 그림 동그라미 가운데에 맞춤 */
   #start.v2 .board.wide10 li:not(.pod) .nm{flex:1 1 auto}
   #start.v2 .board.wide10 li:not(.pod) .sc{flex:0 0 auto;margin-left:calc(var(--u)*10)}
   #start.v2 .board li.msg{left:calc(var(--ox) + var(--u)*80);top:calc(var(--oy) + var(--u)*810);width:calc(var(--u)*780);height:calc(var(--u)*60)}
@@ -1327,7 +1327,7 @@
    ========================================================================= */
 
 // 게임 버전 — 수정해서 배포할 때마다 끝 두 자리를 1씩 올린다(v0.1.01 → v0.1.02). 화면 오른쪽 아래에 보인다
-const GAME_VERSION = 'v0.3.83';   // 버전 표기 — 패치 자리는 두 자리 (v0.2.01, v0.2.02 …)
+const GAME_VERSION = 'v0.3.84';   // 버전 표기 — 패치 자리는 두 자리 (v0.2.01, v0.2.02 …)
 /*
  * 번쩍임 줄이기 (v0.1.22) — 광과민성 배려. 켜면 화면 전체 번쩍임·흔들림을 끄고, 발판 조명·테두리 박동을 약하게.
  * 폰의 '동작 줄이기'가 켜져 있으면 처음부터 켠다. 고른 값은 이 기기에 기억한다.
