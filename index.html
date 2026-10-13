@@ -1327,7 +1327,7 @@
    ========================================================================= */
 
 // 게임 버전 — 수정해서 배포할 때마다 끝 두 자리를 1씩 올린다(v0.1.01 → v0.1.02). 화면 오른쪽 아래에 보인다
-const GAME_VERSION = 'v0.3.85';   // 버전 표기 — 패치 자리는 두 자리 (v0.2.01, v0.2.02 …)
+const GAME_VERSION = 'v0.3.86';   // 버전 표기 — 패치 자리는 두 자리 (v0.2.01, v0.2.02 …)
 /*
  * 번쩍임 줄이기 (v0.1.22) — 광과민성 배려. 켜면 화면 전체 번쩍임·흔들림을 끄고, 발판 조명·테두리 박동을 약하게.
  * 폰의 '동작 줄이기'가 켜져 있으면 처음부터 켠다. 고른 값은 이 기기에 기억한다.
@@ -6494,13 +6494,23 @@ const Tut = {
 /* 튜토리얼을 한 번도 안 봤으면 단추가 깜빡여 눈에 띈다 (v0.2.41) */
 let firstVisit = false;
 try{ firstVisit = !localStorage.getItem('btg_tut_done'); }catch(e){}
+// v0.3.86 환영 창은 정말 처음 온 사람에게만 — '나중에 할게요'를 눌렀거나, 이름을 정했거나, 한 판이라도 한 기록이 있으면 안 띄운다
+// (예전엔 튜토리얼을 끝까지 해야만 기록돼서, 건너뛴 사람은 들어올 때마다 '처음이시네요!'가 떴다)
+let welcomeSeen = false;
+try{
+  welcomeSeen = !!localStorage.getItem('btg_wel_seen') || !!(localStorage.getItem('boomboomtapgo_name') || '').trim()
+    || (JSON.parse(localStorage.getItem(MINE_KEY) || '[]') || []).length > 0;
+}catch(e){}
 if(firstVisit){
   el('tutBtn').classList.add('callme');
-  el('welcome').hidden = false;                            // v0.2.97 처음 온 사람은 환영 창 → 튜토리얼
-  el('welDogs').innerHTML = CONFIG.roster.map(i => '<img alt="" src="' + FACE_SRC[i] + '">').join('');
+  if(!welcomeSeen){
+    el('welcome').hidden = false;                          // v0.2.97 처음 온 사람은 환영 창 → 튜토리얼
+    el('welDogs').innerHTML = CONFIG.roster.map(i => '<img alt="" src="' + FACE_SRC[i] + '">').join('');
+  }
 }
-el('welGo').addEventListener('click', () => { el('welcome').hidden = true; el('tutBtn').classList.remove('callme'); Tut.start(); });
-el('welSkip').addEventListener('click', () => { el('welcome').hidden = true; });   // 튜토리얼 단추는 계속 깜빡인다
+const welDone = () => { el('welcome').hidden = true; try{ localStorage.setItem('btg_wel_seen', '1'); }catch(e){} };
+el('welGo').addEventListener('click', () => { welDone(); el('tutBtn').classList.remove('callme'); Tut.start(); });
+el('welSkip').addEventListener('click', () => { welDone(); });   // 튜토리얼 단추는 계속 깜빡인다
 el('tutBtn').addEventListener('click', () => { el('tutBtn').classList.remove('callme'); Tut.start(); });
 el('practiceBtn').addEventListener('click', () => {      // v0.2.43 연습 — 시간 없음·레벨 1·늘 힌트
   const nin = el('menuName');
