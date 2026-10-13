@@ -990,7 +990,7 @@
   #help .legend span{min-width:0;word-break:keep-all}
   #lab .labpick{justify-content:flex-start;overflow-y:auto}   /* 단추가 많아 화면보다 길면 위가 잘렸다 — 위에서부터 스크롤 */
   #lab .labpick > :first-child{margin-top:auto} #lab .labpick > :last-child{margin-bottom:auto}
-  #lab .labpick [data-m],#lab .labpick .labfever,#lab #labDropNow{width:min(340px,100%);padding:12px 16px;font-size:18px;text-align:left;display:flex;flex-direction:column;gap:4px;flex:none}
+  #lab .labpick [data-m],#lab .labpick .labfever,#lab #labDropNow,#lab #labBremen{width:min(340px,100%);padding:12px 16px;font-size:18px;text-align:left;display:flex;flex-direction:column;gap:4px;flex:none}
   #lab .labpick .labfever small,#lab #labDropNow small{font-size:13px;line-height:1.4;opacity:.8}
   #help .tag{color:#6B4A2A}
   #help .tag b{color:#5A3825}
@@ -1193,6 +1193,7 @@
       <button type="button" data-m="2">3 · 박자 선<small>아무 때나 맞춰 두면 지나가는 박자 선이 터뜨림 · 선이 오기 전에 키우기</small></button>
       <button type="button" class="labfever" data-k="A">5A · 피버 — 두 번 두기<small>본 게임 + 피버 게이지 · 피버 4마디 동안 한 마디에 누르기·밀기 두 번</small></button>
       <button type="button" class="labfever" data-k="B">5B · 피버 — 둘만 모여도<small>본 게임 + 피버 게이지 · 피버 동안 내가 민 말은 두 마리만 이어져도 터짐</small></button>
+      <button type="button" id="labBremen">7 · 브레멘 — 넷 + 도둑<small>본 게임 규칙 · 동물 4종(임시로 강아지 넷) + 안 맞는 도둑 15% · 도둑은 옆에서 터지면 같이 쫓겨남</small></button>
       <button type="button" class="labfever" data-k="C">5C · 피버 — 황금 강아지<small>본 게임 + 피버 게이지 · 피버 시작에 황금 강아지 셋, 터지면 둘레 3×3 + 점수 ×3</small></button>
       <button type="button" data-m="3">4 · 자유 배치<small>안 맞아도 마음대로 옮겨 두기 · 3턴(12박)마다 연결된 게 한 번에 다 터짐</small></button>
       <button type="button" data-m="4">6 · 올라오는 줄<small>한 턴마다 아래에서 한 줄씩 올라옴 · 3줄·ㄱㄴ 3마리가 터짐(2×2 없음) · 맨 위를 넘으면 게임 오버</small></button>
@@ -1328,7 +1329,7 @@
    ========================================================================= */
 
 // 게임 버전 — 수정해서 배포할 때마다 끝 두 자리를 1씩 올린다(v0.1.01 → v0.1.02). 화면 오른쪽 아래에 보인다
-const GAME_VERSION = 'v0.3.87';   // 버전 표기 — 패치 자리는 두 자리 (v0.2.01, v0.2.02 …)
+const GAME_VERSION = 'v0.3.88';   // 버전 표기 — 패치 자리는 두 자리 (v0.2.01, v0.2.02 …)
 /*
  * 번쩍임 줄이기 (v0.1.22) — 광과민성 배려. 켜면 화면 전체 번쩍임·흔들림을 끄고, 발판 조명·테두리 박동을 약하게.
  * 폰의 '동작 줄이기'가 켜져 있으면 처음부터 켠다. 고른 값은 이 기기에 기억한다.
@@ -2031,7 +2032,7 @@ const makePet = (color) => ({
   fromRow:null, fallAt:0,
 });
 // 매칭 키는 오직 색. 색마다 품종이 하나라 색이 곧 정체다.
-const matchKey = t => t ? t.color : null;
+const matchKey = t => (t && t.color !== 0) ? t.color : null;   // v0.3.88 0번 = 실험실 ⑦ 도둑 — 누구와도 안 맞는다
 
 // 줄이 뻗는 방향 — 가로·세로 둘뿐이다. 대각선 매치는 걷어냈다.
 const DIRS = [[0,1],[1,0]];
@@ -2180,7 +2181,13 @@ function safeOptions(g, r, c){
  * 리필용 색 고르기 — 떨어지자마자 스스로 매치가 되는 색은 (refillSafety 확률로) 피한다.
  * 이게 없으면 무작위 리필이 연쇄를 자가발전시켜 보드가 혼자 굴러간다.
  */
+/* v0.3.88 실험실 ⑦ 브레멘 — 동물 넷 + 도둑. 4종이면 같은 말이 붙을 확률이 올라 둘 수가 40%·연쇄가 2배로 쉬워진다(판 400개 실측).
+   안 맞는 도둑 칸을 15% 섞으면 둘 수·연쇄·터지는 칸이 5종과 거의 같아진다. 도둑은 옆(상하좌우)에서 말이 터지면 같이 쫓겨난다 */
+const BREMEN = { roster:[1, 3, 4, 5], thief:0.15 };
+const ROSTER5 = CONFIG.roster.slice();
+const thiefRoll = () => S.bremen && Math.random() < BREMEN.thief;
 function pickSafeColor(g, r, c){
+  if(thiefRoll()) return 0;
   if(!S.tut && Math.random() > CONFIG.refillSafety) return randColor();
   const opts = safeOptions(g, r, c);
   return opts.length ? opts[(Math.random()*opts.length)|0] : randColor();
@@ -2277,7 +2284,7 @@ function newGrid(){
   for(let r=0;r<CONFIG.rows;r++) g.push(new Array(CONFIG.cols).fill(null));
   for(let r=0;r<CONFIG.rows;r++) for(let c=0;c<CONFIG.cols;c++){
     const opts = safeOptions(g, r, c);
-    g[r][c] = makePet(opts.length ? opts[(Math.random()*opts.length)|0] : randColor());
+    g[r][c] = makePet(thiefRoll() ? 0 : (opts.length ? opts[(Math.random()*opts.length)|0] : randColor()));   // v0.3.88 도둑
   }
   return g;
 }
@@ -2840,6 +2847,12 @@ function clearCells(cells, now, depth, label, noScore){
   const set = new Map();
   cells.forEach(([r,c]) => { if(inb(r,c) && S.grid[r][c]) set.set(key(r,c),[r,c]); });
   if(!set.size) return;
+  if(S.bremen){                                      // v0.3.88 ⑦ 터지는 칸 옆(상하좌우)의 도둑은 같이 쫓겨난다
+    for(const [, [r, c]] of [...set]) for(const [dr, dc] of [[1,0],[-1,0],[0,1],[0,-1]]){
+      const rr = r + dr, cc = c + dc, t = inb(rr, cc) && S.grid[rr][cc];
+      if(t && t.color === 0 && !set.has(key(rr, cc))){ set.set(key(rr, cc), [rr, cc]); S.stats.thieves = (S.stats.thieves || 0) + 1; }
+    }
+  }
 
   const J = noScore ? 0 : juiceLevel();
   // 칸당 파편 수 — 흥이 오를수록 많게, 한 번에 터지는 칸이 많으면 칸당 줄여 총량을 묶는다
@@ -3643,7 +3656,35 @@ function bakedFace(im, px){
   if(m.size > 6) m.delete(m.keys().next().value);   // 크기가 바뀌면(화면 돌리기) 옛것부터 버린다
   return c;
 }
+const THIEF_BAKE = new Map();
+function thiefSprite(px){
+  let c = THIEF_BAKE.get(px);
+  if(c) return c;
+  c = document.createElement('canvas'); c.width = c.height = px;
+  const g = c.getContext('2d'), u = px / 100;
+  g.lineJoin = 'round';
+  g.fillStyle = '#4B3A63'; g.strokeStyle = '#2A1F38'; g.lineWidth = 6*u;          // 두건(머리 전체)
+  g.beginPath(); g.ellipse(50*u, 54*u, 42*u, 40*u, 0, 0, Math.PI*2); g.fill(); g.stroke();
+  g.fillStyle = '#5C4A78'; g.beginPath(); g.ellipse(50*u, 22*u, 14*u, 8*u, 0, 0, Math.PI*2); g.fill();   // 두건 매듭
+  g.fillStyle = '#F2D8C0'; g.beginPath(); g.ellipse(50*u, 60*u, 30*u, 25*u, 0, 0, Math.PI*2); g.fill();   // 얼굴
+  g.fillStyle = '#1B1B22'; g.beginPath(); g.roundRect ? g.roundRect(16*u, 44*u, 68*u, 18*u, 9*u) : g.rect(16*u, 44*u, 68*u, 18*u); g.fill();   // 눈가리개
+  g.fillStyle = '#FFFFFF';
+  g.beginPath(); g.arc(37*u, 53*u, 7.5*u, 0, Math.PI*2); g.arc(63*u, 53*u, 7.5*u, 0, Math.PI*2); g.fill();
+  g.fillStyle = '#1B1B22';
+  g.beginPath(); g.arc(38*u, 54*u, 3.6*u, 0, Math.PI*2); g.arc(64*u, 54*u, 3.6*u, 0, Math.PI*2); g.fill();
+  g.strokeStyle = '#6B3B2A'; g.lineWidth = 3*u; g.lineCap = 'round';                 // 씨익 웃는 입
+  g.beginPath(); g.arc(50*u, 70*u, 7*u, 0.15*Math.PI, 0.85*Math.PI); g.stroke();
+  g.fillStyle = 'rgba(255,120,140,.35)'; g.beginPath(); g.arc(30*u, 70*u, 5*u, 0, Math.PI*2); g.arc(70*u, 70*u, 5*u, 0, Math.PI*2); g.fill();
+  THIEF_BAKE.set(px, c);
+  if(THIEF_BAKE.size > 6) THIEF_BAKE.delete(THIEF_BAKE.keys().next().value);
+  return c;
+}
 function drawPet(x, y, s, color, scale, wow){
+  if(color === 0){                                  // v0.3.88 ⑦ 도둑
+    const k = s * Math.max(0.001, scale) * 0.98, kk = Math.max(1, Math.round(k));
+    ctx.drawImage(thiefSprite(Math.max(8, Math.round(kk * DPR))), x - k/2, y - k/2, k, k);
+    return;
+  }
   const k = s * Math.max(0.001, scale) * 1.04 * (PET_SCALE[color] || 1);
   if(!(k > 0)) return;
   const face = (wow && FACES_WOW[color] && FACES_WOW[color].complete && FACES_WOW[color].naturalWidth) ? FACES_WOW[color] : FACES[color];
@@ -4854,7 +4895,10 @@ function drawTile(t, r, c, now, dx, dy){
   const x = (c+0.5)*cell + dx + SWAY, y = (dr+0.5)*cell + dy + hint + BOB;
   if(t.gold) goldMark(x, y, now);                  // v0.3.67 피버 C 황금 강아지
   if(POPSET.has(t.id)) popMark(x, y, now, t.color, hint > 0 ? 0.9 : 1);    // 떨어지면 곧바로 터질 말 — 말 뒤에 모양 테두리
-  if(S.sel && S.sel.id === t.id && S.drag) selMark(x, y, now, t.color);   // 3박에 고른 말 — 캐릭터 색 모양 테두리 (v0.3.07 누르고 있는 동안만)
+  if(S.sel && S.sel.id === t.id && S.drag){
+    if(t.color === 0){ ctx.save(); ctx.strokeStyle = '#FF3860'; ctx.lineWidth = Math.max(3, cell*0.08); ctx.beginPath(); ctx.arc(x, y, cell*0.47, 0, Math.PI*2); ctx.stroke(); ctx.restore(); }   // v0.3.88 ⑦ 도둑은 둥근 테두리
+    else selMark(x, y, now, t.color);
+  }   // 3박에 고른 말 — 캐릭터 색 모양 테두리 (v0.3.07 누르고 있는 동안만)
   if(hint > 0) ctx.globalAlpha = 0.9;              // 곧 내려올 말 (v0.1.59 0.5→0.72 · v0.2.84 더 잘 보이게 0.72→0.9)
   // 곧 터질 말 · 3박에 고른 말은 '오!' 표정 (v0.1.24). v0.3.06 고른 말은 **누르고 있는 동안만** — 손을 떼면 표정도 풀린다
   const pressing = !!(S.sel && S.sel.id === t.id && S.drag);
@@ -5794,7 +5838,9 @@ async function start(tut){        // tut: true = 튜토리얼(박자 켬) · 'fr
   S.practice = tut === 'practice';                 // v0.2.43 연습 — 시간 없음·레벨 1 고정·늘 힌트
   S.test = tut === 'test';                         // v0.2.61 테스트 — 시간·콤보레벨 안 흐르고 레벨을 손으로 고른다
   // v0.3.44 '바로 내려오기'를 본 게임 규칙으로 — 터지면 곧바로 내려오고, 그렇게 선 줄은 다음 4박에 터진다(박자 없는 연습 free 만 예전대로)
-  S.labDrop = tut === 'dropnow' || tut === 'fever';   // v0.3.67 실험실 ⑤ 피버도 시간 없음·기록 안 남김                   // 실험실 ① — 규칙은 본 게임과 같고 시간 없음·기록 안 남김만 다르다
+  S.bremen = tut === 'bremen';                     // v0.3.88 실험실 ⑦ 브레멘 — 동물 넷 + 도둑
+  CONFIG.roster = S.bremen ? BREMEN.roster.slice() : ROSTER5.slice();
+  S.labDrop = tut === 'dropnow' || tut === 'fever' || tut === 'bremen';   // v0.3.67 실험실 ⑤ 피버도 시간 없음·기록 안 남김                   // 실험실 ① — 규칙은 본 게임과 같고 시간 없음·기록 안 남김만 다르다
   S.dropNow = tut !== 'free';
   buildTimeline();
   Bgm.run = null; Bgm.resume = {};                 // 판마다 곡은 처음부터
@@ -5972,7 +6018,7 @@ el('pResume').addEventListener('click', resumeGame);
 el('pRestart').addEventListener('click', () => {
   el('pause').hidden = true; S.paused = false; S.live = false;
   clearInterval(schedTimer); schedTimer = null; bgmStop(0.2);
-  start(S.practice ? 'practice' : S.fever ? 'fever' : S.labDrop ? 'dropnow' : undefined);
+  start(S.practice ? 'practice' : S.bremen ? 'bremen' : S.fever ? 'fever' : S.labDrop ? 'dropnow' : undefined);
 });
 el('pHome').addEventListener('click', () => {
   el('pause').hidden = true; S.paused = false; S.live = false;
@@ -7381,6 +7427,11 @@ el('labDropNow').addEventListener('click', () => {    // v0.3.41 ① 본 게임 
   LAB.on = false; LAB.end = true; cancelAnimationFrame(LAB.raf); labMusicStop(0.1);
   el('lab').hidden = true;
   start('dropnow');
+});
+el('labBremen').addEventListener('click', () => {   // v0.3.88 ⑦ 브레멘 — 본 게임 엔진으로
+  LAB.on = false; LAB.end = true; cancelAnimationFrame(LAB.raf); labMusicStop(0.1);
+  el('lab').hidden = true;
+  start('bremen');
 });
 [...document.querySelectorAll('#labPick .labfever')].forEach(b => b.addEventListener('click', () => {   // v0.3.67 ⑤ 피버 — 본 게임 엔진으로
   FEVER_KIND = b.dataset.k;
